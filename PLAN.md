@@ -751,8 +751,55 @@ Carried forward:
 - **A research deep link still cannot render its report** (carried from Phase 2). The project
   registry is the natural place to hang that retrieval once the endpoint exists.
 
+### Phase 5 — Multi-device foundation ✅
+
+**8,949 passing, 0 failing**, five consecutive parallel runs. Verified live against a running
+server: no key 401, machine key 200, paired device key 200, after revoke 401, machine key still
+200 — revocation is per device, which is the whole point.
+
+| § | Change | Commit |
+|---|---|---|
+| 6.2 | Device registry, QR pairing, per-device keys, scopes, revocation | `1e2c128` |
+| 6.3 | Event cursor and replay for reconnecting clients | `bef2681` |
+| 6.1 | `nira serve --tailscale`; device store wired into the server | `7170cca` |
+| 5 | Per-caller HTTP rate limiting | `780c403` |
+
+The security posture this phase exists to establish:
+
+- **Per-device keys, stored hashed.** A leaked database hands over nothing usable, and revoking a
+  phone does not cut off everything else. Plain SHA-256 rather than a password KDF is deliberate:
+  these are 256 bits of CSPRNG output, so there is no dictionary to run.
+- **A revoked device authenticates as nothing**, not as itself with no scopes, so every caller
+  fails closed instead of each one having to remember to check.
+- **New devices get ask+watch.** Approving a tool call is opt-in — pairing a phone must not
+  silently hand it the ability to say yes to anything.
+- **A tailnet bind still requires a key.** Reaching the port proves nothing about who is knocking
+  when the tailnet is shared with another account, so network reach is never treated as a
+  credential.
+
+**The long-standing test flake is finally diagnosed**, having twice been reported as unexplained
+rather than fixed. `ToolExecutor` submits to a process-wide pool with a deliberately fixed worker
+count, and a timed-out tool keeps running — the timeout frees the caller, not the thread. The
+timeout tests run tools that sleep five to eight seconds after timing out at one, starving
+unrelated tests that landed in the same xdist worker. Fixed by isolating that module's pool, not
+by changing the runner: widening it was tried and `test_repeated_timeouts_use_bounded_workers`
+correctly rejected it, because the fixed ceiling is a documented tradeoff and growing it only
+moves the cliff.
+
+Deferred to the client work, where they can actually be exercised end to end:
+
+- **`tailscale serve` TLS** for real `wss://`. Over WireGuard the hop is already encrypted, so
+  this is about certificate-validating clients rather than confidentiality.
+- **Multi-desktop routing.** `examples/cross_device_travel/` already defines a reviewed
+  capability/device/retry model; porting it into Python is only worth doing against a real second
+  client, which is Phase 7.
+- **Wiring `canUseTool` to `ApprovalStore`** so a risky step can be approved from a phone
+  (carried from Phase 4 — it needs the phone).
+
 ### Next
 
-**Phase 5 — Multi-device foundation.** Device registry, QR pairing, per-device keys and
-revocation; bind to the Tailscale interface with `tailscale serve` TLS; event cursor and replay so
-a phone surviving a network change does not lose progress.
+**Phase 6 — PWA on your phone, then the UI overhaul.** The PWA already builds and is served, so it
+validates the whole transport, auth and progress story over Tailscale before any Kotlin is
+written. Then the frontend work: delete the ~4,700 lines of dead code, migrate the 1,238 inline
+style objects to Tailwind tokens, and replace five polling timers with the WebSocket that now
+supports replay.
