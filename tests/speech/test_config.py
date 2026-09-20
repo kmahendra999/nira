@@ -1,5 +1,7 @@
 """Tests for speech configuration."""
 
+from types import SimpleNamespace
+
 from nira.core.config import NiraConfig, SpeechConfig
 
 
@@ -65,3 +67,64 @@ class TestVoiceExtraCoversTheWholeLoop:
         deps = self._voice_extra()
         for required in ("sounddevice", "soundfile", "numpy"):
             assert any(d.startswith(required) for d in deps), f"missing {required}"
+
+
+class TestConfiguredLanguageReachesTheBackend:
+    """speech.language was declared in SpeechConfig and read nowhere.
+
+    Beyond ignoring the user's setting, this cost latency on every turn:
+    with no language, Whisper runs a detection pass over each utterance,
+    which is wasted work for someone who always speaks the same language.
+    """
+
+    def _session(self, language: str):
+        from types import SimpleNamespace
+
+        from nira.cli._voice_chat import VoiceSession
+
+        return VoiceSession(SimpleNamespace(speech=SimpleNamespace(language=language)))
+
+    def test_configured_language_is_passed_to_transcribe(self) -> None:
+        from unittest.mock import MagicMock, patch
+
+        from nira.cli._voice_chat import record_voice
+
+        backend = MagicMock()
+        backend.transcribe.return_value = SimpleNamespace(text="hallo")
+        session = self._session("de")
+        session._stt_backend = backend
+        session._stt_resolved = True
+
+        with patch(
+            "nira.speech.voice_io.record_until_silence", return_value=b"RIFFfake"
+        ):
+            record_voice(MagicMock(), session=session)
+
+        assert backend.transcribe.call_args.kwargs["language"] == "de"
+
+    def test_empty_language_means_auto_detect(self) -> None:
+        from unittest.mock import MagicMock, patch
+
+        from nira.cli._voice_chat import record_voice
+
+        backend = MagicMock()
+        backend.transcribe.return_value = SimpleNamespace(text="hello")
+        session = self._session("")
+        session._stt_backend = backend
+        session._stt_resolved = True
+
+        with patch(
+            "nira.speech.voice_io.record_until_silence", return_value=b"RIFFfake"
+        ):
+            record_voice(MagicMock(), session=session)
+
+        assert backend.transcribe.call_args.kwargs["language"] is None
+
+    def test_language_is_resolved_once_per_session(self) -> None:
+        session = self._session("fr")
+
+        assert session.get_language() == "fr"
+        assert session.get_language() == "fr"
+
+    def test_whitespace_only_language_is_treated_as_auto(self) -> None:
+        assert self._session("   ").get_language() is None

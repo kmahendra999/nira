@@ -31,6 +31,7 @@ class VoiceSession:
 
     def __init__(self, config: object | None = None) -> None:
         self._config = config
+        self._language: Optional[str] = None
         self._stt_resolved = False
         self._stt_backend: Any = None
         self._tts_backend: Any = None
@@ -89,6 +90,23 @@ class VoiceSession:
                 float(getattr(speech, "voice_speed", 1.0)),
             )
         return self._voice_prefs
+
+    def get_language(self) -> Optional[str]:
+        """Resolve ``speech.language``, cached per session.
+
+        Empty means auto-detect. Passing it matters for latency as well as
+        accuracy: without a language Whisper runs a detection pass over every
+        single utterance, which is pure overhead for a user who always speaks
+        the same language. The setting was declared in SpeechConfig but read
+        nowhere, so configuring it did nothing.
+        """
+        if self._language is None:
+            from nira.core.config import load_config
+
+            config = self._config if self._config is not None else load_config()
+            speech = getattr(config, "speech", None)
+            self._language = (getattr(speech, "language", "") or "").strip()
+        return self._language or None
 
     def voice_for_backend(self, backend: Any, console: Any = None) -> tuple[str, float]:
         """Return the voice ID valid for ``backend``, plus the configured speed.
@@ -161,7 +179,9 @@ def record_voice(
 
     console.print("[dim]Transcribing…[/dim]")
     try:
-        result = backend.transcribe(audio_bytes, format="wav")
+        result = backend.transcribe(
+            audio_bytes, format="wav", language=active_session.get_language()
+        )
         text = result.text.strip()
         if text:
             console.print(f"[bold]You (voice):[/bold] {_terminal_safe_text(text)}")
