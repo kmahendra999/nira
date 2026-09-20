@@ -16,6 +16,7 @@ import { fetchModels, fetchServerInfo, fetchSavings, submitSavings, isTauri } fr
 import { OptInModal } from './components/OptInModal';
 import { UpdateChecker } from './components/Desktop/UpdateChecker';
 import { track, hashId } from './lib/analytics';
+import { useDeepLink } from './lib/useDeepLink';
 
 export default function App() {
   const [setupDone, setSetupDone] = useState(!isTauri());
@@ -46,6 +47,10 @@ export default function App() {
   const setOptInModalOpen = useAppStore((s) => s.setOptInModalOpen);
   const markOptInModalSeen = useAppStore((s) => s.markOptInModalSeen);
   const savings = useAppStore((s) => s.savings);
+
+  // Route incoming nira:// links (e.g. the research report links the backend
+  // sends over messaging channels) to the right screen.
+  useDeepLink();
 
   // Apply theme class to <html>
   useEffect(() => {
