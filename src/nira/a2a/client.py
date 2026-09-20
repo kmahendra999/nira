@@ -14,10 +14,42 @@ class A2AClient:
     sends tasks via /a2a/tasks.
     """
 
-    def __init__(self, base_url: str, *, timeout: float = 30.0) -> None:
+    def __init__(
+        self,
+        base_url: str,
+        *,
+        timeout: float = 30.0,
+        auth_token: Optional[str] = None,
+    ) -> None:
         self._base_url = base_url.rstrip("/")
         self._timeout = timeout
+        self._auth_token = auth_token
         self._card: Optional[AgentCard] = None
+
+    def _headers(self) -> dict[str, str]:
+        """Bearer header for the remote agent, when a token is configured.
+
+        A2AServer supports bearer auth and advertises ``{"schemes": ["bearer"]}``
+        on its card, but this client sent no Authorization header at all, so any
+        authenticated peer rejected every request. An A2A deployment was
+        therefore either open or unreachable.
+        """
+        if not self._auth_token:
+            return {}
+        return {"Authorization": f"Bearer {self._auth_token}"}
+
+    def _rpc(self, method: str, params: dict[str, Any]) -> dict[str, Any]:
+        """POST a JSON-RPC request to /a2a/tasks and return its ``result``."""
+        import httpx
+
+        resp = httpx.post(
+            f"{self._base_url}/a2a/tasks",
+            json=A2ARequest(method=method, params=params).to_dict(),
+            timeout=self._timeout,
+            headers=self._headers(),
+        )
+        resp.raise_for_status()
+        return resp.json().get("result", {})
 
     def discover(self) -> AgentCard:
         """Fetch the agent card from /.well-known/agent.json."""
@@ -26,6 +58,7 @@ class A2AClient:
         resp = httpx.get(
             f"{self._base_url}/.well-known/agent.json",
             timeout=self._timeout,
+            headers=self._headers(),
         )
         resp.raise_for_status()
         data = resp.json()
@@ -41,25 +74,10 @@ class A2AClient:
 
     def send_task(self, input_text: str, **kwargs: Any) -> A2ATask:
         """Send a task to the remote agent and return the result."""
-        import httpx
-
-        request = A2ARequest(
-            method="tasks/send",
-            params={
-                "message": {
-                    "role": "user",
-                    "parts": [{"text": input_text}],
-                },
-            },
+        result = self._rpc(
+            "tasks/send",
+            {"message": {"role": "user", "parts": [{"text": input_text}]}},
         )
-        resp = httpx.post(
-            f"{self._base_url}/a2a/tasks",
-            json=request.to_dict(),
-            timeout=self._timeout,
-        )
-        resp.raise_for_status()
-        data = resp.json()
-        result = data.get("result", {})
         return A2ATask(
             task_id=result.get("id", ""),
             state=result.get("state", "unknown"),
@@ -70,20 +88,7 @@ class A2AClient:
 
     def get_task(self, task_id: str) -> A2ATask:
         """Get the status of a previously submitted task."""
-        import httpx
-
-        request = A2ARequest(
-            method="tasks/get",
-            params={"id": task_id},
-        )
-        resp = httpx.post(
-            f"{self._base_url}/a2a/tasks",
-            json=request.to_dict(),
-            timeout=self._timeout,
-        )
-        resp.raise_for_status()
-        data = resp.json()
-        result = data.get("result", {})
+        result = self._rpc("tasks/get", {"id": task_id})
         return A2ATask(
             task_id=result.get("id", task_id),
             state=result.get("state", "unknown"),
@@ -92,20 +97,7 @@ class A2AClient:
 
     def cancel_task(self, task_id: str) -> A2ATask:
         """Cancel a running task."""
-        import httpx
-
-        request = A2ARequest(
-            method="tasks/cancel",
-            params={"id": task_id},
-        )
-        resp = httpx.post(
-            f"{self._base_url}/a2a/tasks",
-            json=request.to_dict(),
-            timeout=self._timeout,
-        )
-        resp.raise_for_status()
-        data = resp.json()
-        result = data.get("result", {})
+        result = self._rpc("tasks/cancel", {"id": task_id})
         return A2ATask(
             task_id=result.get("id", task_id),
             state=result.get("state", "canceled"),

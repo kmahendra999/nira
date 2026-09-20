@@ -82,12 +82,18 @@ impl PyA2ATaskStore {
             .map(|t| serde_json::to_string(t).unwrap_or_default())
     }
 
+    /// Accepts the A2A spec's state names, matching `nira/a2a/protocol.py`.
+    ///
+    /// The legacy names this used to take (`pending`, `active`, `cancelled`)
+    /// are still accepted so a caller mid-upgrade is not broken, but they are
+    /// not what goes on the wire.
     fn update_state(&mut self, id: &str, state: &str) -> bool {
         let s = match state {
-            "pending" => nira_a2a::TaskState::Pending,
-            "active" => nira_a2a::TaskState::Active,
+            "submitted" | "pending" => nira_a2a::TaskState::Submitted,
+            "working" | "active" => nira_a2a::TaskState::Working,
+            "input-required" => nira_a2a::TaskState::InputRequired,
             "completed" => nira_a2a::TaskState::Completed,
-            "cancelled" => nira_a2a::TaskState::Cancelled,
+            "canceled" | "cancelled" => nira_a2a::TaskState::Canceled,
             "failed" => nira_a2a::TaskState::Failed,
             _ => return false,
         };

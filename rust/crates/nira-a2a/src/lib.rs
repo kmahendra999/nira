@@ -11,23 +11,38 @@ use serde_json::Value;
 // Task lifecycle
 // ---------------------------------------------------------------------------
 
+/// Task lifecycle states, as named by the A2A specification.
+///
+/// These values go on the wire, so they must match the Python implementation
+/// in `nira/a2a/protocol.py` exactly. They did not: this enum used
+/// `pending`/`active`/`cancelled` where the spec (and Python) use
+/// `submitted`/`working`/`canceled`. A Rust peer and a Python peer could
+/// complete a whole exchange and disagree about every state in it -- including
+/// the American/British spelling of "canceled", which the spec settles.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
 pub enum TaskState {
-    Pending,
-    Active,
+    #[serde(rename = "submitted")]
+    Submitted,
+    #[serde(rename = "working")]
+    Working,
+    #[serde(rename = "input-required")]
+    InputRequired,
+    #[serde(rename = "completed")]
     Completed,
-    Cancelled,
+    #[serde(rename = "canceled")]
+    Canceled,
+    #[serde(rename = "failed")]
     Failed,
 }
 
 impl std::fmt::Display for TaskState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Pending => write!(f, "pending"),
-            Self::Active => write!(f, "active"),
+            Self::Submitted => write!(f, "submitted"),
+            Self::Working => write!(f, "working"),
+            Self::InputRequired => write!(f, "input-required"),
             Self::Completed => write!(f, "completed"),
-            Self::Cancelled => write!(f, "cancelled"),
+            Self::Canceled => write!(f, "canceled"),
             Self::Failed => write!(f, "failed"),
         }
     }
@@ -175,7 +190,7 @@ impl A2ATaskStore {
         let now = now_timestamp();
         let task = A2ATask {
             id: uuid::Uuid::new_v4().to_string(),
-            state: TaskState::Pending,
+            state: TaskState::Submitted,
             input: input.into(),
             output: None,
             metadata: Value::Object(serde_json::Map::new()),
@@ -241,12 +256,12 @@ mod tests {
     fn test_task_lifecycle() {
         let mut store = A2ATaskStore::new();
         let task = store.create_task("Summarize this document");
-        assert_eq!(task.state, TaskState::Pending);
+        assert_eq!(task.state, TaskState::Submitted);
         assert!(task.output.is_none());
 
         let id = task.id.clone();
-        assert!(store.update_state(&id, TaskState::Active));
-        assert_eq!(store.get_task(&id).unwrap().state, TaskState::Active);
+        assert!(store.update_state(&id, TaskState::Working));
+        assert_eq!(store.get_task(&id).unwrap().state, TaskState::Working);
 
         assert!(store.set_output(&id, "Summary: ..."));
         assert!(store.update_state(&id, TaskState::Completed));
@@ -291,13 +306,13 @@ mod tests {
         let b = store.create_task("task B");
         store.create_task("task C");
 
-        store.update_state(&b.id, TaskState::Active);
+        store.update_state(&b.id, TaskState::Working);
 
-        let active = store.find_tasks(|t| t.state == TaskState::Active);
+        let active = store.find_tasks(|t| t.state == TaskState::Working);
         assert_eq!(active.len(), 1);
         assert_eq!(active[0].input, "task B");
 
-        let pending = store.find_tasks(|t| t.state == TaskState::Pending);
+        let pending = store.find_tasks(|t| t.state == TaskState::Submitted);
         assert_eq!(pending.len(), 2);
     }
 
@@ -321,10 +336,10 @@ mod tests {
     #[test]
     fn test_task_state_serde_roundtrip() {
         for state in [
-            TaskState::Pending,
-            TaskState::Active,
+            TaskState::Submitted,
+            TaskState::Working,
             TaskState::Completed,
-            TaskState::Cancelled,
+            TaskState::Canceled,
             TaskState::Failed,
         ] {
             let json = serde_json::to_string(&state).unwrap();
