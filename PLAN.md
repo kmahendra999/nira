@@ -606,4 +606,32 @@ the thing that has to go.
 
 - ✅ **Phase 0 — Safety net.** Repo initialized on upstream's real 1,144-commit history
   (`b03203f`), verified byte-identical, `main` tracks upstream, work branch `nira` created.
-- ⏳ **Phase 1 — Rename to Nira.** In progress.
+- ✅ **Phase 1 — Rename to Nira.** `29bda98` — 1,808 files, 38 paths, all four lock files.
+  Package `openjarvis` → `nira`, CLI `jarvis` → `nira`, 17 Rust crates, `OPENJARVIS_*` → `NIRA_*`,
+  `~/.openjarvis` → `~/.nira`, `com.openjarvis.desktop` → `com.nira.desktop`.
+  Verified: lint clean, **8,650 passing** with only the pre-existing failures, Rust extension and
+  frontend both build, `nira serve` boots and serves the PWA.
+- ✅ **Orange accent theme.** `ed08d1d` — applied ahead of Phase 6 since the rebrand is inherently
+  visual. All three token blocks, plus the amber/warning/error knock-ons and the three
+  previously-disagreeing brand colours.
+
+### Carried forward from Phase 1
+
+Three things surfaced during execution that change later phases:
+
+1. **The legacy home migration copies rather than moves** (`40dd011`). The original design moved
+   `~/.openjarvis` wholesale. Inspecting the real install showed the root also holds a **2 GB
+   virtualenv** and a 528 MB source checkout — and a `hey_jarvis.py` process had been running out
+   of that virtualenv for 13 hours. A virtualenv bakes its absolute path into `pyvenv.cfg` and
+   every shebang, so the move would have destroyed a working install to relocate a few hundred KB
+   of state. It now copies state only, excluding `.venv`, `src`, `.scripts`, `.state`, `cache`, and
+   stale `server.pid/lock/log`, leaving OpenJarvis runnable side by side.
+2. **Your data has not been migrated yet** — deliberately, because that `hey_jarvis.py` process is
+   still live. It happens automatically and safely on your first `nira` command.
+3. **`nira-ai/nira` is a placeholder org** in every upstream URL. Replace with:
+   `git grep -l nira-ai | xargs sed -i 's|nira-ai|YOURORG|g'`
+
+### Next
+
+**Phase 2 — Bug fixes.** Start with §5 items 1–2: `shell_exec` reporting failed commands as
+successes, and the RAPL `PermissionError` that accounts for 5 of the 6 remaining test failures.
