@@ -5,9 +5,9 @@ from __future__ import annotations
 import json
 from typing import Any, Optional
 
-from openjarvis.core.registry import ToolRegistry
-from openjarvis.core.types import ToolResult
-from openjarvis.tools._stubs import BaseTool, ToolSpec
+from nira.core.registry import ToolRegistry
+from nira.core.types import ToolResult
+from nira.tools._stubs import BaseTool, ToolSpec
 
 
 @ToolRegistry.register("kg_add_entity")
@@ -62,7 +62,7 @@ class KGAddEntityTool(BaseTool):
                 content="No knowledge graph backend available.",
                 success=False,
             )
-        from openjarvis.tools.storage.knowledge_graph import Entity
+        from nira.tools.storage.knowledge_graph import Entity
 
         entity = Entity(
             entity_id=params["entity_id"],
@@ -129,7 +129,7 @@ class KGAddRelationTool(BaseTool):
                 content="No knowledge graph backend available.",
                 success=False,
             )
-        from openjarvis.tools.storage.knowledge_graph import Relation
+        from nira.tools.storage.knowledge_graph import Relation
 
         relation = Relation(
             source_id=params["source_id"],

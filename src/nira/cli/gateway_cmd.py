@@ -1,4 +1,4 @@
-"""``jarvis gateway start|stop|status|logs`` — multi-channel gateway management."""
+"""``nira gateway start|stop|status|logs`` — multi-channel gateway management."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ import click
 
 @click.group()
 def gateway() -> None:
-    """Manage the OpenJarvis multi-channel gateway."""
+    """Manage the Nira multi-channel gateway."""
 
 
 @gateway.command()
@@ -24,15 +24,13 @@ def start(install: bool) -> None:
     if install:
         import platform as plat
 
-        from openjarvis.daemon.service import (
+        from nira.daemon.service import (
             generate_launchd_plist,
             generate_systemd_service,
         )
 
         if plat.system() == "Darwin":
-            plist_path = (
-                Path.home() / "Library/LaunchAgents/com.openjarvis.gateway.plist"
-            )
+            plist_path = Path.home() / "Library/LaunchAgents/com.nira.gateway.plist"
             generate_launchd_plist(plist_path)
             click.echo(f"Wrote {plist_path}")
             subprocess.run(
@@ -40,9 +38,7 @@ def start(install: bool) -> None:
                 check=False,
             )
         else:
-            service_path = (
-                Path.home() / ".config/systemd/user/openjarvis-gateway.service"
-            )
+            service_path = Path.home() / ".config/systemd/user/nira-gateway.service"
             generate_systemd_service(service_path)
             click.echo(f"Wrote {service_path}")
             subprocess.run(
@@ -50,11 +46,11 @@ def start(install: bool) -> None:
                 check=False,
             )
             subprocess.run(
-                ["systemctl", "--user", "enable", "--now", "openjarvis-gateway"],
+                ["systemctl", "--user", "enable", "--now", "nira-gateway"],
                 check=False,
             )
     else:
-        click.echo("Starting OpenJarvis gateway (foreground)...")
+        click.echo("Starting Nira gateway (foreground)...")
         click.echo("Gateway started. Press Ctrl+C to stop.")
 
 
@@ -65,12 +61,12 @@ def stop() -> None:
 
     if plat.system() == "Darwin":
         subprocess.run(
-            ["launchctl", "remove", "com.openjarvis.gateway"],
+            ["launchctl", "remove", "com.nira.gateway"],
             check=False,
         )
     else:
         subprocess.run(
-            ["systemctl", "--user", "stop", "openjarvis-gateway"],
+            ["systemctl", "--user", "stop", "nira-gateway"],
             check=False,
         )
     click.echo("Gateway stopped.")
@@ -83,12 +79,12 @@ def status() -> None:
 
     if plat.system() == "Darwin":
         subprocess.run(
-            ["launchctl", "list", "com.openjarvis.gateway"],
+            ["launchctl", "list", "com.nira.gateway"],
             check=False,
         )
     else:
         subprocess.run(
-            ["systemctl", "--user", "status", "openjarvis-gateway"],
+            ["systemctl", "--user", "status", "nira-gateway"],
             check=False,
         )
 
@@ -99,9 +95,9 @@ def logs() -> None:
     import platform as plat
 
     if plat.system() == "Darwin":
-        click.echo("Check ~/Library/Logs/com.openjarvis.gateway.log")
+        click.echo("Check ~/Library/Logs/com.nira.gateway.log")
     else:
         subprocess.run(
-            ["journalctl", "--user", "-u", "openjarvis-gateway", "-f"],
+            ["journalctl", "--user", "-u", "nira-gateway", "-f"],
             check=False,
         )

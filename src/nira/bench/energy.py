@@ -6,11 +6,11 @@ import logging
 import time
 from typing import Any, List, Optional
 
-from openjarvis.bench._stats import compute_stats
-from openjarvis.bench._stubs import BaseBenchmark, BenchmarkResult, engine_info
-from openjarvis.core.registry import BenchmarkRegistry
-from openjarvis.core.types import Message, Role
-from openjarvis.engine._stubs import InferenceEngine
+from nira.bench._stats import compute_stats
+from nira.bench._stubs import BaseBenchmark, BenchmarkResult, engine_info
+from nira.core.registry import BenchmarkRegistry
+from nira.core.types import Message, Role
+from nira.engine._stubs import InferenceEngine
 
 logger = logging.getLogger(__name__)
 
@@ -70,7 +70,7 @@ class EnergyBenchmark(BaseBenchmark):
         energy_basis = ""
 
         if energy_monitor is not None:
-            from openjarvis.telemetry.steady_state import SteadyStateDetector
+            from nira.telemetry.steady_state import SteadyStateDetector
 
             detector = SteadyStateDetector()
             energy_method = getattr(energy_monitor, "energy_method", lambda: "")()

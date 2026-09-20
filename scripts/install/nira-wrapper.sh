@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# jarvis-wrapper.sh — symlinked to ~/.local/bin/jarvis.
-# Activates the managed venv and execs the real jarvis CLI.
+# nira-wrapper.sh — symlinked to ~/.local/bin/nira.
+# Activates the managed venv and execs the real nira CLI.
 
-OPENJARVIS_HOME="${OPENJARVIS_HOME:-$HOME/.openjarvis}"
-VENV="$OPENJARVIS_HOME/.venv"
+NIRA_HOME="${NIRA_HOME:-$HOME/.nira}"
+VENV="$NIRA_HOME/.venv"
 
 if [[ ! -d "$VENV" ]]; then
-    echo "jarvis: venv not found at $VENV" >&2
-    echo "Re-run the installer: curl -fsSL https://open-jarvis.github.io/OpenJarvis/install.sh | bash" >&2
+    echo "nira: venv not found at $VENV" >&2
+    echo "Re-run the installer: curl -fsSL https://nira-ai.github.io/nira/install.sh | bash" >&2
     exit 1
 fi
 
-exec "$VENV/bin/jarvis" "$@"
+exec "$VENV/bin/nira" "$@"

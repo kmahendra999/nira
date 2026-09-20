@@ -1,4 +1,4 @@
-"""Bundle dataclasses that group cohesive subsystems of JarvisSystem."""
+"""Bundle dataclasses that group cohesive subsystems of NiraSystem."""
 
 from __future__ import annotations
 
@@ -6,19 +6,19 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
-    from openjarvis.agents._stubs import BaseAgent
-    from openjarvis.agents.executor import AgentExecutor
-    from openjarvis.agents.manager import AgentManager
-    from openjarvis.agents.scheduler import AgentScheduler
-    from openjarvis.scheduler.scheduler import TaskScheduler
-    from openjarvis.scheduler.store import SchedulerStore
-    from openjarvis.security.audit import AuditLogger
-    from openjarvis.security.boundary import BoundaryGuard
-    from openjarvis.security.capabilities import CapabilityPolicy
-    from openjarvis.telemetry.gpu_monitor import GpuMonitor
-    from openjarvis.telemetry.store import TelemetryStore
-    from openjarvis.traces.collector import TraceCollector
-    from openjarvis.traces.store import TraceStore
+    from nira.agents._stubs import BaseAgent
+    from nira.agents.executor import AgentExecutor
+    from nira.agents.manager import AgentManager
+    from nira.agents.scheduler import AgentScheduler
+    from nira.scheduler.scheduler import TaskScheduler
+    from nira.scheduler.store import SchedulerStore
+    from nira.security.audit import AuditLogger
+    from nira.security.boundary import BoundaryGuard
+    from nira.security.capabilities import CapabilityPolicy
+    from nira.telemetry.gpu_monitor import GpuMonitor
+    from nira.telemetry.store import TelemetryStore
+    from nira.traces.collector import TraceCollector
+    from nira.traces.store import TraceStore
 
 
 @dataclass

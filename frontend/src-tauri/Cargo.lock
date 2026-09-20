@@ -2800,7 +2800,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "openjarvis-desktop"
+name = "nira-desktop"
 version = "1.0.1"
 dependencies = [
  "dispatch",

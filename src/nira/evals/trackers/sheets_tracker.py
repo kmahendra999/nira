@@ -6,8 +6,8 @@ import logging
 import time
 from typing import Any, List, Optional
 
-from openjarvis.evals.core.tracker import ResultTracker
-from openjarvis.evals.core.types import EvalResult, MetricStats, RunConfig, RunSummary
+from nira.evals.core.tracker import ResultTracker
+from nira.evals.core.types import EvalResult, MetricStats, RunConfig, RunSummary
 
 try:
     import gspread

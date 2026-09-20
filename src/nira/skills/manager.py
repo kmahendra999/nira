@@ -7,14 +7,14 @@ import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from openjarvis.core.events import EventBus
-from openjarvis.core.paths import get_config_dir
-from openjarvis.skills.dependency import DependencyCycleError, validate_dependencies
-from openjarvis.skills.executor import SkillExecutor, SkillResult
-from openjarvis.skills.loader import discover_skills
-from openjarvis.skills.tool_adapter import SkillTool
-from openjarvis.skills.types import SkillManifest
-from openjarvis.tools._stubs import BaseTool, ToolExecutor
+from nira.core.events import EventBus
+from nira.core.paths import get_config_dir
+from nira.skills.dependency import DependencyCycleError, validate_dependencies
+from nira.skills.executor import SkillExecutor, SkillResult
+from nira.skills.loader import discover_skills
+from nira.skills.tool_adapter import SkillTool
+from nira.skills.types import SkillManifest
+from nira.tools._stubs import BaseTool, ToolExecutor
 
 logger = logging.getLogger(__name__)
 
@@ -43,9 +43,9 @@ class SkillManager:
         self._tool_executor: Optional[ToolExecutor] = None
         if overlay_dir is None:
             # Try to read from config first; fall back to the default
-            # ~/.openjarvis/learning/skills/ if config can't be loaded.
+            # ~/.nira/learning/skills/ if config can't be loaded.
             try:
-                from openjarvis.core.config import load_config
+                from nira.core.config import load_config
 
                 cfg = load_config()
                 cfg_dir = getattr(
@@ -129,11 +129,11 @@ class SkillManager:
 
         For each skill, look for ``<overlay_dir>/<skill-name>/optimized.toml``.
         If present, override the manifest description and stash few-shot
-        examples under ``manifest.metadata.openjarvis.few_shot``.
+        examples under ``manifest.metadata.nira.few_shot``.
 
         Bad overlays are silently ignored — they should not break discovery.
         """
-        from openjarvis.skills.overlay import SkillOverlayLoader
+        from nira.skills.overlay import SkillOverlayLoader
 
         loader = SkillOverlayLoader(self._overlay_dir)
         for name, manifest in self._skills.items():
@@ -144,9 +144,9 @@ class SkillManager:
                 manifest.description = overlay.description
             if overlay.few_shot:
                 new_metadata = dict(manifest.metadata) if manifest.metadata else {}
-                oj = dict(new_metadata.get("openjarvis", {}) or {})
+                oj = dict(new_metadata.get("nira", {}) or {})
                 oj["few_shot"] = list(overlay.few_shot)
-                new_metadata["openjarvis"] = oj
+                new_metadata["nira"] = oj
                 manifest.metadata = new_metadata
 
     # ------------------------------------------------------------------
@@ -247,14 +247,14 @@ class SkillManager:
     def get_few_shot_examples(self) -> List[str]:
         """Return formatted few-shot example strings ready for system prompt.
 
-        Pulls from ``manifest.metadata.openjarvis.few_shot`` for every
+        Pulls from ``manifest.metadata.nira.few_shot`` for every
         registered skill.  Returns one formatted string per example.
         """
         examples: List[str] = []
         for name, manifest in self._skills.items():
             if manifest.disable_model_invocation:
                 continue
-            oj = manifest.metadata.get("openjarvis", {}) if manifest.metadata else {}
+            oj = manifest.metadata.get("nira", {}) if manifest.metadata else {}
             few_shot = oj.get("few_shot", []) or []
             for ex in few_shot:
                 if not isinstance(ex, dict):
@@ -281,14 +281,14 @@ class SkillManager:
 
         For each recurring sequence found by :class:`SkillDiscovery`, write
         a TOML skill manifest into *output_dir* (default
-        ``~/.openjarvis/skills/discovered/``).  Returns a list of dicts with
+        ``~/.nira/skills/discovered/``).  Returns a list of dicts with
         ``name`` and ``path`` for each manifest written.
 
         Names are normalized to spec-compliant kebab-case (lowercase with
         hyphens, no underscores) so the resulting manifests load cleanly
         through the discovery walker.
         """
-        from openjarvis.learning.agents.skill_discovery import SkillDiscovery
+        from nira.learning.agents.skill_discovery import SkillDiscovery
 
         traces = trace_store.list_traces(limit=10000)
         discovery = SkillDiscovery(
@@ -346,7 +346,7 @@ class SkillManager:
         # Escape backslashes and double quotes for basic TOML strings
         description = description.replace("\\", "\\\\").replace('"', '\\"')
         lines.append(f'description = "{description}"')
-        lines.append('author = "openjarvis (auto-discovered)"')
+        lines.append('author = "nira (auto-discovered)"')
         lines.append('tags = ["auto-discovered"]')
         lines.append("")
 
@@ -429,7 +429,7 @@ class SkillManager:
                     continue
                 # Fall back to parsed manifest name
                 try:
-                    from openjarvis.skills.loader import load_skill_directory
+                    from nira.skills.loader import load_skill_directory
 
                     manifest = load_skill_directory(candidate)
                     if manifest is not None and manifest.name == name:

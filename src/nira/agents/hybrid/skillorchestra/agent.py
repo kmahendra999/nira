@@ -1,4 +1,4 @@
-"""SkillOrchestraAgent — the OpenJarvis harness entry point.
+"""SkillOrchestraAgent — the Nira harness entry point.
 
 A faithful port of the SkillOrchestra eval orchestrator (arXiv:2602.19672,
 ``orchestration/eval_frames.py``). The agent runs the multi-round
@@ -32,8 +32,8 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from openjarvis.agents._stubs import AgentContext
-from openjarvis.core.registry import AgentRegistry
+from nira.agents._stubs import AgentContext
+from nira.core.registry import AgentRegistry
 
 from .._base import LocalCloudAgent
 from ..mini_swe_agent import run_swe_agent_loop

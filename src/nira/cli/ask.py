@@ -1,4 +1,4 @@
-"""``jarvis ask`` — send a query to the assistant."""
+"""``nira ask`` — send a query to the assistant."""
 
 from __future__ import annotations
 
@@ -12,30 +12,30 @@ import click
 from rich.console import Console
 from rich.table import Table
 
-from openjarvis.cli._banner import print_banner
-from openjarvis.cli._tool_names import resolve_tool_names
-from openjarvis.cli.hints import hint_no_engine
-from openjarvis.core.config import load_config
-from openjarvis.core.events import EventBus, EventType
-from openjarvis.core.types import Message, Role
-from openjarvis.engine import (
+from nira.cli._banner import print_banner
+from nira.cli._tool_names import resolve_tool_names
+from nira.cli.hints import hint_no_engine
+from nira.core.config import load_config
+from nira.core.events import EventBus, EventType
+from nira.core.types import Message, Role
+from nira.engine import (
     EngineConnectionError,
     EngineContextLengthError,
     discover_engines,
     discover_models,
     get_engine,
 )
-from openjarvis.intelligence import (
+from nira.intelligence import (
     merge_discovered_models,
     register_builtin_models,
 )
-from openjarvis.telemetry.instrumented_engine import InstrumentedEngine
-from openjarvis.telemetry.store import TelemetryStore
+from nira.telemetry.instrumented_engine import InstrumentedEngine
+from nira.telemetry.store import TelemetryStore
 
 logger = logging.getLogger(__name__)
 
 # Engines that run inference on this machine. Used by the image privacy guard
-# below: a screenshot is sensitive and OpenJarvis is local-first, so sending
+# below: a screenshot is sensitive and Nira is local-first, so sending
 # one to a non-local engine warrants a warning first. Module-level so it can be
 # asserted against directly -- an engine missing from here produces a false
 # "your image is leaving this machine" warning.
@@ -65,18 +65,18 @@ def _run_research(
     """Run the hybrid-search research loop and print the result to the console.
 
     Lazy imports keep the cost of this branch off the cold-path of plain
-    ``jarvis ask`` calls.
+    ``nira ask`` calls.
     """
     import re
 
     from rich.markdown import Markdown
     from rich.theme import Theme
 
-    from openjarvis.agents.research_loop import DEFAULT_PLANNER_MODEL, ResearchAgent
-    from openjarvis.connectors.embeddings import OllamaEmbedder
-    from openjarvis.connectors.hybrid_search import HybridSearch
-    from openjarvis.connectors.store import KnowledgeStore
-    from openjarvis.engine.ollama import OllamaEngine
+    from nira.agents.research_loop import DEFAULT_PLANNER_MODEL, ResearchAgent
+    from nira.connectors.embeddings import OllamaEmbedder
+    from nira.connectors.hybrid_search import HybridSearch
+    from nira.connectors.store import KnowledgeStore
+    from nira.engine.ollama import OllamaEngine
 
     store_kwargs: dict = {}
     if knowledge_db:
@@ -118,7 +118,7 @@ def _run_research(
 
     # ---- Output styling --------------------------------------------------
     # Two consoles by design: traces and the timing footer go to stderr
-    # (so ``jarvis ask --research "..." > out.md`` still gives a clean
+    # (so ``nira ask --research "..." > out.md`` still gives a clean
     # markdown file), while the rendered synthesis goes to stdout. The
     # ``markdown.code`` theme override is the cyan-citation hack — see
     # ``_style_citations`` below.
@@ -245,8 +245,8 @@ def _get_memory_backend(config):
     tool is the hallucination vector.
     """
     try:
-        import openjarvis.tools.storage  # noqa: F401
-        from openjarvis.core.registry import MemoryRegistry
+        import nira.tools.storage  # noqa: F401
+        from nira.core.registry import MemoryRegistry
 
         key = config.memory.default_backend
         if not MemoryRegistry.contains(key):
@@ -269,7 +269,7 @@ def _get_memory_backend(config):
 def _get_memory_facts(config):
     """Load facts captured by the automatic memory service."""
     try:
-        from openjarvis.memory import load_configured_facts
+        from nira.memory import load_configured_facts
 
         return load_configured_facts(config)
     except Exception as exc:
@@ -303,7 +303,7 @@ def _build_tools(
     provided — these are the failure modes that silently cascade into
     hallucinated or dropped replies downstream.
     """
-    from openjarvis.core.registry import ToolRegistry
+    from nira.core.registry import ToolRegistry
 
     tools = []
     for name in tool_names:
@@ -360,9 +360,9 @@ def _run_agent(
 ):
     """Instantiate and run an agent, returning the AgentResult."""
     # Import agents to trigger registration
-    import openjarvis.agents  # noqa: F401
-    from openjarvis.agents._stubs import AgentContext
-    from openjarvis.core.registry import AgentRegistry
+    import nira.agents  # noqa: F401
+    from nira.agents._stubs import AgentContext
+    from nira.core.registry import AgentRegistry
 
     if not AgentRegistry.contains(agent_name):
         raise click.ClickException(
@@ -378,14 +378,14 @@ def _run_agent(
     tools = []
     if tool_names:
         # Trigger tool registration
-        import openjarvis.tools  # noqa: F401
+        import nira.tools  # noqa: F401
 
         tools = _build_tools(tool_names, config, engine, model_name)
 
     # MCP tools from config.tools.mcp.servers. Loaded regardless of
     # tool_names — if the caller passed --tools, the loader filters MCP
     # tools to those names; otherwise every MCP tool is included.
-    from openjarvis.mcp.loader import load_mcp_tools_from_config
+    from nira.mcp.loader import load_mcp_tools_from_config
 
     mcp_tools, mcp_clients = load_mcp_tools_from_config(
         config.tools.mcp,
@@ -410,8 +410,8 @@ def _run_agent(
         try:
             from pathlib import Path
 
-            from openjarvis.skills.manager import SkillManager
-            from openjarvis.tools._stubs import ToolExecutor
+            from nira.skills.manager import SkillManager
+            from nira.tools._stubs import ToolExecutor
 
             pipeline_executor = ToolExecutor(
                 tools,
@@ -464,7 +464,7 @@ def _run_agent(
         if rate_limiter is not None:
             agent_kwargs["rate_limiter"] = rate_limiter
 
-    from openjarvis.security.runtime import agent_security_kwargs
+    from nira.security.runtime import agent_security_kwargs
 
     agent_kwargs.update(
         agent_security_kwargs(
@@ -482,7 +482,7 @@ def _run_agent(
     import inspect as _inspect
 
     if "prompt_builder" in _inspect.signature(agent_cls.__init__).parameters:
-        from openjarvis.prompt.builder import SystemPromptBuilder
+        from nira.prompt.builder import SystemPromptBuilder
 
         agent_kwargs["prompt_builder"] = SystemPromptBuilder(
             agent_template=config.agent.default_system_prompt or "",
@@ -493,7 +493,7 @@ def _run_agent(
         )
 
     agent = agent_cls(engine, model_name, **agent_kwargs)
-    from openjarvis.security.runtime import wire_agent_security
+    from nira.security.runtime import wire_agent_security
 
     wire_agent_security(
         agent,
@@ -515,7 +515,7 @@ def _run_agent(
     # Inject memory context into conversation if available
     if config.agent.context_from_memory:
         try:
-            from openjarvis.tools.storage.context import ContextConfig, inject_context
+            from nira.tools.storage.context import ContextConfig, inject_context
 
             backend = _get_memory_backend(config)
             facts = _get_memory_facts(config)
@@ -540,7 +540,7 @@ def _run_agent(
     trace_store = None
     if config.traces.enabled:
         try:
-            from openjarvis.traces.store import TraceStore
+            from nira.traces.store import TraceStore
 
             trace_store = TraceStore(config.traces.db_path)
         except Exception as exc:
@@ -548,7 +548,7 @@ def _run_agent(
 
     try:
         if trace_store is not None:
-            from openjarvis.traces.collector import TraceCollector
+            from nira.traces.collector import TraceCollector
 
             return TraceCollector(agent, store=trace_store, bus=bus).run(
                 query_text,
@@ -742,7 +742,7 @@ def _print_profile(
     default=None,
     help=(
         "Override the KnowledgeStore path used by --research "
-        "(default: ~/.openjarvis/knowledge.db)."
+        "(default: ~/.nira/knowledge.db)."
     ),
 )
 @click.option(
@@ -765,7 +765,7 @@ def _print_profile(
     "persona_name",
     default=None,
     help=(
-        "Named persona dir under ~/.openjarvis/personas/<name>/ "
+        "Named persona dir under ~/.nira/personas/<name>/ "
         "(overrides config). Pass 'none' to disable all persona files."
     ),
 )
@@ -789,7 +789,7 @@ def ask(
     image_paths: tuple[str, ...] = (),
     capture_screen: bool = False,
 ) -> None:
-    """Ask Jarvis a question."""
+    """Ask Nira a question."""
     quiet = (ctx.obj or {}).get("quiet", False) or output_json
     print_banner(quiet=quiet)
     console = Console(stderr=True)
@@ -806,7 +806,7 @@ def ask(
             sys.exit(1)
     if capture_screen:
         try:
-            from openjarvis.cli._screen import capture_screen_to_temp
+            from nira.cli._screen import capture_screen_to_temp
 
             _shot = capture_screen_to_temp()
             with open(_shot, "rb") as _fh:
@@ -834,7 +834,7 @@ def ask(
     # passed. Pass `--agent ""` to opt out and use direct-to-engine mode.
     # Without this fallback, `[agent].default_system_prompt` and the
     # SOUL.md / MEMORY.md / USER.md persona system are silently bypassed for
-    # the most common command (`jarvis ask "..."`).
+    # the most common command (`nira ask "..."`).
     agent_explicitly_set = agent_name is not None
     if agent_name is None:
         configured_default = (config.agent.default_agent or "").strip()
@@ -865,7 +865,7 @@ def ask(
         max_tokens = config.intelligence.max_tokens
 
     # Run complexity analysis on the query
-    from openjarvis.learning.routing.complexity import (
+    from nira.learning.routing.complexity import (
         ComplexityResult,
         adjust_tokens_for_model,
         score_complexity,
@@ -909,7 +909,7 @@ def ask(
             "  [cyan]llama-server -m <gguf>[/cyan] — start llama.cpp\n\n"
             "Or set OPENAI_API_KEY / ANTHROPIC_API_KEY for cloud inference.\n\n"
             "[dim]To use a remote engine:[/dim]\n"
-            "  [cyan]jarvis config set engine.ollama.host http://<remote-ip>:11434[/cyan]\n"
+            "  [cyan]nira config set engine.ollama.host http://<remote-ip>:11434[/cyan]\n"
             "  [dim]or[/dim] [cyan]export OLLAMA_HOST=http://<remote-ip>:11434[/cyan]"
         )
         sys.exit(1)
@@ -931,7 +931,7 @@ def ask(
         return
 
     # Apply security guardrails
-    from openjarvis.security import setup_security
+    from nira.security import setup_security
 
     sec = setup_security(config, engine, bus)
     engine = sec.engine
@@ -941,7 +941,7 @@ def ask(
     want_energy = config.telemetry.gpu_metrics or enable_profile
     if want_energy:
         try:
-            from openjarvis.telemetry.energy_monitor import create_energy_monitor
+            from nira.telemetry.energy_monitor import create_energy_monitor
 
             energy_monitor = create_energy_monitor(
                 prefer_vendor=config.telemetry.energy_vendor or None,
@@ -1069,7 +1069,7 @@ def ask(
     # Memory-augmented context injection
     if not no_context and config.agent.context_from_memory:
         try:
-            from openjarvis.tools.storage.context import (
+            from nira.tools.storage.context import (
                 ContextConfig,
                 inject_context,
             )

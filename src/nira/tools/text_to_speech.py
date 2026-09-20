@@ -8,9 +8,9 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-from openjarvis.core.registry import ToolRegistry, TTSRegistry
-from openjarvis.core.types import ToolResult
-from openjarvis.tools._stubs import BaseTool, ToolSpec
+from nira.core.registry import ToolRegistry, TTSRegistry
+from nira.core.types import ToolResult
+from nira.tools._stubs import BaseTool, ToolSpec
 
 
 @ToolRegistry.register("text_to_speech")
@@ -56,18 +56,18 @@ class TextToSpeechTool(BaseTool):
 
     def execute(self, **params: Any) -> ToolResult:
         # Ensure TTS backends are registered
-        import openjarvis.speech  # noqa: F401
+        import nira.speech  # noqa: F401
 
         text = params.get("text", "")
         voice_id = params.get("voice_id", "")
         backend_key = params.get("backend", "")
 
         # Fall back to the configured speech voice so the agent-facing tool
-        # speaks in the same voice as `jarvis chat --voice` instead of the
+        # speaks in the same voice as `nira chat --voice` instead of the
         # backend default. Explicit params always win.
         if not voice_id or not backend_key:
             try:
-                from openjarvis.core.config import load_config
+                from nira.core.config import load_config
 
                 speech = getattr(load_config(), "speech", None)
                 if not backend_key:
@@ -119,7 +119,7 @@ class TextToSpeechTool(BaseTool):
         if output_dir:
             out_dir = Path(output_dir)
         else:
-            out_dir = Path(tempfile.mkdtemp(prefix="jarvis-tts-"))
+            out_dir = Path(tempfile.mkdtemp(prefix="nira-tts-"))
 
         out_dir.mkdir(parents=True, exist_ok=True)
         ext = result.format or "mp3"

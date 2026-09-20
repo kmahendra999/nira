@@ -9,8 +9,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
-from openjarvis.core.config import DEFAULT_CONFIG_DIR
-from openjarvis.core.registry import MemoryRegistry
+from nira.core.config import DEFAULT_CONFIG_DIR
+from nira.core.registry import MemoryRegistry
 
 
 @dataclass(slots=True)

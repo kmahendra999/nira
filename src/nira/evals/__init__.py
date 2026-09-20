@@ -1,1 +1,1 @@
-"""OpenJarvis Evaluation Framework."""
+"""Nira Evaluation Framework."""

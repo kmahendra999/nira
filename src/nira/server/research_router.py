@@ -1,6 +1,6 @@
 """HTTP route: ``POST /api/research`` — agentic research over the knowledge store.
 
-Drives :class:`openjarvis.agents.research_loop.ResearchAgent` and streams a
+Drives :class:`nira.agents.research_loop.ResearchAgent` and streams a
 custom SSE event schema back to the client:
 
 * ``search_call``     — about to invoke ``HybridSearch.search`` (with arguments)
@@ -31,18 +31,18 @@ from fastapi import APIRouter, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from openjarvis.agents.research_loop import (
+from nira.agents.research_loop import (
     DEFAULT_PLANNER_MODEL,
     ResearchAgent,
 )
-from openjarvis.connectors.embeddings import OllamaEmbedder
-from openjarvis.connectors.hybrid_search import HybridSearch
-from openjarvis.connectors.store import KnowledgeStore
-from openjarvis.core.config import DEFAULT_CONFIG_DIR, JarvisConfig, load_config
-from openjarvis.core.types import TelemetryRecord
-from openjarvis.engine._base import InferenceEngine
-from openjarvis.engine._discovery import get_engine
-from openjarvis.telemetry.store import TelemetryStore
+from nira.connectors.embeddings import OllamaEmbedder
+from nira.connectors.hybrid_search import HybridSearch
+from nira.connectors.store import KnowledgeStore
+from nira.core.config import DEFAULT_CONFIG_DIR, NiraConfig, load_config
+from nira.core.types import TelemetryRecord
+from nira.engine._base import InferenceEngine
+from nira.engine._discovery import get_engine
+from nira.telemetry.store import TelemetryStore
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +64,7 @@ def _first_nonempty(*values: str) -> str:
 
 
 def _resolve_planner_config(
-    config: JarvisConfig,
+    config: NiraConfig,
     *,
     active_engine_key: str = "",
     active_model: str = "",
@@ -97,7 +97,7 @@ def _resolve_planner_config(
 
 
 def _build_planner_engine(
-    config: JarvisConfig,
+    config: NiraConfig,
     *,
     active_engine: InferenceEngine | None = None,
     active_engine_key: str = "",

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const CONVERSATIONS_KEY = 'openjarvis-conversations';
+const CONVERSATIONS_KEY = 'nira-conversations';
 
 class MemoryStorage {
   private store = new Map<string, string>();

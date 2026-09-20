@@ -1,29 +1,29 @@
-"""Structural protocols for substituting fakes in place of JarvisSystem."""
+"""Structural protocols for substituting fakes in place of NiraSystem."""
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, List, Optional, Protocol
 
 if TYPE_CHECKING:
-    from openjarvis.core.config import JarvisConfig
-    from openjarvis.core.events import EventBus
-    from openjarvis.engine._stubs import InferenceEngine
-    from openjarvis.security.capabilities import CapabilityPolicy
-    from openjarvis.sessions.session import SessionStore
-    from openjarvis.tools._stubs import BaseTool
-    from openjarvis.tools.storage._stubs import MemoryBackend
-    from openjarvis.traces.collector import TraceCollector
-    from openjarvis.traces.store import TraceStore
+    from nira.core.config import NiraConfig
+    from nira.core.events import EventBus
+    from nira.engine._stubs import InferenceEngine
+    from nira.security.capabilities import CapabilityPolicy
+    from nira.sessions.session import SessionStore
+    from nira.tools._stubs import BaseTool
+    from nira.tools.storage._stubs import MemoryBackend
+    from nira.traces.collector import TraceCollector
+    from nira.traces.store import TraceStore
 
 
 class OrchestratorDeps(Protocol):
-    """Minimum surface of JarvisSystem that QueryOrchestrator depends on.
+    """Minimum surface of NiraSystem that QueryOrchestrator depends on.
 
     Tests can satisfy this with a lightweight class — no need to construct
-    the full JarvisSystem dataclass or materialize every subsystem.
+    the full NiraSystem dataclass or materialize every subsystem.
     """
 
-    config: JarvisConfig
+    config: NiraConfig
     bus: EventBus
     engine: InferenceEngine
     engine_key: str

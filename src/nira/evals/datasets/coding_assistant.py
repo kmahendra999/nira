@@ -14,8 +14,8 @@ from __future__ import annotations
 import random
 from typing import Any, Dict, Iterable, List, Optional
 
-from openjarvis.evals.core.dataset import DatasetProvider
-from openjarvis.evals.core.types import EvalRecord
+from nira.evals.core.dataset import DatasetProvider
+from nira.evals.core.types import EvalRecord
 
 _PROMPT_TEMPLATE = """You are a coding assistant. A user has reported a bug in their code.
 

@@ -1,27 +1,27 @@
 [workspace]
 resolver = "2"
 members = [
-    "crates/openjarvis-core",
-    "crates/openjarvis-engine",
-    "crates/openjarvis-agents",
-    "crates/openjarvis-tools",
-    "crates/openjarvis-learning",
-    "crates/openjarvis-telemetry",
-    "crates/openjarvis-traces",
-    "crates/openjarvis-security",
-    "crates/openjarvis-mcp",
-    "crates/openjarvis-python",
-    "crates/openjarvis-sessions",
-    "crates/openjarvis-workflow",
-    "crates/openjarvis-skills",
-    "crates/openjarvis-recipes",
-    "crates/openjarvis-templates",
-    "crates/openjarvis-a2a",
-    "crates/openjarvis-scheduler",
+    "crates/nira-core",
+    "crates/nira-engine",
+    "crates/nira-agents",
+    "crates/nira-tools",
+    "crates/nira-learning",
+    "crates/nira-telemetry",
+    "crates/nira-traces",
+    "crates/nira-security",
+    "crates/nira-mcp",
+    "crates/nira-python",
+    "crates/nira-sessions",
+    "crates/nira-workflow",
+    "crates/nira-skills",
+    "crates/nira-recipes",
+    "crates/nira-templates",
+    "crates/nira-a2a",
+    "crates/nira-scheduler",
 ]
 
 # Minimum supported Rust version. The workspace uses let-chains (via rig-core)
-# and `is_multiple_of` (openjarvis-skills), both stabilized in Rust 1.88 —
+# and `is_multiple_of` (nira-skills), both stabilized in Rust 1.88 —
 # building on 1.86/1.87 fails with cryptic E0658 errors deep in dependencies
 # (see #252). Declared here and pinned in rust-toolchain.toml so users get a
 # clear "requires rustc 1.88" signal instead.

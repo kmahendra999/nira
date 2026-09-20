@@ -5,9 +5,9 @@ from __future__ import annotations
 import json
 from typing import Any, Optional
 
-from openjarvis.core.registry import ToolRegistry
-from openjarvis.core.types import ToolResult
-from openjarvis.tools._stubs import BaseTool, ToolSpec
+from nira.core.registry import ToolRegistry
+from nira.core.types import ToolResult
+from nira.tools._stubs import BaseTool, ToolSpec
 
 
 @ToolRegistry.register("schedule_task")

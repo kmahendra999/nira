@@ -35,8 +35,8 @@ class SkillIndex:
         name = "research"
         version = "0.1.0"
         description = "Research a topic"
-        author = "openjarvis"
-        source = "github.com/openjarvis/skills/research"
+        author = "nira"
+        source = "github.com/nira/skills/research"
         sha256 = "abc123"
         tags = ["research"]
         required_capabilities = ["network:fetch"]

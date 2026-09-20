@@ -4782,7 +4782,7 @@ wheels = [
 ]
 
 [[package]]
-name = "openjarvis"
+name = "nira"
 source = { editable = "." }
 dependencies = [
     { name = "click" },
@@ -5012,7 +5012,7 @@ voice = [
 
 [package.dev-dependencies]
 desktop-native = [
-    { name = "openjarvis-rust" },
+    { name = "nira-rust" },
 ]
 dev = [
     { name = "maturin" },
@@ -5133,13 +5133,13 @@ requires-dist = [
 provides-extras = ["afm", "browser", "channel-discord", "channel-gmail", "channel-line", "channel-mastodon", "channel-messenger", "channel-nostr", "channel-reddit", "channel-rocketchat", "channel-slack", "channel-telegram", "channel-twilio", "channel-twitch", "channel-twitter", "channel-viber", "channel-xmpp", "channel-zulip", "dashboard", "desktop", "dev", "docs", "energy-all", "energy-amd", "energy-apple", "eval-sheets", "eval-wandb", "framework-comparison", "gpu-metrics", "inference-cloud", "inference-gemma", "inference-google", "inference-litellm", "inference-mlx", "inference-vllm", "learning-dspy", "learning-gepa", "media", "memory-bm25", "memory-colbert", "memory-faiss", "memory-pdf", "mining-pearl-cpu", "mining-pearl-vllm", "openhands", "orchestrator-training", "pdf", "sandbox-docker", "sandbox-wasm", "scheduler", "security-signing", "server", "speech", "speech-deepgram", "tools-search", "voice"]
 
 [package.metadata.requires-dev]
-desktop-native = [{ name = "openjarvis-rust", directory = "rust/crates/openjarvis-python" }]
+desktop-native = [{ name = "nira-rust", directory = "rust/crates/nira-python" }]
 dev = [{ name = "maturin", specifier = ">=1.12.6" }]
 
 [[package]]
-name = "openjarvis-rust"
+name = "nira-rust"
 version = "0.1.0"
-source = { directory = "rust/crates/openjarvis-python" }
+source = { directory = "rust/crates/nira-python" }
 
 [[package]]
 name = "opentelemetry-api"

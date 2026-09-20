@@ -7,11 +7,11 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Set
 
-from openjarvis.core.events import EventBus, EventType
-from openjarvis.core.types import ToolCall, ToolResult
-from openjarvis.skills.security import validate_capabilities
-from openjarvis.skills.types import SkillManifest
-from openjarvis.tools._stubs import ToolExecutor
+from nira.core.events import EventBus, EventType
+from nira.core.types import ToolCall, ToolResult
+from nira.skills.security import validate_capabilities
+from nira.skills.types import SkillManifest
+from nira.tools._stubs import ToolExecutor
 
 
 @dataclass(slots=True)

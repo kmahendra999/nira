@@ -1,11 +1,11 @@
 [package]
-name = "openjarvis-mcp"
+name = "nira-mcp"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-openjarvis-core = { path = "../openjarvis-core" }
-openjarvis-tools = { path = "../openjarvis-tools" }
+nira-core = { path = "../nira-core" }
+nira-tools = { path = "../nira-tools" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }

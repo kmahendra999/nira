@@ -1,11 +1,11 @@
 # Browser Assistant
 
-A web browsing agent that uses OpenJarvis's orchestrator loop with browser,
+A web browsing agent that uses Nira's orchestrator loop with browser,
 web_search, and think tools to find and synthesize information from the web.
 
 ## Requirements
 
-- OpenJarvis installed (`git clone https://github.com/open-jarvis/OpenJarvis.git && cd OpenJarvis && uv sync` or `uv sync --extra dev`)
+- Nira installed (`git clone https://github.com/nira-ai/nira.git && cd Nira && uv sync` or `uv sync --extra dev`)
 - An inference engine running (Ollama, cloud API, vLLM, etc.)
 
 ## Usage
@@ -19,7 +19,7 @@ python examples/browser_assistant/browser_assistant.py --query "Compare AWS vs G
 
 ## How It Works
 
-The script creates a `Jarvis` instance configured with the `orchestrator` agent
+The script creates a `Nira` instance configured with the `orchestrator` agent
 and three tools:
 
 - **browser** -- navigates to web pages and extracts content

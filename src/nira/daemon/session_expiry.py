@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, List
 
-from openjarvis.core.types import Message
+from nira.core.types import Message
 
 
 class SessionExpiryHook:

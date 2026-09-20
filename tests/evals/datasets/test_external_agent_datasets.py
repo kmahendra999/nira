@@ -29,9 +29,9 @@ import pytest
 pytestmark = pytest.mark.hub
 
 PROVIDERS = [
-    ("openjarvis.evals.datasets.adp", "ADPDataset"),
-    ("openjarvis.evals.datasets.toolorchestra", "ToolOrchestraDataset"),
-    ("openjarvis.evals.datasets.generalthoughts", "GeneralThoughtsDataset"),
+    ("nira.evals.datasets.adp", "ADPDataset"),
+    ("nira.evals.datasets.toolorchestra", "ToolOrchestraDataset"),
+    ("nira.evals.datasets.generalthoughts", "GeneralThoughtsDataset"),
 ]
 
 

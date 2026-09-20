@@ -1,4 +1,4 @@
-# src/openjarvis/mining/vllm_pearl.py
+# src/nira/mining/vllm_pearl.py
 """The v1 vllm-pearl mining provider.
 
 See spec ``docs/design/2026-05-05-vllm-pearl-mining-integration-design.md``.
@@ -11,9 +11,9 @@ from typing import Any, Optional
 
 import httpx
 
-from openjarvis.core.config import HardwareInfo
-from openjarvis.core.registry import MinerRegistry
-from openjarvis.mining._constants import (
+from nira.core.config import HardwareInfo
+from nira.core.registry import MinerRegistry
+from nira.mining._constants import (
     DEFAULT_GATEWAY_METRICS_PORT,
     DEFAULT_GATEWAY_RPC_PORT,
     DEFAULT_PEARL_MODEL,
@@ -21,10 +21,10 @@ from openjarvis.mining._constants import (
     PEARL_IMAGE_TAG,
     SIDECAR_PATH,
 )
-from openjarvis.mining._discovery import detect_for_engine_model
-from openjarvis.mining._docker import PearlDockerLauncher
-from openjarvis.mining._metrics import parse_gateway_metrics, parse_vllm_metrics
-from openjarvis.mining._stubs import (
+from nira.mining._discovery import detect_for_engine_model
+from nira.mining._docker import PearlDockerLauncher
+from nira.mining._metrics import parse_gateway_metrics, parse_vllm_metrics
+from nira.mining._stubs import (
     MiningCapabilities,
     MiningConfig,
     MiningProvider,
@@ -60,7 +60,7 @@ class VllmPearlProvider(MiningProvider):
     async def start(self, config: MiningConfig) -> None:
         if isinstance(config.submit_target, PoolTarget):
             raise NotImplementedError(
-                "pool support is v2 — see openjarvis#XYZ. v1 only accepts "
+                "pool support is v2 — see nira#XYZ. v1 only accepts "
                 "submit_target='solo'."
             )
         assert isinstance(config.submit_target, SoloTarget)

@@ -1,4 +1,4 @@
-"""Tests for ``jarvis model pull`` multi-engine support."""
+"""Tests for ``nira model pull`` multi-engine support."""
 
 from __future__ import annotations
 
@@ -10,8 +10,8 @@ import httpx
 from click.testing import CliRunner
 from rich.console import Console
 
-from openjarvis.cli.model import ollama_pull
-from openjarvis.core.config import JarvisConfig
+from nira.cli.model import ollama_pull
+from nira.core.config import NiraConfig
 
 
 class TestOllamaPull:
@@ -71,7 +71,7 @@ class TestPullCliMultiEngine:
     """Test the pull CLI command dispatches to correct engine."""
 
     def test_pull_ollama_stream_error_exits_unsuccessfully(self) -> None:
-        from openjarvis.cli import cli
+        from nira.cli import cli
 
         response = httpx.Response(
             200,
@@ -79,7 +79,7 @@ class TestPullCliMultiEngine:
             content=b'{"status":"pulling manifest"}\n{"error":"disk full"}\n',
         )
         with (
-            mock.patch("openjarvis.cli.model.load_config", return_value=JarvisConfig()),
+            mock.patch("nira.cli.model.load_config", return_value=NiraConfig()),
             mock.patch("httpx.stream", return_value=closing(response)),
         ):
             result = CliRunner().invoke(
@@ -91,11 +91,11 @@ class TestPullCliMultiEngine:
         assert "Successfully pulled" not in result.output
 
     def test_pull_llamacpp_uses_huggingface_cli(self) -> None:
-        from openjarvis.cli import cli
+        from nira.cli import cli
 
         runner = CliRunner()
         with (
-            mock.patch("openjarvis.cli.model.load_config") as mock_cfg,
+            mock.patch("nira.cli.model.load_config") as mock_cfg,
             mock.patch("subprocess.run") as mock_run,
         ):
             mock_cfg.return_value.engine.default = "llamacpp"
@@ -113,11 +113,11 @@ class TestPullCliMultiEngine:
         assert "qwen3.5-9b-q4_k_m.gguf" in call_args
 
     def test_pull_mlx_uses_huggingface_cli(self) -> None:
-        from openjarvis.cli import cli
+        from nira.cli import cli
 
         runner = CliRunner()
         with (
-            mock.patch("openjarvis.cli.model.load_config") as mock_cfg,
+            mock.patch("nira.cli.model.load_config") as mock_cfg,
             mock.patch("subprocess.run") as mock_run,
         ):
             mock_cfg.return_value.engine.default = "mlx"
@@ -135,11 +135,11 @@ class TestPullCliMultiEngine:
         assert "mlx-community/Qwen3.5-9B-MLX-4bit" in call_args
 
     def test_pull_llamacpp_huggingface_cli_not_found(self) -> None:
-        from openjarvis.cli import cli
+        from nira.cli import cli
 
         runner = CliRunner()
         with (
-            mock.patch("openjarvis.cli.model.load_config") as mock_cfg,
+            mock.patch("nira.cli.model.load_config") as mock_cfg,
             mock.patch("subprocess.run", side_effect=FileNotFoundError),
         ):
             mock_cfg.return_value.engine.default = "llamacpp"

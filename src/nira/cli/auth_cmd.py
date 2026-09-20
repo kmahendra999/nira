@@ -8,11 +8,11 @@ import stat
 
 import click
 
-from openjarvis.core.config import (
+from nira.core.config import (
     DEFAULT_CONFIG_DIR,
     DEFAULT_CONFIG_PATH,
 )
-from openjarvis.server.auth_middleware import generate_api_key
+from nira.server.auth_middleware import generate_api_key
 
 
 @click.group("auth")

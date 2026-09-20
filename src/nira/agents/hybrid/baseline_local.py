@@ -22,10 +22,10 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional, Tuple
 
-from openjarvis.agents._stubs import AgentContext
-from openjarvis.agents.hybrid._base import LocalCloudAgent
-from openjarvis.agents.hybrid.mini_swe_agent import run_swe_agent_loop
-from openjarvis.core.registry import AgentRegistry
+from nira.agents._stubs import AgentContext
+from nira.agents.hybrid._base import LocalCloudAgent
+from nira.agents.hybrid.mini_swe_agent import run_swe_agent_loop
+from nira.core.registry import AgentRegistry
 
 
 @AgentRegistry.register("baseline_local")

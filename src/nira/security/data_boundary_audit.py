@@ -1,4 +1,4 @@
-"""Application data-boundary diagnostics for OpenJarvis.
+"""Application data-boundary diagnostics for Nira.
 
 The report builder intentionally limits itself to configuration values,
 environment-key presence, and file existence. It never reads private user
@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable, Literal
 
-from openjarvis.core.credentials import TOOL_CREDENTIALS
+from nira.core.credentials import TOOL_CREDENTIALS
 
 Status = Literal["fail", "warn", "info"]
 
@@ -391,7 +391,7 @@ def build_data_boundary_report(
 
     builder = _FindingBuilder()
     root_path: Path | None = None
-    root_label = "<unresolved-openjarvis-home>"
+    root_label = "<unresolved-nira-home>"
     if root is not None:
         try:
             root_path = root.expanduser().resolve()
@@ -406,14 +406,13 @@ def build_data_boundary_report(
         builder.add(
             finding_id="config-root-error",
             status="fail",
-            title="OpenJarvis home directory could not be resolved",
+            title="Nira home directory could not be resolved",
             potential_data_path="runtime state root -> local store checks",
             evidence=(
-                f"{error_type} while resolving OpenJarvis home; "
-                "path details were redacted"
+                f"{error_type} while resolving Nira home; path details were redacted"
             ),
             recommendation=(
-                "Fix OPENJARVIS_HOME or XDG_DATA_HOME before relying on "
+                "Fix NIRA_HOME or XDG_DATA_HOME before relying on "
                 "local-store data-boundary checks."
             ),
         )
@@ -422,7 +421,7 @@ def build_data_boundary_report(
         builder.add(
             finding_id="config-load-error",
             status="fail",
-            title="OpenJarvis config could not be loaded",
+            title="Nira config could not be loaded",
             potential_data_path="config.toml -> data-boundary report",
             evidence=_truncate(config_error),
             recommendation=(
@@ -446,11 +445,11 @@ def build_data_boundary_report(
         builder.add(
             finding_id="config-file-missing",
             status="info",
-            title="OpenJarvis config file was not found",
+            title="Nira config file was not found",
             potential_data_path="configuration defaults -> data-boundary report",
             evidence="config_loaded = false",
             recommendation=(
-                "Run `jarvis init` before relying on config-derived checks. "
+                "Run `nira init` before relying on config-derived checks. "
                 "Local store and environment checks still run."
             ),
         )
@@ -690,7 +689,7 @@ def _scan_chunks_surface_active(config: Any, tools: set[str] | None = None) -> b
 
 
 def _knowledge_store_exists(root: Path) -> bool:
-    """True when knowledge.db exists under the OpenJarvis home (metadata only)."""
+    """True when knowledge.db exists under the Nira home (metadata only)."""
     return (root / "knowledge.db").exists()
 
 
@@ -1084,7 +1083,7 @@ def _web_search_destination() -> str:
     resolution here. It mirrors ``WebSearchTool._resolve_engine``, which is the
     source of truth; ``test_data_boundary_audit`` asserts the two agree.
     """
-    engine = (os.environ.get("OPENJARVIS_WEB_SEARCH_ENGINE") or "auto").strip().lower()
+    engine = (os.environ.get("NIRA_WEB_SEARCH_ENGINE") or "auto").strip().lower()
     if engine not in {"auto", "youcom", "tavily", "duckduckgo"}:
         engine = "auto"
     if engine == "auto":
@@ -1263,7 +1262,7 @@ def _audit_server_exposure(config: Any, builder: _FindingBuilder) -> None:
                 if binds_all
                 else "Server is configured to bind a non-loopback interface"
             ),
-            potential_data_path="OpenJarvis HTTP server -> local network interfaces",
+            potential_data_path="Nira HTTP server -> local network interfaces",
             evidence=f"server.host = {_quote(host)}",
             recommendation=(
                 "Use server.host = '127.0.0.1' unless LAN exposure is intentional."
@@ -1277,7 +1276,7 @@ def _audit_server_exposure(config: Any, builder: _FindingBuilder) -> None:
             finding_id="a2a-enabled-without-auth-token",
             status="fail",
             title="A2A server is enabled without an auth token",
-            potential_data_path="inbound A2A requests -> OpenJarvis agent runtime",
+            potential_data_path="inbound A2A requests -> Nira agent runtime",
             evidence="a2a.enabled = true; a2a.auth_token is empty",
             recommendation=(
                 "Set a2a.auth_token or disable A2A unless the network is trusted."
@@ -1320,7 +1319,7 @@ def _audit_channel_settings(config: Any, builder: _FindingBuilder) -> None:
             finding_id=f"channel-secret-{normalized}",
             status=status,
             title=f"Channel secret configured: {label}",
-            potential_data_path=f"OpenJarvis channel messages -> {service}",
+            potential_data_path=f"Nira channel messages -> {service}",
             evidence=f"{dotted_path} is non-empty; value was not printed",
             recommendation=(
                 "Use dedicated bot/service credentials and rotate them after tests. "
@@ -1335,7 +1334,7 @@ def _audit_channel_settings(config: Any, builder: _FindingBuilder) -> None:
             finding_id=f"channel-reference-{normalized}",
             status=status,
             title=f"Channel endpoint or identifier configured: {label}",
-            potential_data_path=f"OpenJarvis channel messages -> {service}",
+            potential_data_path=f"Nira channel messages -> {service}",
             evidence=f"{dotted_path} is non-empty; value was not printed",
             recommendation=(
                 "Review configured channel endpoints and identifiers before "
@@ -1592,7 +1591,7 @@ def _derive_verdict(findings: Iterable[DataBoundaryFinding]) -> str:
     if "knowledge-chunks-to-cloud-risk" in finding_ids:
         return "local knowledge may be sent to cloud inference"
     if "config-root-error" in finding_ids:
-        return "OpenJarvis home must be fixed before full data-boundary review"
+        return "Nira home must be fixed before full data-boundary review"
     if "config-load-error" in finding_ids:
         return "configuration must be fixed before full data-boundary review"
     if "fail" in statuses:
@@ -1768,11 +1767,11 @@ def _redact_root(root: str) -> str:
     if root.startswith("<"):
         return root
     path = Path(root)
-    if path.name == ".openjarvis":
-        return "~/.openjarvis"
-    if path.name == "openjarvis":
-        return "<xdg-data-home>/openjarvis"
-    return "<openjarvis-home>"
+    if path.name == ".nira":
+        return "~/.nira"
+    if path.name == "nira":
+        return "<xdg-data-home>/nira"
+    return "<nira-home>"
 
 
 def _truncate(text: str, limit: int = 240) -> str:

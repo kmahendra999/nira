@@ -5,7 +5,7 @@ setup() {
     export FAKE_HOME="$TEST_TMPDIR/home"
     mkdir -p "$FAKE_HOME"
     export HOME="$FAKE_HOME"
-    export OPENJARVIS_HOME="$FAKE_HOME/.openjarvis"
+    export NIRA_HOME="$FAKE_HOME/.nira"
 
     export STUBS_DIR="$BATS_TEST_DIRNAME/stubs"
     # Use a copy of stubs without uv-style real binaries that might be on the host.
@@ -21,7 +21,7 @@ setup() {
     : > "$UV_STUB_LOG"
     : > "$CURL_STUB_LOG"
 
-    # uv stub needs to fake creating a venv with a jarvis binary.
+    # uv stub needs to fake creating a venv with a nira binary.
     # Replace the stubs/uv with one that creates the venv tree on `venv` command.
     # Since we don't want to mutate the real stub, override via a per-test stub dir.
     export PER_TEST_STUBS="$TEST_TMPDIR/stubs"
@@ -43,13 +43,13 @@ case "\$1" in
         done
         if [[ -n "\$venv_path" ]]; then
             mkdir -p "\$venv_path/bin"
-            cat > "\$venv_path/bin/jarvis" <<'EOJ'
+            cat > "\$venv_path/bin/nira" <<'EOJ'
 #!/usr/bin/env bash
-# fake jarvis for tests
-echo "fake jarvis: \$@"
+# fake nira for tests
+echo "fake nira: \$@"
 exit 0
 EOJ
-            chmod +x "\$venv_path/bin/jarvis"
+            chmod +x "\$venv_path/bin/nira"
             cat > "\$venv_path/bin/python" <<'EOJ'
 #!/usr/bin/env bash
 # fake python that prints empty for the inline embedded scripts (recommend_model, etc.)
@@ -91,29 +91,29 @@ IDEOF
     echo "$output" | grep -qi "root"
 }
 
-@test "creates ~/.openjarvis directory tree" {
+@test "creates ~/.nira directory tree" {
     run bash "$SCRIPT" --no-bg-orchestrator
     [ "$status" -eq 0 ]
-    [ -d "$OPENJARVIS_HOME/src" ]
-    [ -d "$OPENJARVIS_HOME/.state" ]
-    [ -d "$OPENJARVIS_HOME/.scripts" ]
+    [ -d "$NIRA_HOME/src" ]
+    [ -d "$NIRA_HOME/.state" ]
+    [ -d "$NIRA_HOME/.scripts" ]
 }
 
 @test "writes install-state.json on success" {
     run bash "$SCRIPT" --no-bg-orchestrator
     [ "$status" -eq 0 ]
-    [ -f "$OPENJARVIS_HOME/.state/install-state.json" ]
+    [ -f "$NIRA_HOME/.state/install-state.json" ]
 }
 
-@test "calls git clone for the OpenJarvis repo" {
+@test "calls git clone for the Nira repo" {
     run bash "$SCRIPT" --no-bg-orchestrator
     grep -q "clone" "$GIT_STUB_LOG"
 }
 
-@test "creates jarvis symlink in ~/.local/bin" {
+@test "creates nira symlink in ~/.local/bin" {
     run bash "$SCRIPT" --no-bg-orchestrator
     [ "$status" -eq 0 ]
-    [ -L "$FAKE_HOME/.local/bin/jarvis" ] || [ -f "$FAKE_HOME/.local/bin/jarvis" ]
+    [ -L "$FAKE_HOME/.local/bin/nira" ] || [ -f "$FAKE_HOME/.local/bin/nira" ]
 }
 
 @test "is idempotent — second run skips completed steps" {
@@ -126,9 +126,9 @@ IDEOF
 }
 
 @test "detects WSL2 and writes platform note to install-state" {
-    OPENJARVIS_FORCE_WSL=1 run bash "$SCRIPT" --no-bg-orchestrator
+    NIRA_FORCE_WSL=1 run bash "$SCRIPT" --no-bg-orchestrator
     [ "$status" -eq 0 ]
-    grep -q "wsl" "$OPENJARVIS_HOME/.state/install-state.json"
+    grep -q "wsl" "$NIRA_HOME/.state/install-state.json"
 }
 
 @test "fails loudly when git is missing" {
@@ -201,9 +201,9 @@ IDEOF
     PATH="$no_py_stubs" run bash "$SCRIPT" --no-bg-orchestrator --minimal
     [ "$status" -eq 0 ]
     # State file was still written (mark_done is Python-free).
-    [ -f "$OPENJARVIS_HOME/.state/install-state.json" ]
+    [ -f "$NIRA_HOME/.state/install-state.json" ]
     # And it still has valid-looking JSON for state_done's grep.
-    grep -q '"install_uv":' "$OPENJARVIS_HOME/.state/install-state.json"
+    grep -q '"install_uv":' "$NIRA_HOME/.state/install-state.json"
 }
 
 @test "mark_done is idempotent — second mark of same key doesn't duplicate" {
@@ -211,13 +211,13 @@ IDEOF
     [ "$status" -eq 0 ]
     # Capture first state file
     local first_count
-    first_count="$(grep -c '"install_uv":' "$OPENJARVIS_HOME/.state/install-state.json")"
+    first_count="$(grep -c '"install_uv":' "$NIRA_HOME/.state/install-state.json")"
     [ "$first_count" -eq 1 ]
     # Second run reuses state — keys should not duplicate even if some path re-marks.
     run bash "$SCRIPT" --no-bg-orchestrator
     [ "$status" -eq 0 ]
     local second_count
-    second_count="$(grep -c '"install_uv":' "$OPENJARVIS_HOME/.state/install-state.json")"
+    second_count="$(grep -c '"install_uv":' "$NIRA_HOME/.state/install-state.json")"
     [ "$second_count" -eq 1 ]
 }
 

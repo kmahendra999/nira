@@ -24,9 +24,9 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
-from openjarvis.connectors.hybrid_search import HybridSearch, SearchHit
-from openjarvis.core.types import Message, Role, ToolCall
-from openjarvis.engine._base import InferenceEngine
+from nira.connectors.hybrid_search import HybridSearch, SearchHit
+from nira.core.types import Message, Role, ToolCall
+from nira.engine._base import InferenceEngine
 
 logger = logging.getLogger(__name__)
 

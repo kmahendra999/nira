@@ -1,15 +1,15 @@
 # Security
 
-OpenJarvis includes a security layer that scans prompts and model outputs for secrets, personally identifiable information (PII), and sensitive file paths. The system is designed to be composable: scanners run as a pipeline, and the `GuardrailsEngine` wrapper drops in front of any inference backend without changing how the rest of your code works.
+Nira includes a security layer that scans prompts and model outputs for secrets, personally identifiable information (PII), and sensitive file paths. The system is designed to be composable: scanners run as a pipeline, and the `GuardrailsEngine` wrapper drops in front of any inference backend without changing how the rest of your code works.
 
 ## Three layers of security review
 
-OpenJarvis separates host posture, application data boundaries, and runtime prompt guardrails:
+Nira separates host posture, application data boundaries, and runtime prompt guardrails:
 
 | Layer | Command / component | What it checks |
 | --- | --- | --- |
-| Host scan | `jarvis scan` | Disk encryption, cloud-sync agents, exposed engine ports, remote-access tools |
-| Data-boundary scan | `jarvis scan --data-boundaries` | Configured inference, memory, traces, channels, tools, and local stores |
+| Host scan | `nira scan` | Disk encryption, cloud-sync agents, exposed engine ports, remote-access tools |
+| Data-boundary scan | `nira scan --data-boundaries` | Configured inference, memory, traces, channels, tools, and local stores |
 | Runtime guardrails | `GuardrailsEngine` / BoundaryGuard | Secrets, PII, and file-policy violations in live prompts and outputs |
 
 Use the host scan before storing sensitive data on the machine. Use the data-boundary scan to verify whether your `config.toml` is local-only, cloud-capable, or mixed. Use BoundaryGuard during inference when you need live redaction or blocking.
@@ -138,10 +138,10 @@ completion, capability denials, and rate-limit denials with that identity.
 === "Warn mode (default)"
 
     ```python title="warn_mode.py"
-    from openjarvis.engine.ollama import OllamaEngine
-    from openjarvis.security.guardrails import GuardrailsEngine
-    from openjarvis.security.types import RedactionMode
-    from openjarvis.core.types import Message, Role
+    from nira.engine.ollama import OllamaEngine
+    from nira.security.guardrails import GuardrailsEngine
+    from nira.security.types import RedactionMode
+    from nira.core.types import Message, Role
 
     engine = OllamaEngine()
     guarded = GuardrailsEngine(engine)  # (1)!
@@ -157,10 +157,10 @@ completion, capability denials, and rate-limit denials with that identity.
 === "Redact mode"
 
     ```python title="redact_mode.py"
-    from openjarvis.engine.ollama import OllamaEngine
-    from openjarvis.security.guardrails import GuardrailsEngine
-    from openjarvis.security.types import RedactionMode
-    from openjarvis.core.types import Message, Role
+    from nira.engine.ollama import OllamaEngine
+    from nira.security.guardrails import GuardrailsEngine
+    from nira.security.types import RedactionMode
+    from nira.core.types import Message, Role
 
     engine = OllamaEngine()
     guarded = GuardrailsEngine(engine, mode=RedactionMode.REDACT)  # (1)!
@@ -175,10 +175,10 @@ completion, capability denials, and rate-limit denials with that identity.
 === "Block mode"
 
     ```python title="block_mode.py"
-    from openjarvis.engine.ollama import OllamaEngine
-    from openjarvis.security.guardrails import GuardrailsEngine, SecurityBlockError
-    from openjarvis.security.types import RedactionMode
-    from openjarvis.core.types import Message, Role
+    from nira.engine.ollama import OllamaEngine
+    from nira.security.guardrails import GuardrailsEngine, SecurityBlockError
+    from nira.security.types import RedactionMode
+    from nira.core.types import Message, Role
 
     engine = OllamaEngine()
     guarded = GuardrailsEngine(engine, mode=RedactionMode.BLOCK)
@@ -218,9 +218,9 @@ You can subscribe to these events with an `AuditLogger` to build a persistent se
 You can pass any set of `BaseScanner` subclasses to restrict or extend scanning:
 
 ```python title="custom_scanners.py"
-from openjarvis.security.guardrails import GuardrailsEngine
-from openjarvis.security.scanner import SecretScanner
-from openjarvis.security.types import RedactionMode
+from nira.security.guardrails import GuardrailsEngine
+from nira.security.scanner import SecretScanner
+from nira.security.types import RedactionMode
 
 # Only scan for secrets, skip PII
 guarded = GuardrailsEngine(
@@ -261,7 +261,7 @@ For streaming calls, `GuardrailsEngine.stream()` yields tokens in real time and 
 ### Direct Usage
 
 ```python title="secret_scanner.py"
-from openjarvis.security.scanner import SecretScanner
+from nira.security.scanner import SecretScanner
 
 scanner = SecretScanner()
 
@@ -301,7 +301,7 @@ print(clean)  # Token: [REDACTED:openai_key]
 ### Direct Usage
 
 ```python title="pii_scanner.py"
-from openjarvis.security.scanner import PIIScanner
+from nira.security.scanner import PIIScanner
 
 scanner = PIIScanner()
 
@@ -344,7 +344,7 @@ The `DEFAULT_SENSITIVE_PATTERNS` frozenset contains the following glob patterns:
 
 ```python title="file_policy.py"
 from pathlib import Path
-from openjarvis.security.file_policy import is_sensitive_file, filter_sensitive_paths
+from nira.security.file_policy import is_sensitive_file, filter_sensitive_paths
 
 # Check a single file
 print(is_sensitive_file(".env"))           # True
@@ -375,16 +375,16 @@ The `AuditLogger` persists security events to an append-only SQLite database. It
 ### Event Bus Integration (Automatic)
 
 ```python title="audit_bus.py"
-from openjarvis.core.events import EventBus
-from openjarvis.security.audit import AuditLogger
-from openjarvis.security.guardrails import GuardrailsEngine
-from openjarvis.security.types import RedactionMode
-from openjarvis.engine.ollama import OllamaEngine
+from nira.core.events import EventBus
+from nira.security.audit import AuditLogger
+from nira.security.guardrails import GuardrailsEngine
+from nira.security.types import RedactionMode
+from nira.engine.ollama import OllamaEngine
 
 bus = EventBus()
 
 # AuditLogger subscribes to SECURITY_SCAN, SECURITY_ALERT, SECURITY_BLOCK
-audit = AuditLogger(db_path="~/.openjarvis/audit.db", bus=bus)
+audit = AuditLogger(db_path="~/.nira/audit.db", bus=bus)
 
 engine = OllamaEngine()
 guarded = GuardrailsEngine(
@@ -400,8 +400,8 @@ guarded = GuardrailsEngine(
 
 ```python title="audit_manual.py"
 import time
-from openjarvis.security.audit import AuditLogger
-from openjarvis.security.types import SecurityEvent, SecurityEventType
+from nira.security.audit import AuditLogger
+from nira.security.types import SecurityEvent, SecurityEventType
 
 audit = AuditLogger(db_path="./audit.db")
 
@@ -418,9 +418,9 @@ audit.log(event)
 ### Querying the Audit Log
 
 ```python title="audit_query.py"
-from openjarvis.security.audit import AuditLogger
+from nira.security.audit import AuditLogger
 
-audit = AuditLogger(db_path="~/.openjarvis/audit.db")
+audit = AuditLogger(db_path="~/.nira/audit.db")
 
 # Recent events
 events = audit.query(limit=20)
@@ -442,9 +442,9 @@ audit.close()
 
 ## Configuration
 
-Security settings live in the `[security]` section of `~/.openjarvis/config.toml`.
+Security settings live in the `[security]` section of `~/.nira/config.toml`.
 
-```toml title="~/.openjarvis/config.toml"
+```toml title="~/.nira/config.toml"
 [security]
 enabled = true
 scan_input = true
@@ -452,7 +452,7 @@ scan_output = true
 mode = "warn"               # "warn" | "redact" | "block"
 secret_scanner = true
 pii_scanner = true
-audit_log_path = "~/.openjarvis/audit.db"
+audit_log_path = "~/.nira/audit.db"
 enforce_tool_confirmation = true
 ```
 
@@ -466,7 +466,7 @@ enforce_tool_confirmation = true
 | `mode` | `str` | `"warn"` | Action on findings: `warn`, `redact`, or `block` |
 | `secret_scanner` | `bool` | `true` | Run `SecretScanner` on all text |
 | `pii_scanner` | `bool` | `true` | Run `PIIScanner` on all text |
-| `audit_log_path` | `str` | `~/.openjarvis/audit.db` | Path to the SQLite audit log |
+| `audit_log_path` | `str` | `~/.nira/audit.db` | Path to the SQLite audit log |
 | `enforce_tool_confirmation` | `bool` | `true` | Accepted by the loader but **not currently enforced**. See [System Access](system-access.md#confirmation-behaviour) for when prompts actually happen |
 
 !!! tip "Start with warn, tighten later"
@@ -480,8 +480,8 @@ Implement `BaseScanner` and pass an instance to `GuardrailsEngine`:
 
 ```python title="custom_scanner.py"
 import re
-from openjarvis.security._stubs import BaseScanner
-from openjarvis.security.types import ScanFinding, ScanResult, ThreatLevel
+from nira.security._stubs import BaseScanner
+from nira.security.types import ScanFinding, ScanResult, ThreatLevel
 
 
 class InternalUrlScanner(BaseScanner):
@@ -509,8 +509,8 @@ class InternalUrlScanner(BaseScanner):
 
 
 # Use with GuardrailsEngine
-from openjarvis.security.guardrails import GuardrailsEngine
-from openjarvis.security.types import RedactionMode
+from nira.security.guardrails import GuardrailsEngine
+from nira.security.types import RedactionMode
 
 guarded = GuardrailsEngine(
     engine,
@@ -523,14 +523,14 @@ guarded = GuardrailsEngine(
 
 ## Data boundary scan
 
-See [Data Boundary Scan](data-boundary-scan.md) for the application config diagnostic (`jarvis scan --data-boundaries`).
+See [Data Boundary Scan](data-boundary-scan.md) for the application config diagnostic (`nira scan --data-boundaries`).
 
 ---
 
 ## See Also
 
-- [Data Boundary Scan](data-boundary-scan.md) — application config and local-store diagnostic (`jarvis scan --data-boundaries`)
+- [Data Boundary Scan](data-boundary-scan.md) — application config and local-store diagnostic (`nira scan --data-boundaries`)
 - [Architecture: Security](../architecture/security.md) — pipeline design, event flow, and file policy integration
-- [API Reference: Security](../api-reference/openjarvis/security/index.md) — full class and function signatures
+- [API Reference: Security](../api-reference/nira/security/index.md) — full class and function signatures
 - [Tools](tools.md) — how `FileReadTool` uses file policy
 - [Configuration](../getting-started/configuration.md) — full config reference

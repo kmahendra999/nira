@@ -5,9 +5,9 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, List
 
-from openjarvis.core.registry import ToolRegistry
-from openjarvis.core.types import ToolResult
-from openjarvis.tools._stubs import BaseTool, ToolSpec
+from nira.core.registry import ToolRegistry
+from nira.core.types import ToolResult
+from nira.tools._stubs import BaseTool, ToolSpec
 
 _DEFAULT_MAX_CHARS = 50_000
 
@@ -105,7 +105,7 @@ class PDFExtractTool(BaseTool):
             )
 
         # Check sensitive file policy
-        from openjarvis.security.file_policy import is_sensitive_file
+        from nira.security.file_policy import is_sensitive_file
 
         if is_sensitive_file(path):
             return ToolResult(

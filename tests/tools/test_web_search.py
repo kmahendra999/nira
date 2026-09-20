@@ -5,8 +5,8 @@ from __future__ import annotations
 import sys
 from unittest.mock import MagicMock, patch
 
-from openjarvis.core.registry import ToolRegistry
-from openjarvis.tools.web_search import WebSearchTool
+from nira.core.registry import ToolRegistry
+from nira.tools.web_search import WebSearchTool
 
 
 class TestWebSearchTool:
@@ -400,7 +400,7 @@ class TestUrlNormalization:
 class TestUrlFetching:
     def _mock_ssrf(self, monkeypatch):
         """Stub out the SSRF check (requires Rust backend)."""
-        import openjarvis.tools.web_search as _ws
+        import nira.tools.web_search as _ws
 
         monkeypatch.setattr(_ws, "check_ssrf", lambda url: None)
 
@@ -464,7 +464,7 @@ class TestUrlFetching:
 class TestExecuteWithUrl:
     def _mock_ssrf(self, monkeypatch):
         """Stub out the SSRF check (requires Rust backend)."""
-        import openjarvis.tools.web_search as _ws
+        import nira.tools.web_search as _ws
 
         monkeypatch.setattr(_ws, "check_ssrf", lambda url: None)
 
@@ -503,7 +503,7 @@ class TestExecuteWithUrl:
 
     def test_execute_url_ssrf_blocked(self, monkeypatch):
         """SSRF check rejects unsafe URLs before any HTTP request."""
-        import openjarvis.tools.web_search as _ws
+        import nira.tools.web_search as _ws
 
         monkeypatch.setattr(
             _ws,
@@ -543,14 +543,14 @@ class TestEngineSelection:
         """Existing installs are unchanged: a Tavily key still means Tavily."""
         monkeypatch.setenv("TAVILY_API_KEY", "tvly-x")
         monkeypatch.delenv("YOUDOTCOM_API_KEY", raising=False)
-        monkeypatch.delenv("OPENJARVIS_WEB_SEARCH_ENGINE", raising=False)
+        monkeypatch.delenv("NIRA_WEB_SEARCH_ENGINE", raising=False)
         assert WebSearchTool()._resolve_engine() == "tavily"
 
     def test_auto_uses_youcom_without_any_key(self, monkeypatch):
         """The zero-config path is API-backed rather than the DDG scrape."""
         monkeypatch.delenv("TAVILY_API_KEY", raising=False)
         monkeypatch.delenv("YOUDOTCOM_API_KEY", raising=False)
-        monkeypatch.delenv("OPENJARVIS_WEB_SEARCH_ENGINE", raising=False)
+        monkeypatch.delenv("NIRA_WEB_SEARCH_ENGINE", raising=False)
         assert WebSearchTool()._resolve_engine() == "youcom"
 
     def test_explicit_engine_overrides_key_presence(self, monkeypatch):
@@ -560,13 +560,13 @@ class TestEngineSelection:
 
     def test_engine_read_from_environment(self, monkeypatch):
         monkeypatch.setenv("TAVILY_API_KEY", "tvly-x")
-        monkeypatch.setenv("OPENJARVIS_WEB_SEARCH_ENGINE", "youcom")
+        monkeypatch.setenv("NIRA_WEB_SEARCH_ENGINE", "youcom")
         assert WebSearchTool()._resolve_engine() == "youcom"
 
     def test_unknown_engine_falls_back_to_auto(self, monkeypatch, caplog):
         """A typo in the env must not break tool loading."""
         monkeypatch.delenv("TAVILY_API_KEY", raising=False)
-        monkeypatch.setenv("OPENJARVIS_WEB_SEARCH_ENGINE", "yuo.com")
+        monkeypatch.setenv("NIRA_WEB_SEARCH_ENGINE", "yuo.com")
         with caplog.at_level("WARNING"):
             tool = WebSearchTool()
         assert tool._resolve_engine() == "youcom"
@@ -575,7 +575,7 @@ class TestEngineSelection:
     def test_spec_reports_engine_and_optional_keys(self, monkeypatch):
         monkeypatch.delenv("TAVILY_API_KEY", raising=False)
         monkeypatch.delenv("YOUDOTCOM_API_KEY", raising=False)
-        monkeypatch.delenv("OPENJARVIS_WEB_SEARCH_ENGINE", raising=False)
+        monkeypatch.delenv("NIRA_WEB_SEARCH_ENGINE", raising=False)
         spec = WebSearchTool().spec
         assert spec.metadata["engine"] == "youcom"
         assert "YOUDOTCOM_API_KEY" in spec.metadata["optional_api_keys"]
@@ -661,16 +661,13 @@ class TestYouComSearch:
 
     def test_sends_attribution_user_agent(self, monkeypatch):
         """Keyless traffic carries no key, so the User-Agent is the only
-        signal identifying OpenJarvis to You.com."""
+        signal identifying Nira to You.com."""
         monkeypatch.delenv("YOUDOTCOM_API_KEY", raising=False)
         calls = self._mock_get(monkeypatch)
 
         WebSearchTool(engine="youcom").execute(query="test query")
 
-        assert (
-            "youdotcom-integration/open-jarvis-openjarvis"
-            in (calls["headers"]["User-Agent"])
-        )
+        assert "youdotcom-integration/nira-nira" in (calls["headers"]["User-Agent"])
 
     def test_result_format_matches_tavily(self, monkeypatch):
         """Same labeled Source/Summary shape agents already parse (#390)."""
@@ -805,7 +802,7 @@ class TestFallbackVisibility:
 
 class TestYouComContentsExtraction:
     def _mock_ssrf(self, monkeypatch):
-        import openjarvis.tools.web_search as _ws
+        import nira.tools.web_search as _ws
 
         monkeypatch.setattr(_ws, "check_ssrf", lambda url: None)
 
@@ -874,7 +871,7 @@ class TestYouComContentsExtraction:
     def test_url_branch_ssrf_blocked_before_contents_call(self, monkeypatch):
         """The Contents upgrade must not become an SSRF bypass."""
         monkeypatch.setenv("YOUDOTCOM_API_KEY", "ydc-key")
-        import openjarvis.tools.web_search as _ws
+        import nira.tools.web_search as _ws
 
         monkeypatch.setattr(_ws, "check_ssrf", lambda url: "private IP blocked")
         import httpx

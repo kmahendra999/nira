@@ -35,7 +35,7 @@ def is_sensitive_file(path: Union[str, Path]) -> bool:
     Uses the Rust implementation when available, falls back to Python.
     """
     try:
-        from openjarvis._rust_bridge import get_rust_module
+        from nira._rust_bridge import get_rust_module
 
         _rust = get_rust_module()
         return _rust.is_sensitive_file(str(path))

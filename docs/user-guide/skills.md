@@ -17,29 +17,29 @@ Every skill is a tool. Skills appear in a lightweight catalog in the agent's sys
 | **Skill** | A directory containing `skill.toml` (structured pipeline), `SKILL.md` (markdown instructions), or both |
 | **SkillManager** | Central coordinator for discovery, resolution, catalog generation, and tool wrapping |
 | **SkillTool** | Adapter that wraps any skill as a `BaseTool` so agents can invoke it |
-| **Overlay** | Sidecar file at `~/.openjarvis/learning/skills/` storing optimized descriptions and few-shot examples |
+| **Overlay** | Sidecar file at `~/.nira/learning/skills/` storing optimized descriptions and few-shot examples |
 | **Source** | A resolver for importing skills from Hermes Agent, OpenClaw, or any GitHub repo |
 
 ## Quick Start
 
 ```bash
 # List installed skills
-jarvis skill list
+nira skill list
 
 # Install a skill from Hermes Agent
-jarvis skill install hermes:apple-notes
+nira skill install hermes:apple-notes
 
 # Bulk install a category
-jarvis skill sync hermes --category research
+nira skill sync hermes --category research
 
 # Run a skill directly
-jarvis skill run math-solver -a expression="41 + 82"
+nira skill run math-solver -a expression="41 + 82"
 
 # See skill details
-jarvis skill info research-and-summarize
+nira skill info research-and-summarize
 ```
 
-`jarvis skill run` executes structured tool steps, including nested skills. It
+`nira skill run` executes structured tool steps, including nested skills. It
 loads only the tools that the pipeline needs; a nonempty `tools.enabled` list
 restricts that selection. Capability checks, rate limits, and audit events use
 the `skill:cli` identity, and sensitive tools ask for confirmation. Instruction-only
@@ -72,7 +72,7 @@ Pipeline skills define a sequence of tool calls that execute deterministically:
 name = "research-and-summarize"
 version = "0.1.0"
 description = "Search the web and produce a structured summary"
-author = "openjarvis"
+author = "nira"
 tags = ["research", "summarization"]
 required_capabilities = ["network:fetch"]
 depends = ["summarize"]
@@ -100,9 +100,9 @@ name: code-explainer
 description: Explain code in plain language with examples
 license: MIT
 metadata:
-  openjarvis:
+  nira:
     version: "0.1.0"
-    author: openjarvis
+    author: nira
     tags: [coding, explanation]
 ---
 
@@ -131,28 +131,28 @@ The YAML frontmatter follows the [agentskills.io](https://agentskills.io/specifi
 
 ```bash
 # Single skill
-jarvis skill install hermes:apple-notes
+nira skill install hermes:apple-notes
 
 # Bulk install by category
-jarvis skill sync hermes --category research
-jarvis skill sync hermes --category coding
-jarvis skill sync hermes  # everything (~150 skills)
+nira skill sync hermes --category research
+nira skill sync hermes --category coding
+nira skill sync hermes  # everything (~150 skills)
 ```
 
 ### From OpenClaw
 
 ```bash
 # Single skill (owner/slug format)
-jarvis skill install openclaw:0xv4l3nt1n3/etherscan
+nira skill install openclaw:0xv4l3nt1n3/etherscan
 
 # Bulk install with search filter
-jarvis skill sync openclaw --search "web3|crypto"
+nira skill sync openclaw --search "web3|crypto"
 ```
 
 ### From Any GitHub Repo
 
 ```bash
-jarvis skill install github:user/repo/path/to/skill --url https://github.com/user/repo
+nira skill install github:user/repo/path/to/skill --url https://github.com/user/repo
 ```
 
 For example, install the Hermes Tweet skill when you want an agent to search
@@ -160,12 +160,12 @@ Twitter/X, read tweet replies, monitor tweets, export followers, and run
 gated post, reply, or DM workflows:
 
 ```bash
-jarvis skill install github:Xquik-dev/hermes-tweet/skills/hermes-tweet --url https://github.com/Xquik-dev/hermes-tweet
+nira skill install github:Xquik-dev/hermes-tweet/skills/hermes-tweet --url https://github.com/Xquik-dev/hermes-tweet
 ```
 
 ### Config-Driven Auto Import
 
-Add sources to `~/.openjarvis/config.toml` for automatic syncing:
+Add sources to `~/.nira/config.toml` for automatic syncing:
 
 ```toml
 [skills]
@@ -188,10 +188,10 @@ When `auto_sync = true`, the SkillManager checks source freshness on each sessio
 
 ```bash
 # List configured sources
-jarvis skill sources
+nira skill sources
 
 # Update all configured sources
-jarvis skill update
+nira skill update
 ```
 
 If an upstream refresh fails but the source cache still contains skills,
@@ -241,17 +241,17 @@ Agents handle both skill types correctly:
 
 ## Skill Discovery from Traces
 
-OpenJarvis can automatically mine your trace history for recurring tool sequences and surface them as candidate skills:
+Nira can automatically mine your trace history for recurring tool sequences and surface them as candidate skills:
 
 ```bash
 # Preview discovered patterns without writing
-jarvis skill discover --dry-run --min-frequency 3
+nira skill discover --dry-run --min-frequency 3
 
-# Write discovered skills to ~/.openjarvis/skills/discovered/
-jarvis skill discover
+# Write discovered skills to ~/.nira/skills/discovered/
+nira skill discover
 ```
 
-Discovered skills land in `~/.openjarvis/skills/discovered/` and automatically appear in `jarvis skill list` on the next session.
+Discovered skills land in `~/.nira/skills/discovered/` and automatically appear in `nira skill list` on the next session.
 
 ## Skill Optimization
 
@@ -261,19 +261,19 @@ The skills learning loop uses your trace history to optimize skill descriptions 
 
 ```bash
 # Preview what would be optimized
-jarvis optimize skills --dry-run
+nira optimize skills --dry-run
 
 # Run DSPy optimization
-jarvis optimize skills --policy dspy --min-traces 3
+nira optimize skills --policy dspy --min-traces 3
 
 # Run GEPA evolutionary optimization
-jarvis optimize skills --policy gepa --min-traces 3
+nira optimize skills --policy gepa --min-traces 3
 
 # Inspect what optimization produced
-jarvis skill show-overlay research-and-summarize
+nira skill show-overlay research-and-summarize
 ```
 
-Optimization results are stored as sidecar overlays at `~/.openjarvis/learning/skills/<skill-name>/optimized.toml`. They override the skill's description and add few-shot examples to the agent's system prompt. The original skill files are never modified.
+Optimization results are stored as sidecar overlays at `~/.nira/learning/skills/<skill-name>/optimized.toml`. They override the skill's description and add few-shot examples to the agent's system prompt. The original skill files are never modified.
 
 ### Auto-Optimization
 
@@ -294,13 +294,13 @@ Measure whether skills improve agent performance:
 
 ```bash
 # Full sweep: 4 conditions × 3 seeds
-jarvis bench skills
+nira bench skills
 
 # Smoke test: 4 conditions × 1 seed × 5 tasks
-jarvis bench skills --max-samples 5 --seeds 42
+nira bench skills --max-samples 5 --seeds 42
 
 # Single condition
-jarvis bench skills --condition skills_optimized_dspy
+nira bench skills --condition skills_optimized_dspy
 ```
 
 The four benchmark conditions are:
@@ -320,7 +320,7 @@ Results are written to `docs/superpowers/results/pinchbench-skills-eval-{date}.m
 
 | Tier | Source | Verification | Runtime |
 |------|--------|-------------|---------|
-| **Bundled** | Ships with OpenJarvis | Implicit trust | Full access within declared capabilities |
+| **Bundled** | Ships with Nira | Implicit trust | Full access within declared capabilities |
 | **Indexed** | In official skill index, signed | SHA256 + Ed25519 | Capability-gated |
 | **Unreviewed** | Arbitrary GitHub URL | SHA256 only | Capability-gated + sandbox warning |
 | **Workspace** | Local `./skills/` directory | None (user code) | Trusted |
@@ -342,7 +342,7 @@ Skills declaring dangerous capabilities (`shell:execute`, `network:listen`, `fil
 Imported skills may include `scripts/` directories with executable code. These are **skipped by default** for security. Use `--with-scripts` to opt in:
 
 ```bash
-jarvis skill install hermes:arxiv --with-scripts
+nira skill install hermes:arxiv --with-scripts
 ```
 
 ## Skill Composition
@@ -369,7 +369,7 @@ The SkillManager builds a dependency graph at discovery time and validates:
 ```toml
 [skills]
 enabled = true                    # enable/disable the skill system
-skills_dir = "~/.openjarvis/skills/"  # where skills are installed
+skills_dir = "~/.nira/skills/"  # where skills are installed
 active = "*"                      # which skills to activate ("*" = all)
 auto_discover = true              # scan skills_dir on startup
 auto_sync = false                 # pull from configured sources on startup
@@ -395,7 +395,7 @@ auto_optimize = false             # opt-in automatic optimization
 optimizer = "dspy"                # "dspy" or "gepa"
 min_traces_per_skill = 20         # minimum traces before optimizing
 optimization_interval_seconds = 86400  # at most once per day
-overlay_dir = "~/.openjarvis/learning/skills/"
+overlay_dir = "~/.nira/learning/skills/"
 ```
 
 ## Name Precedence
@@ -403,23 +403,23 @@ overlay_dir = "~/.openjarvis/learning/skills/"
 When the same skill name exists in multiple locations, closest scope wins:
 
 1. **Workspace** `./skills/` (highest priority)
-2. **User** `~/.openjarvis/skills/`
-3. **Bundled** (shipped with OpenJarvis)
+2. **User** `~/.nira/skills/`
+3. **Bundled** (shipped with Nira)
 
 ## CLI Reference
 
 | Command | Description |
 |---------|-------------|
-| `jarvis skill list` | List installed skills |
-| `jarvis skill info <name>` | Show detailed skill information |
-| `jarvis skill run <name> [-a key=value]` | Execute a skill directly |
-| `jarvis skill install <source>:<name>` | Install from Hermes, OpenClaw, or GitHub |
-| `jarvis skill sync [<source>] [--category C]` | Bulk install + update from sources |
-| `jarvis skill sources` | List configured skill sources |
-| `jarvis skill update` | Pull latest from configured sources |
-| `jarvis skill remove <name>` | Remove an installed skill |
-| `jarvis skill search <query>` | Search the skill index |
-| `jarvis skill discover [--dry-run]` | Mine traces for recurring tool patterns |
-| `jarvis skill show-overlay <name>` | Inspect optimization output for a skill |
-| `jarvis optimize skills [--policy dspy\|gepa]` | Optimize skill descriptions + few-shot examples |
-| `jarvis bench skills [--condition C]` | Run the PinchBench skills benchmark |
+| `nira skill list` | List installed skills |
+| `nira skill info <name>` | Show detailed skill information |
+| `nira skill run <name> [-a key=value]` | Execute a skill directly |
+| `nira skill install <source>:<name>` | Install from Hermes, OpenClaw, or GitHub |
+| `nira skill sync [<source>] [--category C]` | Bulk install + update from sources |
+| `nira skill sources` | List configured skill sources |
+| `nira skill update` | Pull latest from configured sources |
+| `nira skill remove <name>` | Remove an installed skill |
+| `nira skill search <query>` | Search the skill index |
+| `nira skill discover [--dry-run]` | Mine traces for recurring tool patterns |
+| `nira skill show-overlay <name>` | Inspect optimization output for a skill |
+| `nira optimize skills [--policy dspy\|gepa]` | Optimize skill descriptions + few-shot examples |
+| `nira bench skills [--condition C]` | Run the PinchBench skills benchmark |

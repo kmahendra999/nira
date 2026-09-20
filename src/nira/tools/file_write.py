@@ -5,9 +5,9 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, List, Optional
 
-from openjarvis.core.registry import ToolRegistry
-from openjarvis.core.types import ToolResult
-from openjarvis.tools._stubs import BaseTool, ToolSpec
+from nira.core.registry import ToolRegistry
+from nira.core.types import ToolResult
+from nira.tools._stubs import BaseTool, ToolSpec
 
 # Maximum file size to write (10 MB)
 _MAX_SIZE_BYTES = 10_485_760
@@ -102,7 +102,7 @@ class FileWriteTool(BaseTool):
         path = Path(file_path)
 
         # Block sensitive files (secrets, credentials, keys)
-        from openjarvis.security.file_policy import is_sensitive_file
+        from nira.security.file_policy import is_sensitive_file
 
         if is_sensitive_file(path):
             return ToolResult(
@@ -153,7 +153,7 @@ class FileWriteTool(BaseTool):
 
         if mode == "write":
             try:
-                from openjarvis._rust_bridge import get_rust_module
+                from nira._rust_bridge import get_rust_module
 
                 _rust = get_rust_module()
                 _rust.FileWriteTool().execute(str(path), content)

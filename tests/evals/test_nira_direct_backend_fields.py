@@ -1,19 +1,19 @@
-"""Verify JarvisDirectBackend.generate_full returns the spec §6.2 extended fields."""
+"""Verify NiraDirectBackend.generate_full returns the spec §6.2 extended fields."""
 
 from __future__ import annotations
 
 from unittest.mock import MagicMock
 
 
-class TestJarvisDirectExtendedFields:
+class TestNiraDirectExtendedFields:
     def test_generate_full_includes_framework_and_commit(self) -> None:
-        from openjarvis.evals.backends.jarvis_direct import JarvisDirectBackend
+        from nira.evals.backends.nira_direct import NiraDirectBackend
 
         # Build the backend without invoking __init__ (which would spin up an
-        # engine); set required attrs directly. JarvisDirectBackend.generate_full
+        # engine); set required attrs directly. NiraDirectBackend.generate_full
         # calls ``self._system.engine.generate(messages, ...)`` so we mock the
         # whole ``_system`` chain.
-        backend = JarvisDirectBackend.__new__(JarvisDirectBackend)
+        backend = NiraDirectBackend.__new__(NiraDirectBackend)
         backend._telemetry = False
         backend._gpu_metrics = False
         backend._system = MagicMock()
@@ -34,7 +34,7 @@ class TestJarvisDirectExtendedFields:
             temperature=0.0,
             max_tokens=2048,
         )
-        assert result["framework"] == "openjarvis"
+        assert result["framework"] == "nira"
         assert "framework_commit" in result
         assert result["tool_calls"] == 0  # direct = no tool calls
         assert result["turn_count"] == 1  # direct = single turn

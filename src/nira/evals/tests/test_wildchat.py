@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from openjarvis.evals.core.types import EvalRecord
-from openjarvis.evals.scorers.wildchat_judge import WildChatScorer
-from openjarvis.evals.tests.conftest import MockBackend
+from nira.evals.core.types import EvalRecord
+from nira.evals.scorers.wildchat_judge import WildChatScorer
+from nira.evals.tests.conftest import MockBackend
 
 
 class TestVerdictParsing:

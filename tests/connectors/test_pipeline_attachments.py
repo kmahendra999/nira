@@ -7,10 +7,10 @@ from pathlib import Path
 
 import pytest
 
-from openjarvis.connectors._stubs import Attachment, Document
-from openjarvis.connectors.attachment_store import AttachmentStore
-from openjarvis.connectors.pipeline import IngestionPipeline
-from openjarvis.connectors.store import KnowledgeStore
+from nira.connectors._stubs import Attachment, Document
+from nira.connectors.attachment_store import AttachmentStore
+from nira.connectors.pipeline import IngestionPipeline
+from nira.connectors.store import KnowledgeStore
 
 # ---------------------------------------------------------------------------
 # Helpers

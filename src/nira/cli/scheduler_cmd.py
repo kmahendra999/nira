@@ -1,4 +1,4 @@
-"""``jarvis scheduler`` -- task scheduling commands."""
+"""``nira scheduler`` -- task scheduling commands."""
 
 from __future__ import annotations
 
@@ -13,8 +13,8 @@ from rich.table import Table
 
 def _get_store() -> "SchedulerStore":  # noqa: F821
     """Build a SchedulerStore from user config."""
-    from openjarvis.core.config import DEFAULT_CONFIG_DIR, load_config
-    from openjarvis.scheduler.store import SchedulerStore
+    from nira.core.config import DEFAULT_CONFIG_DIR, load_config
+    from nira.scheduler.store import SchedulerStore
 
     config = load_config()
     db_path = getattr(getattr(config, "scheduler", None), "db_path", None) or str(
@@ -25,7 +25,7 @@ def _get_store() -> "SchedulerStore":  # noqa: F821
 
 def _get_scheduler(store: "SchedulerStore") -> "TaskScheduler":  # noqa: F821
     """Build a TaskScheduler from a store."""
-    from openjarvis.scheduler.scheduler import TaskScheduler
+    from nira.scheduler.scheduler import TaskScheduler
 
     return TaskScheduler(store)
 
@@ -231,10 +231,10 @@ def scheduler_run_task(agent_name: str, dry_run: bool) -> None:
 
     Finds the first active scheduled task whose agent matches AGENT_NAME
     and runs it right now — useful for testing and for launchd invocation
-    when OpenJarvis is not running as a persistent daemon.
+    when Nira is not running as a persistent daemon.
 
     Example (launchd plist ProgramArguments):
-        jarvis scheduler run-task proactive
+        nira scheduler run-task proactive
     """
     console = Console()
     store = _get_store()
@@ -246,7 +246,7 @@ def scheduler_run_task(agent_name: str, dry_run: bool) -> None:
         if match is None:
             console.print(
                 f"[yellow]No active task found for agent '{agent_name}'. "
-                "Register it first with 'jarvis scheduler create'.[/yellow]"
+                "Register it first with 'nira scheduler create'.[/yellow]"
             )
             return
 
@@ -259,8 +259,8 @@ def scheduler_run_task(agent_name: str, dry_run: bool) -> None:
 
         console.print(f"Running task [cyan]{match.id}[/cyan] (agent: {match.agent})…")
 
-        from openjarvis.core.config import load_config
-        from openjarvis.system import SystemBuilder
+        from nira.core.config import load_config
+        from nira.system import SystemBuilder
 
         system = SystemBuilder(load_config()).build()
         result = system.ask(match.prompt, agent=match.agent)
@@ -307,7 +307,7 @@ def scheduler_start(poll_interval: int) -> None:
     console = Console()
     store = _get_store()
 
-    from openjarvis.scheduler.scheduler import TaskScheduler
+    from nira.scheduler.scheduler import TaskScheduler
 
     sched = TaskScheduler(store, poll_interval=poll_interval)
     sched.start()

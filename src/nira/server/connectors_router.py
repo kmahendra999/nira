@@ -50,11 +50,11 @@ def _ensure_connectors_registered() -> None:
     import importlib
     import sys
 
-    from openjarvis.core.registry import ConnectorRegistry
+    from nira.core.registry import ConnectorRegistry
 
     # First, try a normal import (works if modules haven't been imported yet).
     try:
-        import openjarvis.connectors  # noqa: F401
+        import nira.connectors  # noqa: F401
     except Exception:
         pass
 
@@ -63,7 +63,7 @@ def _ensure_connectors_registered() -> None:
     if not ConnectorRegistry.keys():
         for mod_name in list(sys.modules):
             if (
-                mod_name.startswith("openjarvis.connectors.")
+                mod_name.startswith("nira.connectors.")
                 and not mod_name.endswith("_stubs")
                 and not mod_name.endswith("pipeline")
                 and not mod_name.endswith("store")
@@ -123,7 +123,7 @@ def create_connectors_router():
     if ConnectRequest is None:
         raise ImportError("pydantic is required for the connectors router")
 
-    from openjarvis.core.registry import ConnectorRegistry
+    from nira.core.registry import ConnectorRegistry
 
     router = APIRouter(prefix="/v1/connectors", tags=["connectors"])
 
@@ -142,7 +142,7 @@ def create_connectors_router():
         """Build the dict returned by GET /connectors."""
         chunks = 0
         try:
-            from openjarvis.connectors.store import KnowledgeStore
+            from nira.connectors.store import KnowledgeStore
 
             sources = _knowledge_sources(connector_id, instance)
             placeholders = ", ".join("?" for _ in sources)
@@ -181,7 +181,7 @@ def create_connectors_router():
         in REVIEW.md, a bad credential surfaces an actionable error rather than
         a perpetual ``pending`` state.
         """
-        from openjarvis.connectors.oauth import (
+        from nira.connectors.oauth import (
             get_provider_for_connector,
             save_client_credentials,
         )
@@ -340,9 +340,9 @@ def create_connectors_router():
         # report "X new this run" without each client tracking it.
         baseline_items = 0
         try:
-            from openjarvis.connectors.pipeline import IngestionPipeline
-            from openjarvis.connectors.store import KnowledgeStore
-            from openjarvis.connectors.sync_engine import SyncEngine
+            from nira.connectors.pipeline import IngestionPipeline
+            from nira.connectors.store import KnowledgeStore
+            from nira.connectors.sync_engine import SyncEngine
 
             with KnowledgeStore() as store:
                 with SyncEngine(
@@ -358,9 +358,9 @@ def create_connectors_router():
 
         def _run_sync() -> None:
             try:
-                from openjarvis.connectors.pipeline import IngestionPipeline
-                from openjarvis.connectors.store import KnowledgeStore
-                from openjarvis.connectors.sync_engine import SyncEngine
+                from nira.connectors.pipeline import IngestionPipeline
+                from nira.connectors.store import KnowledgeStore
+                from nira.connectors.sync_engine import SyncEngine
 
                 with KnowledgeStore() as store:
                     with SyncEngine(
@@ -472,7 +472,7 @@ def create_connectors_router():
         # Include OAuth provider setup info if applicable
         oauth_setup = None
         try:
-            from openjarvis.connectors.oauth import (
+            from nira.connectors.oauth import (
                 get_client_credentials,
                 get_provider_for_connector,
             )
@@ -701,9 +701,9 @@ def create_connectors_router():
                 purge_sources.difference_update(shared)
 
         try:
-            from openjarvis.connectors.pipeline import IngestionPipeline
-            from openjarvis.connectors.store import KnowledgeStore
-            from openjarvis.connectors.sync_engine import SyncEngine
+            from nira.connectors.pipeline import IngestionPipeline
+            from nira.connectors.store import KnowledgeStore
+            from nira.connectors.sync_engine import SyncEngine
 
             with KnowledgeStore() as store:
                 with SyncEngine(
@@ -742,7 +742,7 @@ def create_connectors_router():
         """
         from urllib.parse import urlencode
 
-        from openjarvis.connectors.oauth import (
+        from nira.connectors.oauth import (
             get_client_credentials,
             get_provider_for_connector,
         )
@@ -792,7 +792,7 @@ def create_connectors_router():
         """Handle OAuth callback from the provider."""
         from fastapi.responses import HTMLResponse
 
-        from openjarvis.connectors.oauth import (
+        from nira.connectors.oauth import (
             _CONNECTORS_DIR,
             _exchange_token,
             get_client_credentials,
@@ -870,7 +870,7 @@ def create_connectors_router():
             content=(
                 f"<html><body style='{_style}'>"
                 "<h2 style='color:#22c55e'>Connected!</h2>"
-                "<p>You can close this tab and return to OpenJarvis.</p>"
+                "<p>You can close this tab and return to Nira.</p>"
                 "<script>setTimeout(()=>window.close(),2000)</script>"
                 "</body></html>"
             )
@@ -925,9 +925,9 @@ def create_connectors_router():
         checkpoint: Optional[Dict[str, Any]] = None
         oldest_item_date: Optional[str] = None
         try:
-            from openjarvis.connectors.pipeline import IngestionPipeline
-            from openjarvis.connectors.store import KnowledgeStore
-            from openjarvis.connectors.sync_engine import SyncEngine
+            from nira.connectors.pipeline import IngestionPipeline
+            from nira.connectors.store import KnowledgeStore
+            from nira.connectors.sync_engine import SyncEngine
 
             with KnowledgeStore() as store:
                 with SyncEngine(

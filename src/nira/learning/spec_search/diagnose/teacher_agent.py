@@ -23,8 +23,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
-from openjarvis.core.types import Message, Role, ToolCall
-from openjarvis.learning.spec_search.diagnose.types import (
+from nira.core.types import Message, Role, ToolCall
+from nira.learning.spec_search.diagnose.types import (
     DiagnosticTool,
     ToolCallRecord,
 )

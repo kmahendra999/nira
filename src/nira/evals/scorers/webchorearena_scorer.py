@@ -18,8 +18,8 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional, Tuple
 
-from openjarvis.evals.core.scorer import Scorer
-from openjarvis.evals.core.types import EvalRecord
+from nira.evals.core.scorer import Scorer
+from nira.evals.core.types import EvalRecord
 
 
 class WebChoreArenaScorer(Scorer):

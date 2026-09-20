@@ -65,7 +65,7 @@ class CapabilityPolicy:
         self._policies: Dict[str, AgentPolicy] = {}
         self._default_deny = default_deny
 
-        from openjarvis._rust_bridge import get_rust_module
+        from nira._rust_bridge import get_rust_module
 
         _rust = get_rust_module()
         self._rust_impl = _rust.CapabilityPolicy(default_deny=default_deny)
@@ -279,8 +279,8 @@ DEFAULT_TOOL_CAPABILITIES: Dict[str, List[str]] = {
 }
 
 _SAFE_BUILTIN_PROVENANCE = {
-    "calculator": ("openjarvis.tools.calculator", "CalculatorTool"),
-    "think": ("openjarvis.tools.think", "ThinkTool"),
+    "calculator": ("nira.tools.calculator", "CalculatorTool"),
+    "think": ("nira.tools.think", "ThinkTool"),
 }
 
 
@@ -294,11 +294,11 @@ def canonical_tool_capabilities(tool: Any) -> List[str]:
     module = type(tool).__module__
     name = tool.spec.name
     is_builtin = (
-        module == "openjarvis.tools"
-        or module.startswith("openjarvis.tools.")
-        or module == "openjarvis.scheduler.tools"
+        module == "nira.tools"
+        or module.startswith("nira.tools.")
+        or module == "nira.scheduler.tools"
     )
-    if module == "openjarvis.tools.mcp_adapter":
+    if module == "nira.tools.mcp_adapter":
         # MCP tool names are remote-controlled.  Resolve adapter provenance
         # before the name table so a server cannot impersonate a reviewed-safe
         # local tool such as ``calculator`` or ``think``.

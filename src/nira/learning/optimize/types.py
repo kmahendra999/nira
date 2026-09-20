@@ -5,8 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-from openjarvis.evals.core.types import RunSummary
-from openjarvis.recipes.loader import Recipe
+from nira.evals.core.types import RunSummary
+from nira.recipes.loader import Recipe
 
 
 @dataclass(slots=True)

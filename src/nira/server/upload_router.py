@@ -10,8 +10,8 @@ from typing import List, Optional
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
 
-from openjarvis.connectors.store import KnowledgeStore
-from openjarvis.core.config import DEFAULT_CONFIG_DIR
+from nira.connectors.store import KnowledgeStore
+from nira.core.config import DEFAULT_CONFIG_DIR
 
 logger = logging.getLogger(__name__)
 

@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from openjarvis.core.registry import RouterPolicyRegistry
-from openjarvis.learning.routing.router import HeuristicRouter
+from nira.core.registry import RouterPolicyRegistry
+from nira.learning.routing.router import HeuristicRouter
 
 
 def ensure_registered() -> None:

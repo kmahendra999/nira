@@ -1,4 +1,4 @@
-"""``jarvis init`` — detect hardware, generate config, write to disk."""
+"""``nira init`` — detect hardware, generate config, write to disk."""
 
 from __future__ import annotations
 
@@ -11,11 +11,11 @@ from rich.console import Console
 from rich.markup import escape
 from rich.panel import Panel
 
-from openjarvis.cli._banner import print_banner
-from openjarvis.cli._bootstrap import detect_cloud_keys
-from openjarvis.cli.model import find_model_spec, hf_download, ollama_pull
-from openjarvis.cli.scan_cmd import PrivacyScanner
-from openjarvis.core.config import (
+from nira.cli._banner import print_banner
+from nira.cli._bootstrap import detect_cloud_keys
+from nira.cli.model import find_model_spec, hf_download, ollama_pull
+from nira.cli.scan_cmd import PrivacyScanner
+from nira.core.config import (
     DEFAULT_CONFIG_DIR,
     DEFAULT_CONFIG_PATH,
     _available_memory_gb,
@@ -27,7 +27,7 @@ from openjarvis.core.config import (
     recommend_model,
 )
 
-# Engines supported by ``jarvis init --engine``.
+# Engines supported by ``nira init --engine``.
 _SUPPORTED_ENGINES = [
     "ollama",
     "vllm",
@@ -80,9 +80,9 @@ def _next_steps_text(engine: str, model: str = "") -> str:
             f"     ollama pull {pull_model}\n"
             "\n"
             "  3. Try it out:\n"
-            '     jarvis ask "Hello"\n'
+            '     nira ask "Hello"\n'
             "\n"
-            "  Run `jarvis doctor` to verify your setup."
+            "  Run `nira doctor` to verify your setup."
         ),
         "vllm": (
             "Next steps:\n"
@@ -92,9 +92,9 @@ def _next_steps_text(engine: str, model: str = "") -> str:
             "     vllm serve Qwen/Qwen3-4B\n"
             "\n"
             "  2. Try it out:\n"
-            '     jarvis ask "Hello"\n'
+            '     nira ask "Hello"\n'
             "\n"
-            "  Run `jarvis doctor` to verify your setup."
+            "  Run `nira doctor` to verify your setup."
         ),
         "llamacpp": (
             "Next steps:\n"
@@ -104,9 +104,9 @@ def _next_steps_text(engine: str, model: str = "") -> str:
             "     llama-server -m path/to/model.gguf\n"
             "\n"
             "  2. Try it out:\n"
-            '     jarvis ask "Hello"\n'
+            '     nira ask "Hello"\n'
             "\n"
-            "  Run `jarvis doctor` to verify your setup."
+            "  Run `nira doctor` to verify your setup."
         ),
         "sglang": (
             "Next steps:\n"
@@ -116,9 +116,9 @@ def _next_steps_text(engine: str, model: str = "") -> str:
             "     python -m sglang.launch_server --model-path Qwen/Qwen3-8B\n"
             "\n"
             "  2. Try it out:\n"
-            '     jarvis ask "Hello"\n'
+            '     nira ask "Hello"\n'
             "\n"
-            "  Run `jarvis doctor` to verify your setup."
+            "  Run `nira doctor` to verify your setup."
         ),
         "mlx": (
             "Next steps:\n"
@@ -128,9 +128,9 @@ def _next_steps_text(engine: str, model: str = "") -> str:
             "     mlx_lm.server --model mlx-community/Qwen2.5-7B-4bit\n"
             "\n"
             "  2. Try it out:\n"
-            '     jarvis ask "Hello"\n'
+            '     nira ask "Hello"\n'
             "\n"
-            "  Run `jarvis doctor` to verify your setup."
+            "  Run `nira doctor` to verify your setup."
         ),
         "lmstudio": (
             "Next steps:\n"
@@ -141,9 +141,9 @@ def _next_steps_text(engine: str, model: str = "") -> str:
             "  2. Load a model and start the local server (port 1234)\n"
             "\n"
             "  3. Try it out:\n"
-            '     jarvis ask "Hello"\n'
+            '     nira ask "Hello"\n'
             "\n"
-            "  Run `jarvis doctor` to verify your setup."
+            "  Run `nira doctor` to verify your setup."
         ),
         "exo": (
             "Next steps:\n\n"
@@ -151,8 +151,8 @@ def _next_steps_text(engine: str, model: str = "") -> str:
             "     pip install exo\n"
             "     exo\n\n"
             "  2. Try it out:\n"
-            '     jarvis ask "Hello"\n\n'
-            "  Run `jarvis doctor` to verify your setup."
+            '     nira ask "Hello"\n\n'
+            "  Run `nira doctor` to verify your setup."
         ),
         "nexa": (
             "Next steps:\n\n"
@@ -160,8 +160,8 @@ def _next_steps_text(engine: str, model: str = "") -> str:
             "     pip install nexaai\n"
             "     nexa server\n\n"
             "  2. Try it out:\n"
-            '     jarvis ask "Hello"\n\n'
-            "  Run `jarvis doctor` to verify your setup."
+            '     nira ask "Hello"\n\n'
+            "  Run `nira doctor` to verify your setup."
         ),
         "lemonade": (
             "Next steps:\n\n"
@@ -169,8 +169,8 @@ def _next_steps_text(engine: str, model: str = "") -> str:
             "     https://lemonade-server.ai/\n\n"
             "  2. Start the Lemonade server\n\n"
             "  3. Try it out:\n"
-            '     jarvis ask "Hello"\n\n'
-            "  Run `jarvis doctor` to verify your setup."
+            '     nira ask "Hello"\n\n'
+            "  Run `nira doctor` to verify your setup."
         ),
     }
     return steps.get(engine, steps["ollama"])
@@ -190,7 +190,7 @@ def _quick_privacy_check(console: Console) -> None:
             elif r.status == "fail":
                 console.print(f"  [red]\u2717[/red] {r.message}")
     console.print()
-    console.print("  Run [cyan]jarvis scan[/cyan] for a full environment audit.")
+    console.print("  Run [cyan]nira scan[/cyan] for a full environment audit.")
 
 
 def _do_download(engine: str, model: str, spec, console: Console) -> None:
@@ -285,11 +285,11 @@ def _do_download(engine: str, model: str, spec, console: Console) -> None:
     help="Use a pre-built starter config instead of generating one.",
 )
 @click.option(
-    "--from-bare-jarvis",
+    "--from-bare-nira",
     is_flag=True,
     default=False,
     hidden=True,
-    help="Run init non-interactively; called by the bare-jarvis first-run guard.",
+    help="Run init non-interactively; called by the bare-nira first-run guard.",
 )
 @click.pass_context
 def init(
@@ -303,9 +303,9 @@ def init(
     host: Optional[str] = None,
     enable_digest: bool = False,
     preset: Optional[str] = None,
-    from_bare_jarvis: bool = False,
+    from_bare_nira: bool = False,
 ) -> None:
-    """Detect hardware and generate ~/.openjarvis/config.toml."""
+    """Detect hardware and generate ~/.nira/config.toml."""
     print_banner(quiet=(ctx.obj or {}).get("quiet", False))
     console = Console()
 
@@ -325,7 +325,7 @@ def init(
         if preset:
             console.print(
                 "Switching presets replaces the existing config. Re-run with "
-                f"[bold]jarvis init --preset {preset} --force[/bold] to confirm."
+                f"[bold]nira init --preset {preset} --force[/bold] to confirm."
             )
         else:
             console.print("Use [bold]--force[/bold] to overwrite.")
@@ -334,15 +334,12 @@ def init(
     # Handle --preset: copy a starter config and return early
     if preset:
         examples_dir = (
-            Path(__file__).resolve().parents[2] / "configs" / "openjarvis" / "examples"
+            Path(__file__).resolve().parents[2] / "configs" / "nira" / "examples"
         )
         # Also check installed package location
         if not examples_dir.exists():
             examples_dir = (
-                Path(__file__).resolve().parents[3]
-                / "configs"
-                / "openjarvis"
-                / "examples"
+                Path(__file__).resolve().parents[3] / "configs" / "nira" / "examples"
             )
         preset_path = examples_dir / f"{preset}.toml"
         if not preset_path.exists():
@@ -358,7 +355,7 @@ def init(
         )
         console.print(
             "\n  Edit the config to customize, then run "
-            "[bold]jarvis doctor[/bold] to verify."
+            "[bold]nira doctor[/bold] to verify."
         )
         return
 
@@ -380,8 +377,8 @@ def init(
     # Resolve engine: explicit flag > interactive selection > auto-detect
     if engine is None and config is None:
         recommended = recommend_engine(hw)
-        # Bare-jarvis cold path: use the recommended engine non-interactively.
-        if from_bare_jarvis:
+        # Bare-nira cold path: use the recommended engine non-interactively.
+        if from_bare_nira:
             engine = recommended
         else:
             console.print()
@@ -461,7 +458,7 @@ def init(
     DEFAULT_CONFIG_DIR.mkdir(parents=True, exist_ok=True)
     # ``--config`` selects an existing file to install; it is not an alternate
     # output path.  Always activate the selected/generated configuration at
-    # the canonical location that subsequent ``jarvis`` commands load.
+    # the canonical location that subsequent ``nira`` commands load.
     DEFAULT_CONFIG_PATH.write_text(toml_content, encoding="utf-8")
 
     console.print()
@@ -480,7 +477,7 @@ def init(
 enabled = true
 schedule = "0 7 * * *"
 timezone = "America/Los_Angeles"
-persona = "jarvis"
+persona = "nira"
 honorific = "sir"
 tts_backend = "cartesia"
 voice_id = "c8f7835e-28a3-4f0c-80d7-c1302ac62aae"
@@ -505,8 +502,8 @@ sources = ["hackernews", "news_rss"]
         toml_content = target.read_text(encoding="utf-8")
         console.print(
             "[green]Morning Digest config added.[/green] "
-            "Run [bold]jarvis connect gdrive[/bold] to connect "
-            "Google services, then [bold]jarvis digest --fresh[/bold]."
+            "Run [bold]nira connect gdrive[/bold] to connect "
+            "Google services, then [bold]nira digest --fresh[/bold]."
         )
 
     console.print("[green]Config written successfully.[/green]")
@@ -515,7 +512,7 @@ sources = ["hackernews", "news_rss"]
     soul_path = DEFAULT_CONFIG_DIR / "SOUL.md"
     if not soul_path.exists():
         soul_path.write_text(
-            "# Agent Persona\n\nYou are Jarvis, a helpful personal AI assistant.\n",
+            "# Agent Persona\n\nYou are Nira, a helpful personal AI assistant.\n",
             encoding="utf-8",
         )
 
@@ -547,14 +544,14 @@ sources = ["hackernews", "news_rss"]
             f"  [dim](selected for {avail:.0f} GB available memory)[/dim]"
         )
 
-        if not no_download and not from_bare_jarvis and spec:
+        if not no_download and not from_bare_nira and spec:
             prompt = f"  Download {model} (~{size_gb:.1f} GB) now?"
             if click.confirm(prompt, default=True):
                 _do_download(selected_engine, model, spec, console)
             else:
                 console.print(
                     f"\n  Skipped. Download later with:\n"
-                    f"    [bold]jarvis model pull {model}[/bold]"
+                    f"    [bold]nira model pull {model}[/bold]"
                 )
 
     if not skip_scan:

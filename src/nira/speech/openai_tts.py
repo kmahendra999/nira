@@ -7,8 +7,8 @@ from typing import List
 
 import httpx
 
-from openjarvis.core.registry import TTSRegistry
-from openjarvis.speech.tts import TTSBackend, TTSResult
+from nira.core.registry import TTSRegistry
+from nira.speech.tts import TTSBackend, TTSResult
 
 _OPENAI_TTS_URL = "https://api.openai.com/v1/audio/speech"
 

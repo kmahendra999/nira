@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import pytest
 
-from openjarvis.mcp.client import MCPClient
-from openjarvis.mcp.server import MCPServer
-from openjarvis.mcp.transport import InProcessTransport
-from openjarvis.tools._stubs import ToolSpec
-from openjarvis.tools.calculator import CalculatorTool
-from openjarvis.tools.mcp_adapter import MCPToolAdapter, MCPToolProvider
-from openjarvis.tools.think import ThinkTool
+from nira.mcp.client import MCPClient
+from nira.mcp.server import MCPServer
+from nira.mcp.transport import InProcessTransport
+from nira.tools._stubs import ToolSpec
+from nira.tools.calculator import CalculatorTool
+from nira.tools.mcp_adapter import MCPToolAdapter, MCPToolProvider
+from nira.tools.think import ThinkTool
 
 
 @pytest.fixture
@@ -103,7 +103,7 @@ class TestMCPToolProvider:
         assert "think" in names
 
     def test_discovered_tools_are_base_tool(self, client):
-        from openjarvis.tools._stubs import BaseTool
+        from nira.tools._stubs import BaseTool
 
         provider = MCPToolProvider(client)
         tools = provider.discover()

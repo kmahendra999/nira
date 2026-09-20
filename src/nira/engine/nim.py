@@ -10,15 +10,15 @@ from typing import Any, Dict, List
 
 import httpx
 
-from openjarvis.core.registry import EngineRegistry
-from openjarvis.core.types import Message
-from openjarvis.engine._base import (
+from nira.core.registry import EngineRegistry
+from nira.core.types import Message
+from nira.engine._base import (
     EngineConnectionError,
     InferenceEngine,
     estimate_prompt_tokens,
     messages_to_dicts,
 )
-from openjarvis.engine._stubs import StreamChunk
+from nira.engine._stubs import StreamChunk
 
 logger = logging.getLogger(__name__)
 

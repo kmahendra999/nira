@@ -6,8 +6,8 @@ from unittest.mock import patch
 
 import pytest
 
-from openjarvis.core.registry import TTSRegistry
-from openjarvis.speech.tts import TTSResult
+from nira.core.registry import TTSRegistry
+from nira.speech.tts import TTSResult
 
 # ---------------------------------------------------------------------------
 # TTSResult tests
@@ -19,7 +19,7 @@ def test_tts_result_dataclass():
         audio=b"fake-audio-bytes",
         format="mp3",
         duration_seconds=3.5,
-        voice_id="jarvis-v1",
+        voice_id="nira-v1",
     )
     assert result.audio == b"fake-audio-bytes"
     assert result.format == "mp3"
@@ -39,19 +39,19 @@ def test_tts_result_save(tmp_path):
 
 
 def test_cartesia_registered():
-    from openjarvis.speech.cartesia_tts import CartesiaTTSBackend
+    from nira.speech.cartesia_tts import CartesiaTTSBackend
 
     TTSRegistry.register_value("cartesia", CartesiaTTSBackend)
     assert TTSRegistry.contains("cartesia")
 
 
 def test_cartesia_synthesize():
-    from openjarvis.speech.cartesia_tts import CartesiaTTSBackend
+    from nira.speech.cartesia_tts import CartesiaTTSBackend
 
     backend = CartesiaTTSBackend(api_key="fake-key")
 
     with patch(
-        "openjarvis.speech.cartesia_tts._cartesia_synthesize",
+        "nira.speech.cartesia_tts._cartesia_synthesize",
         return_value=b"fake-audio-mp3-bytes",
     ):
         result = backend.synthesize("Hello world", voice_id="test-voice")
@@ -67,14 +67,14 @@ def test_cartesia_synthesize():
 
 
 def test_kokoro_registered():
-    from openjarvis.speech.kokoro_tts import KokoroTTSBackend
+    from nira.speech.kokoro_tts import KokoroTTSBackend
 
     TTSRegistry.register_value("kokoro", KokoroTTSBackend)
     assert TTSRegistry.contains("kokoro")
 
 
 def test_kokoro_health_false_without_package():
-    from openjarvis.speech.kokoro_tts import KokoroTTSBackend
+    from nira.speech.kokoro_tts import KokoroTTSBackend
 
     # The assertion only holds when kokoro is genuinely absent. With the
     # optional `voice` extra installed, health() legitimately returns True
@@ -84,7 +84,7 @@ def test_kokoro_health_false_without_package():
     except ImportError:
         pass
     else:
-        pytest.skip("kokoro installed (openjarvis[voice]); health() is True")
+        pytest.skip("kokoro installed (nira[voice]); health() is True")
 
     backend = KokoroTTSBackend()
     # Without kokoro installed, health returns False
@@ -93,7 +93,7 @@ def test_kokoro_health_false_without_package():
 
 def test_kokoro_lang_for_voice_mandarin():
     """Mandarin voice IDs (zf_*, zm_*) map to lang_code='z'."""
-    from openjarvis.speech.kokoro_tts import KokoroTTSBackend
+    from nira.speech.kokoro_tts import KokoroTTSBackend
 
     assert KokoroTTSBackend._lang_for_voice("zf_xiaoxiao") == "z"
     assert KokoroTTSBackend._lang_for_voice("zm_yunxi") == "z"
@@ -101,7 +101,7 @@ def test_kokoro_lang_for_voice_mandarin():
 
 def test_kokoro_lang_for_voice_english_and_other_languages():
     """Voice prefix detection covers English variants and other languages."""
-    from openjarvis.speech.kokoro_tts import KokoroTTSBackend
+    from nira.speech.kokoro_tts import KokoroTTSBackend
 
     assert KokoroTTSBackend._lang_for_voice("af_heart") == "a"
     assert KokoroTTSBackend._lang_for_voice("am_adam") == "a"
@@ -116,7 +116,7 @@ def test_kokoro_lang_for_voice_unknown_falls_back_to_english():
     """Unknown prefixes fall back to American English (Kokoro's most-stocked
     language) rather than crashing — keeps backward-compat for any
     user-supplied voice ID we haven't catalogued."""
-    from openjarvis.speech.kokoro_tts import KokoroTTSBackend
+    from nira.speech.kokoro_tts import KokoroTTSBackend
 
     assert KokoroTTSBackend._lang_for_voice("") == "a"
     assert KokoroTTSBackend._lang_for_voice("xx_unknown") == "a"
@@ -125,7 +125,7 @@ def test_kokoro_lang_for_voice_unknown_falls_back_to_english():
 def test_kokoro_available_voices_includes_mandarin_and_english():
     """Voice catalog must list at least one Mandarin voice and preserve
     the original English voices for backward compatibility."""
-    from openjarvis.speech.kokoro_tts import KokoroTTSBackend
+    from nira.speech.kokoro_tts import KokoroTTSBackend
 
     voices = KokoroTTSBackend().available_voices()
     # New Mandarin coverage (the focus of this change)
@@ -144,7 +144,7 @@ def test_kokoro_missing_chinese_deps_gives_actionable_error(monkeypatch):
 
     import pytest
 
-    from openjarvis.speech.kokoro_tts import KokoroTTSBackend
+    from nira.speech.kokoro_tts import KokoroTTSBackend
 
     class FakeKPipeline:
         def __init__(self, lang_code, model):
@@ -174,7 +174,7 @@ def test_kokoro_pipeline_cached_per_language(monkeypatch):
     import sys
     import types
 
-    from openjarvis.speech.kokoro_tts import KokoroTTSBackend
+    from nira.speech.kokoro_tts import KokoroTTSBackend
 
     init_calls = []
 
@@ -212,7 +212,7 @@ def test_kokoro_pipeline_cache_is_thread_safe(monkeypatch):
     import time
     import types
 
-    from openjarvis.speech.kokoro_tts import KokoroTTSBackend
+    from nira.speech.kokoro_tts import KokoroTTSBackend
 
     init_calls = []
 
@@ -255,7 +255,7 @@ def test_kokoro_pipeline_cache_evicts_lru_and_cleans_up(monkeypatch):
     import sys
     import types
 
-    from openjarvis.speech.kokoro_tts import KokoroTTSBackend
+    from nira.speech.kokoro_tts import KokoroTTSBackend
 
     instances = {}
 
@@ -300,7 +300,7 @@ def test_kokoro_pipeline_cache_evicts_lru_and_cleans_up(monkeypatch):
 def test_kokoro_pipeline_cache_size_must_be_positive():
     import pytest
 
-    from openjarvis.speech.kokoro_tts import KokoroTTSBackend
+    from nira.speech.kokoro_tts import KokoroTTSBackend
 
     with pytest.raises(ValueError, match="at least 1"):
         KokoroTTSBackend(max_cached_pipelines=0)
@@ -314,7 +314,7 @@ def test_kokoro_synthesize_routes_voice_to_correct_language(monkeypatch):
 
     import numpy as np
 
-    from openjarvis.speech.kokoro_tts import KokoroTTSBackend
+    from nira.speech.kokoro_tts import KokoroTTSBackend
 
     init_args = []
     call_args = []
@@ -340,7 +340,7 @@ def test_kokoro_synthesize_routes_voice_to_correct_language(monkeypatch):
     monkeypatch.setitem(sys.modules, "kokoro", fake_kokoro)
 
     # ``soundfile`` is a kokoro-runtime dep; stub it so we can test the
-    # routing logic without requiring it in the OpenJarvis test env.
+    # routing logic without requiring it in the Nira test env.
     def _fake_sf_write(buf, _samples, _sr, format=None):  # noqa: A002
         buf.write(b"FAKE_AUDIO_BYTES")
 
@@ -365,7 +365,7 @@ def test_kokoro_reuses_model_and_honors_path_and_device(monkeypatch):
     import sys
     import types
 
-    from openjarvis.speech.kokoro_tts import KokoroTTSBackend
+    from nira.speech.kokoro_tts import KokoroTTSBackend
 
     model_inits = []
     model_devices = []
@@ -407,19 +407,19 @@ def test_kokoro_reuses_model_and_honors_path_and_device(monkeypatch):
 
 
 def test_openai_tts_registered():
-    from openjarvis.speech.openai_tts import OpenAITTSBackend
+    from nira.speech.openai_tts import OpenAITTSBackend
 
     TTSRegistry.register_value("openai_tts", OpenAITTSBackend)
     assert TTSRegistry.contains("openai_tts")
 
 
 def test_openai_tts_synthesize():
-    from openjarvis.speech.openai_tts import OpenAITTSBackend
+    from nira.speech.openai_tts import OpenAITTSBackend
 
     backend = OpenAITTSBackend(api_key="fake-key")
 
     with patch(
-        "openjarvis.speech.openai_tts._openai_tts_request",
+        "nira.speech.openai_tts._openai_tts_request",
         return_value=b"fake-openai-audio",
     ):
         result = backend.synthesize("Hello", voice_id="nova")

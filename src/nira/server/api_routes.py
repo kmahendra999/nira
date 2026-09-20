@@ -66,7 +66,7 @@ agents_router = APIRouter(prefix="/v1/agents", tags=["agents"])
 
 def _execute_agent_admin_tool(request: Request, tool: Any, params: Dict[str, Any]):
     """Execute an agent lifecycle operation through server security gates."""
-    from openjarvis.security.runtime import execute_secured_tool
+    from nira.security.runtime import execute_secured_tool
 
     state = request.app.state
     return execute_secured_tool(
@@ -93,7 +93,7 @@ def _raise_agent_tool_failure(result: Any, *, not_found: bool = False) -> None:
 async def list_agents(request: Request):
     """List available agent types and running agents."""
     try:
-        from openjarvis.tools.agent_tools import AgentListTool
+        from nira.tools.agent_tools import AgentListTool
 
         # Registry names and live agent metadata are administrative state,
         # just like spawn/send/kill.  Authorize before reading either source
@@ -105,8 +105,8 @@ async def list_agents(request: Request):
 
     registered = []
     try:
-        import openjarvis.agents  # noqa: F401 — side-effect registration
-        from openjarvis.core.registry import AgentRegistry
+        import nira.agents  # noqa: F401 — side-effect registration
+        from nira.core.registry import AgentRegistry
 
         for key in sorted(AgentRegistry.keys()):
             cls = AgentRegistry.get(key)
@@ -122,7 +122,7 @@ async def list_agents(request: Request):
 
     running = []
     try:
-        from openjarvis.tools.agent_tools import _SPAWNED_AGENTS
+        from nira.tools.agent_tools import _SPAWNED_AGENTS
 
         running = [{"id": k, **v} for k, v in _SPAWNED_AGENTS.items()]
     except ImportError:
@@ -135,7 +135,7 @@ async def list_agents(request: Request):
 async def create_agent(req: AgentCreateRequest, request: Request):
     """Spawn a new agent."""
     try:
-        from openjarvis.tools.agent_tools import AgentSpawnTool
+        from nira.tools.agent_tools import AgentSpawnTool
 
         tool = AgentSpawnTool()
         params = {"agent_type": req.agent_type}
@@ -158,7 +158,7 @@ async def create_agent(req: AgentCreateRequest, request: Request):
 async def kill_agent(agent_id: str, request: Request):
     """Kill a running agent."""
     try:
-        from openjarvis.tools.agent_tools import AgentKillTool
+        from nira.tools.agent_tools import AgentKillTool
 
         tool = AgentKillTool()
         result = _execute_agent_admin_tool(request, tool, {"agent_id": agent_id})
@@ -172,7 +172,7 @@ async def kill_agent(agent_id: str, request: Request):
 async def message_agent(agent_id: str, req: AgentMessageRequest, request: Request):
     """Send a message to a running agent."""
     try:
-        from openjarvis.tools.agent_tools import AgentSendTool
+        from nira.tools.agent_tools import AgentSendTool
 
         tool = AgentSendTool()
         result = _execute_agent_admin_tool(
@@ -195,17 +195,17 @@ def _get_memory_backend(request: Request):
     """Return the app-level memory backend, falling back to a fresh SQLiteMemory.
 
     Raises ``HTTPException(503)`` with an actionable message when the backend
-    cannot be built because the mandatory ``openjarvis_rust`` extension is not
+    cannot be built because the mandatory ``nira_rust`` extension is not
     installed in the serving venv. This is deliberately distinct from a benign
     "memory not configured" case (which returns ``None``): a missing native
     extension must fail loudly, never silently degrade (#502).
     """
     backend = getattr(request.app.state, "memory_backend", None)
     if backend is None:
-        from openjarvis.tools.storage._stubs import MemoryBackendUnavailable
+        from nira.tools.storage._stubs import MemoryBackendUnavailable
 
         try:
-            from openjarvis.tools.storage.sqlite import SQLiteMemory
+            from nira.tools.storage.sqlite import SQLiteMemory
 
             backend = SQLiteMemory()
         except MemoryBackendUnavailable as exc:
@@ -276,24 +276,24 @@ async def memory_config(request: Request):
     """Return current memory configuration.
 
     Reports memory as *unavailable* (rather than falsely claiming
-    ``backend_type: sqlite``) when the native ``openjarvis_rust`` extension is
+    ``backend_type: sqlite``) when the native ``nira_rust`` extension is
     missing, so the UI can show the real cause instead of a healthy-looking
     config that backs a silent no-op (#502).
     """
     try:
         config = getattr(request.app.state, "config", None)
         if config is None:
-            from openjarvis.core.config import load_config
+            from nira.core.config import load_config
 
             config = load_config()
         backend = getattr(request.app.state, "memory_backend", None)
         available = True
         detail: Optional[str] = None
         if backend is None:
-            from openjarvis.tools.storage._stubs import MemoryBackendUnavailable
+            from nira.tools.storage._stubs import MemoryBackendUnavailable
 
             try:
-                from openjarvis.tools.storage.sqlite import SQLiteMemory
+                from nira.tools.storage.sqlite import SQLiteMemory
 
                 backend = SQLiteMemory()
             except MemoryBackendUnavailable as exc:
@@ -327,17 +327,17 @@ def memory_index(req: MemoryIndexRequest, request: Request):
         import os
         from pathlib import Path
 
-        from openjarvis.security.file_policy import is_sensitive_file
-        from openjarvis.tools.storage.ingest import ingest_path
+        from nira.security.file_policy import is_sensitive_file
+        from nira.tools.storage.ingest import ingest_path
 
         target = Path(req.path).expanduser().resolve()
         if not target.exists():
             raise HTTPException(status_code=404, detail=f"Path not found: {req.path}")
 
-        # Sandbox: when workspace roots are configured via OPENJARVIS_WORKSPACE
+        # Sandbox: when workspace roots are configured via NIRA_WORKSPACE
         # (os.pathsep-separated), only allow indexing inside them. This endpoint
         # must not become an arbitrary-filesystem read primitive over the API.
-        workspace = os.environ.get("OPENJARVIS_WORKSPACE", "").strip()
+        workspace = os.environ.get("NIRA_WORKSPACE", "").strip()
         if workspace:
             roots = [
                 Path(d).expanduser().resolve()
@@ -450,8 +450,8 @@ telemetry_router = APIRouter(prefix="/v1/telemetry", tags=["telemetry"])
 def _telemetry_db_path(request: Request) -> Path:
     """Resolve telemetry storage from the active app configuration.
 
-    ``DEFAULT_CONFIG_DIR`` is fixed when :mod:`openjarvis.core.config` is
-    imported, so it cannot honor a later ``OPENJARVIS_HOME`` override.  The
+    ``DEFAULT_CONFIG_DIR`` is fixed when :mod:`nira.core.config` is
+    imported, so it cannot honor a later ``NIRA_HOME`` override.  The
     running app's config is authoritative; lightweight apps that include these
     routes directly fall back to the env-aware path resolver.
     """
@@ -461,7 +461,7 @@ def _telemetry_db_path(request: Request) -> Path:
     if configured_path:
         return Path(configured_path).expanduser()
 
-    from openjarvis.core.paths import get_config_dir
+    from nira.core.paths import get_config_dir
 
     return get_config_dir() / "telemetry.db"
 
@@ -472,7 +472,7 @@ async def telemetry_stats(request: Request):
     try:
         from dataclasses import asdict
 
-        from openjarvis.telemetry.aggregator import TelemetryAggregator
+        from nira.telemetry.aggregator import TelemetryAggregator
 
         db_path = _telemetry_db_path(request)
         if not db_path.exists():
@@ -497,7 +497,7 @@ async def telemetry_stats(request: Request):
 async def telemetry_energy(request: Request):
     """Get energy monitoring data."""
     try:
-        from openjarvis.telemetry.aggregator import TelemetryAggregator
+        from nira.telemetry.aggregator import TelemetryAggregator
 
         db_path = _telemetry_db_path(request)
         if not db_path.exists():
@@ -542,7 +542,7 @@ skills_router = APIRouter(prefix="/v1/skills", tags=["skills"])
 async def list_skills(request: Request):
     """List installed skills."""
     try:
-        from openjarvis.core.registry import SkillRegistry
+        from nira.core.registry import SkillRegistry
 
         skills = []
         for key in sorted(SkillRegistry.keys()):
@@ -558,7 +558,7 @@ async def install_skill(request: Request):
     """Install a skill (placeholder)."""
     return {
         "status": "not_implemented",
-        "message": "Use TOML files in ~/.openjarvis/skills/",
+        "message": "Use TOML files in ~/.nira/skills/",
     }
 
 
@@ -580,7 +580,7 @@ sessions_router = APIRouter(prefix="/v1/sessions", tags=["sessions"])
 async def list_sessions(request: Request, limit: int = 20):
     """List active sessions."""
     try:
-        from openjarvis.sessions.store import SessionStore
+        from nira.sessions.store import SessionStore
 
         store = SessionStore()
         sessions = store.recent(limit=limit)
@@ -594,7 +594,7 @@ async def list_sessions(request: Request, limit: int = 20):
 async def get_session(session_id: str, request: Request):
     """Get a specific session."""
     try:
-        from openjarvis.sessions.store import SessionStore
+        from nira.sessions.store import SessionStore
 
         store = SessionStore()
         session = store.get(session_id)
@@ -646,7 +646,7 @@ metrics_router = APIRouter(tags=["metrics"])
 async def prometheus_metrics(request: Request):
     """Prometheus-compatible metrics endpoint."""
     try:
-        from openjarvis.telemetry.aggregator import TelemetryAggregator
+        from nira.telemetry.aggregator import TelemetryAggregator
 
         db_path = _telemetry_db_path(request)
         if not db_path.exists():
@@ -667,15 +667,15 @@ async def prometheus_metrics(request: Request):
         )
 
         lines = [
-            "# HELP openjarvis_requests_total Total requests processed",
-            "# TYPE openjarvis_requests_total counter",
-            f"openjarvis_requests_total {stats.total_calls}",
-            "# HELP openjarvis_tokens_total Total tokens generated",
-            "# TYPE openjarvis_tokens_total counter",
-            f"openjarvis_tokens_total {stats.total_tokens}",
-            "# HELP openjarvis_latency_avg_ms Average latency in milliseconds",
-            "# TYPE openjarvis_latency_avg_ms gauge",
-            f"openjarvis_latency_avg_ms {avg_latency_ms}",
+            "# HELP nira_requests_total Total requests processed",
+            "# TYPE nira_requests_total counter",
+            f"nira_requests_total {stats.total_calls}",
+            "# HELP nira_tokens_total Total tokens generated",
+            "# TYPE nira_tokens_total counter",
+            f"nira_tokens_total {stats.total_tokens}",
+            "# HELP nira_latency_avg_ms Average latency in milliseconds",
+            "# TYPE nira_latency_avg_ms gauge",
+            f"nira_latency_avg_ms {avg_latency_ms}",
         ]
         from starlette.responses import PlainTextResponse
 
@@ -738,7 +738,7 @@ def _record_ws_trace(
     """Record a trace for a completed WebSocket chat (best-effort)."""
     if trace_store is None or not result:
         return
-    from openjarvis.traces.collector import record_response_trace
+    from nira.traces.collector import record_response_trace
 
     record_response_trace(
         trace_store,
@@ -764,7 +764,7 @@ async def websocket_chat_stream(websocket: WebSocket):
         {"type": "done",  "content": "..."}   -- final assembled response
         {"type": "error", "detail": "..."}    -- on failure
     """
-    from openjarvis.server.auth_middleware import authenticate_websocket
+    from nira.server.auth_middleware import authenticate_websocket
 
     expected_key = getattr(websocket.app.state, "api_key", "")
     authorized, subprotocol = authenticate_websocket(websocket, expected_key)
@@ -917,7 +917,7 @@ async def learning_stats(request: Request):
 
     # Skill discovery
     try:
-        from openjarvis.learning.agents.skill_discovery import SkillDiscovery
+        from nira.learning.agents.skill_discovery import SkillDiscovery
 
         discovery = SkillDiscovery()
         result["skill_discovery"] = {
@@ -938,7 +938,7 @@ async def learning_policy(request: Request):
 
     # Load config and extract learning section
     try:
-        from openjarvis.core.config import load_config
+        from nira.core.config import load_config
 
         config = load_config()
         lc = config.learning
@@ -1053,8 +1053,8 @@ feedback_router = APIRouter(prefix="/v1/feedback", tags=["feedback"])
 async def submit_feedback(req: FeedbackScoreRequest, request: Request):
     """Submit feedback for a trace."""
     try:
-        from openjarvis.core.config import DEFAULT_CONFIG_DIR
-        from openjarvis.traces.store import TraceStore
+        from nira.core.config import DEFAULT_CONFIG_DIR
+        from nira.traces.store import TraceStore
 
         db_path = DEFAULT_CONFIG_DIR / "traces.db"
         if not db_path.exists():
@@ -1090,8 +1090,8 @@ optimize_router = APIRouter(prefix="/v1/optimize", tags=["optimize"])
 async def list_optimize_runs(request: Request):
     """List optimization runs."""
     try:
-        from openjarvis.core.config import DEFAULT_CONFIG_DIR
-        from openjarvis.learning.optimize.store import OptimizationStore
+        from nira.core.config import DEFAULT_CONFIG_DIR
+        from nira.learning.optimize.store import OptimizationStore
 
         db_path = DEFAULT_CONFIG_DIR / "optimize.db"
         if not db_path.exists():
@@ -1110,8 +1110,8 @@ async def list_optimize_runs(request: Request):
 async def get_optimize_run(run_id: str, request: Request):
     """Get optimization run details."""
     try:
-        from openjarvis.core.config import DEFAULT_CONFIG_DIR
-        from openjarvis.learning.optimize.store import OptimizationStore
+        from nira.core.config import DEFAULT_CONFIG_DIR
+        from nira.learning.optimize.store import OptimizationStore
 
         db_path = DEFAULT_CONFIG_DIR / "optimize.db"
         if not db_path.exists():
@@ -1144,7 +1144,7 @@ async def start_optimize_run(req: OptimizeRunRequest, request: Request):
 
 def include_all_routes(app) -> None:
     """Include all extended API routers in a FastAPI app."""
-    from openjarvis.server.approval_routes import (
+    from nira.server.approval_routes import (
         router as approval_router,  # noqa: PLC0415
     )
 
@@ -1166,7 +1166,7 @@ def include_all_routes(app) -> None:
     # Agent Manager routes (if available)
     try:
         if hasattr(app.state, "agent_manager") and app.state.agent_manager:
-            from openjarvis.server.agent_manager_routes import (  # noqa: PLC0415
+            from nira.server.agent_manager_routes import (  # noqa: PLC0415
                 create_agent_manager_router,
             )
 
@@ -1188,11 +1188,11 @@ def include_all_routes(app) -> None:
     # WebSocket bridge for real-time agent events. Must subscribe on the
     # same EventBus instance channels/agents actually publish to
     # (app.state.bus, set in server/app.py) — the get_event_bus() global
-    # singleton is a *different* bus that nothing in `jarvis serve` ever
+    # singleton is a *different* bus that nothing in `nira serve` ever
     # publishes to, so events silently never reached this endpoint.
     try:
-        from openjarvis.core.events import get_event_bus
-        from openjarvis.server.ws_bridge import create_ws_router
+        from nira.core.events import get_event_bus
+        from nira.server.ws_bridge import create_ws_router
 
         ws_router = create_ws_router(getattr(app.state, "bus", None) or get_event_bus())
         app.include_router(ws_router)

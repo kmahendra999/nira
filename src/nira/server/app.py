@@ -1,4 +1,4 @@
-"""FastAPI application factory for the OpenJarvis API server."""
+"""FastAPI application factory for the Nira API server."""
 
 from __future__ import annotations
 
@@ -12,15 +12,15 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from openjarvis.server.analytics_routes import router as analytics_router
-from openjarvis.server.api_routes import include_all_routes
-from openjarvis.server.comparison import comparison_router
-from openjarvis.server.connectors_router import create_connectors_router
-from openjarvis.server.dashboard import dashboard_router
-from openjarvis.server.digest_routes import create_digest_router
-from openjarvis.server.research_router import router as research_router
-from openjarvis.server.routes import router
-from openjarvis.server.upload_router import router as upload_router
+from nira.server.analytics_routes import router as analytics_router
+from nira.server.api_routes import include_all_routes
+from nira.server.comparison import comparison_router
+from nira.server.connectors_router import create_connectors_router
+from nira.server.dashboard import dashboard_router
+from nira.server.digest_routes import create_digest_router
+from nira.server.research_router import router as research_router
+from nira.server.routes import router
+from nira.server.upload_router import router as upload_router
 
 logger = logging.getLogger(__name__)
 _MANAGED_SHUTDOWN_GRACE_SECONDS = 0.25
@@ -53,7 +53,7 @@ def _restore_sendblue_bindings(app: FastAPI) -> None:
                 if not api_key_id or not api_secret_key:
                     continue
 
-                from openjarvis.channels.sendblue import SendBlueChannel
+                from nira.channels.sendblue import SendBlueChannel
 
                 sb = SendBlueChannel(
                     api_key_id=api_key_id,
@@ -68,20 +68,20 @@ def _restore_sendblue_bindings(app: FastAPI) -> None:
                 if bridge and hasattr(bridge, "_channels"):
                     bridge._channels["sendblue"] = sb
                 else:
-                    from openjarvis.server.channel_bridge import ChannelBridge
-                    from openjarvis.server.session_store import SessionStore
+                    from nira.server.channel_bridge import ChannelBridge
+                    from nira.server.session_store import SessionStore
 
                     session_store = SessionStore()
                     engine = getattr(app.state, "engine", None)
                     dr_agent = None
                     if engine:
-                        from openjarvis.server.agent_manager_routes import (
+                        from nira.server.agent_manager_routes import (
                             _build_deep_research_tools,
                         )
 
                         tools = _build_deep_research_tools(engine=engine, model="")
                         if tools:
-                            from openjarvis.agents.deep_research import (
+                            from nira.agents.deep_research import (
                                 DeepResearchAgent,
                             )
 
@@ -102,7 +102,7 @@ def _restore_sendblue_bindings(app: FastAPI) -> None:
 
                     bus = getattr(app.state, "bus", None)
                     if bus is None:
-                        from openjarvis.core.events import EventBus
+                        from nira.core.events import EventBus
 
                         bus = EventBus()
 
@@ -190,7 +190,7 @@ def create_app(
     channel_bridge:
         Optional channel bridge for multi-platform messaging.
     config:
-        Optional JarvisConfig for other settings.
+        Optional NiraConfig for other settings.
     """
     original_engine = engine
     security_enabled = config is not None and getattr(
@@ -198,7 +198,7 @@ def create_app(
     )
     if security_enabled:
         if bus is None:
-            from openjarvis.core.events import EventBus
+            from nira.core.events import EventBus
 
             bus = EventBus(record_history=False)
         if any(
@@ -206,9 +206,9 @@ def create_app(
             for primitive in (capability_policy, rate_limiter, audit_logger)
         ):
             # Programmatic factory callers must receive the same config-driven
-            # enforcement as ``jarvis serve``. Explicitly injected primitives
+            # enforcement as ``nira serve``. Explicitly injected primitives
             # remain authoritative; only missing pieces are derived.
-            from openjarvis.security import setup_security
+            from nira.security import setup_security
 
             derived_security = setup_security(config, engine, bus)
             engine = derived_security.engine
@@ -224,7 +224,7 @@ def create_app(
     # wiring remains authoritative.
     if agent is not None and getattr(agent, "_engine", None) is original_engine:
         agent._engine = engine
-    from openjarvis.security.runtime import wire_agent_security
+    from nira.security.runtime import wire_agent_security
 
     wire_agent_security(
         agent,
@@ -241,19 +241,19 @@ def create_app(
     )
 
     app = FastAPI(
-        title="OpenJarvis API",
-        description="OpenAI-compatible API server for OpenJarvis",
+        title="Nira API",
+        description="OpenAI-compatible API server for Nira",
         version="0.1.0",
     )
 
     from fastapi.middleware.cors import CORSMiddleware
 
     # Allow deployments to pin the exact browser origins via
-    # OPENJARVIS_CORS_ORIGINS (comma-separated). On an exposed server this
+    # NIRA_CORS_ORIGINS (comma-separated). On an exposed server this
     # should be set to your real frontend origin(s) only — never "*", which
     # combined with allow_credentials=True would let any website call the API
     # in the user's authenticated context.
-    _env_origins = os.environ.get("OPENJARVIS_CORS_ORIGINS", "").strip()
+    _env_origins = os.environ.get("NIRA_CORS_ORIGINS", "").strip()
     if cors_origins is not None:
         _origins = cors_origins
     elif _env_origins:
@@ -428,8 +428,8 @@ def create_app(
     # the telemetry store is bus-subscribed (see system/builder.py).
     app.state.trace_store = None
     try:
-        from openjarvis.core.config import load_config
-        from openjarvis.traces.store import TraceStore
+        from nira.core.config import load_config
+        from nira.traces.store import TraceStore
 
         cfg = config if config is not None else load_config()
         if cfg.traces.enabled:
@@ -445,12 +445,12 @@ def create_app(
     app.state.analytics_client = None
     app.state.analytics_bridge = None
     try:
-        from openjarvis.analytics import (
+        from nira.analytics import (
             AnalyticsClient,
             EventBridge,
             is_analytics_enabled,
         )
-        from openjarvis.core.config import load_config
+        from nira.core.config import load_config
 
         _cfg = config if config is not None else load_config()
         if is_analytics_enabled(_cfg.analytics):
@@ -506,7 +506,7 @@ def create_app(
 
     # Add security headers middleware
     try:
-        from openjarvis.server.middleware import create_security_middleware
+        from nira.server.middleware import create_security_middleware
 
         middleware_cls = create_security_middleware()
         if middleware_cls is not None:
@@ -517,7 +517,7 @@ def create_app(
     # API key authentication middleware
     if api_key:
         try:
-            from openjarvis.server.auth_middleware import AuthMiddleware
+            from nira.server.auth_middleware import AuthMiddleware
 
             app.add_middleware(AuthMiddleware, api_key=api_key)
         except Exception as exc:
@@ -538,7 +538,7 @@ def create_app(
     # Mount webhook routes (always — SendBlue may be configured dynamically)
     if webhook_config:
         try:
-            from openjarvis.server.webhook_routes import (
+            from nira.server.webhook_routes import (
                 create_webhook_router,
             )
 

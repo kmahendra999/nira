@@ -6,10 +6,10 @@ from typing import Any, Dict, Optional, Tuple
 
 import pytest
 
-from openjarvis.evals.core.backend import InferenceBackend
-from openjarvis.evals.core.dataset import DatasetProvider
-from openjarvis.evals.core.scorer import Scorer
-from openjarvis.evals.core.types import EvalRecord
+from nira.evals.core.backend import InferenceBackend
+from nira.evals.core.dataset import DatasetProvider
+from nira.evals.core.scorer import Scorer
+from nira.evals.core.types import EvalRecord
 
 # ---------------------------------------------------------------------------
 # Mock backend

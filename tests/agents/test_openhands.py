@@ -6,9 +6,9 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from openjarvis.agents._stubs import BaseAgent
-from openjarvis.agents.openhands import OpenHandsAgent
-from openjarvis.core.registry import AgentRegistry
+from nira.agents._stubs import BaseAgent
+from nira.agents.openhands import OpenHandsAgent
+from nira.core.registry import AgentRegistry
 
 
 class TestOpenHandsAgentRegistration:

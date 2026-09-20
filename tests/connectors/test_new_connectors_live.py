@@ -9,13 +9,13 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from openjarvis.connectors._stubs import Document
+from nira.connectors._stubs import Document
 
 
 @pytest.mark.cloud
 class TestOuraLive:
     def test_sync_returns_documents(self):
-        from openjarvis.connectors.oura import OuraConnector
+        from nira.connectors.oura import OuraConnector
 
         conn = OuraConnector()  # Uses default token path
         docs = list(conn.sync(since=datetime.now() - timedelta(days=1)))
@@ -27,7 +27,7 @@ class TestOuraLive:
 @pytest.mark.cloud
 class TestStravaLive:
     def test_sync_returns_documents(self):
-        from openjarvis.connectors.strava import StravaConnector
+        from nira.connectors.strava import StravaConnector
 
         conn = StravaConnector()
         docs = list(conn.sync(since=datetime.now() - timedelta(days=7)))
@@ -38,7 +38,7 @@ class TestStravaLive:
 @pytest.mark.cloud
 class TestSpotifyLive:
     def test_sync_returns_documents(self):
-        from openjarvis.connectors.spotify import SpotifyConnector
+        from nira.connectors.spotify import SpotifyConnector
 
         conn = SpotifyConnector()
         docs = list(conn.sync(since=datetime.now() - timedelta(days=1)))
@@ -49,7 +49,7 @@ class TestSpotifyLive:
 @pytest.mark.cloud
 class TestGoogleTasksLive:
     def test_sync_returns_documents(self):
-        from openjarvis.connectors.google_tasks import GoogleTasksConnector
+        from nira.connectors.google_tasks import GoogleTasksConnector
 
         conn = GoogleTasksConnector()
         docs = list(conn.sync(since=datetime.now() - timedelta(days=7)))

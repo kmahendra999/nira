@@ -5,8 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Dict
 
-from openjarvis.workflow.graph import WorkflowGraph
-from openjarvis.workflow.types import NodeType, WorkflowEdge, WorkflowNode
+from nira.workflow.graph import WorkflowGraph
+from nira.workflow.types import NodeType, WorkflowEdge, WorkflowNode
 
 try:
     import tomllib

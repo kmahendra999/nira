@@ -11,10 +11,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from openjarvis.channels._stubs import ChannelStatus
-from openjarvis.channels.telegram import TelegramChannel
-from openjarvis.core.events import EventBus, EventType
-from openjarvis.core.registry import ChannelRegistry
+from nira.channels._stubs import ChannelStatus
+from nira.channels.telegram import TelegramChannel
+from nira.core.events import EventBus, EventType
+from nira.core.registry import ChannelRegistry
 from tests.channels.channel_test_helpers import make_common_channel_tests
 
 
@@ -448,7 +448,7 @@ class TestDisconnectStopsRealListener:
                 },
             ),
             patch(
-                "openjarvis.channels.telegram.asyncio.new_event_loop",
+                "nira.channels.telegram.asyncio.new_event_loop",
                 side_effect=make_event_loop,
             ),
         ):
@@ -596,7 +596,7 @@ class TestAllowedChatIds:
 
     def _invoke_handle_msg(self, ch: TelegramChannel, chat_id: str, text: str = "hi"):
         """Simulate _poll_loop dispatching a message without starting a thread."""
-        from openjarvis.channels._stubs import ChannelMessage
+        from nira.channels._stubs import ChannelMessage
 
         cm = ChannelMessage(
             channel="telegram",
@@ -663,7 +663,7 @@ class TestChannelAgentWiring:
         received = []
         ch.on_message(lambda cm: received.append(cm))
 
-        from openjarvis.channels._stubs import ChannelMessage
+        from nira.channels._stubs import ChannelMessage
 
         cm = ChannelMessage(
             channel="telegram",
@@ -686,7 +686,7 @@ class TestChannelAgentWiring:
         ch.on_message(lambda cm: calls_a.append(cm))
         ch.on_message(lambda cm: calls_b.append(cm))
 
-        from openjarvis.channels._stubs import ChannelMessage
+        from nira.channels._stubs import ChannelMessage
 
         cm = ChannelMessage(
             channel="telegram",

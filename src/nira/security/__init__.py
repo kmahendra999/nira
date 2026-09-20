@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from importlib import import_module
 from typing import Any, Optional
 
-from openjarvis.core.events import EventBus
+from nira.core.events import EventBus
 
 logger = logging.getLogger(__name__)
 
@@ -34,11 +34,11 @@ def setup_security(
     if not config.security.enabled:
         return SecurityContext(engine=engine)
 
-    from openjarvis.security._stubs import BaseScanner
-    from openjarvis.security.audit import AuditLogger
-    from openjarvis.security.guardrails import GuardrailsEngine
-    from openjarvis.security.scanner import PIIScanner, SecretScanner
-    from openjarvis.security.types import RedactionMode
+    from nira.security._stubs import BaseScanner
+    from nira.security.audit import AuditLogger
+    from nira.security.guardrails import GuardrailsEngine
+    from nira.security.scanner import PIIScanner, SecretScanner
+    from nira.security.types import RedactionMode
 
     # Scanners + engine wrapping
     try:
@@ -65,7 +65,7 @@ def setup_security(
     cap_policy = None
     if config.security.capabilities.enabled:
         try:
-            from openjarvis.security.capabilities import CapabilityPolicy
+            from nira.security.capabilities import CapabilityPolicy
 
             cap_policy = CapabilityPolicy(
                 policy_path=config.security.capabilities.policy_path or None,
@@ -99,7 +99,7 @@ def setup_security(
     rate_limiter = None
     if config.security.rate_limit_enabled:
         try:
-            from openjarvis.security.rate_limiter import RateLimitConfig, RateLimiter
+            from nira.security.rate_limiter import RateLimitConfig, RateLimiter
 
             rate_limiter = RateLimiter(
                 RateLimitConfig(
@@ -154,32 +154,32 @@ __all__ = [
 ]
 
 _LAZY_EXPORTS = {
-    "AuditLogger": ("openjarvis.security.audit", "AuditLogger"),
-    "BaseScanner": ("openjarvis.security._stubs", "BaseScanner"),
+    "AuditLogger": ("nira.security.audit", "AuditLogger"),
+    "BaseScanner": ("nira.security._stubs", "BaseScanner"),
     "DEFAULT_SENSITIVE_PATTERNS": (
-        "openjarvis.security.file_policy",
+        "nira.security.file_policy",
         "DEFAULT_SENSITIVE_PATTERNS",
     ),
-    "GuardrailsEngine": ("openjarvis.security.guardrails", "GuardrailsEngine"),
-    "PIIScanner": ("openjarvis.security.scanner", "PIIScanner"),
-    "RedactionMode": ("openjarvis.security.types", "RedactionMode"),
-    "ScanFinding": ("openjarvis.security.types", "ScanFinding"),
-    "ScanResult": ("openjarvis.security.types", "ScanResult"),
-    "SecretScanner": ("openjarvis.security.scanner", "SecretScanner"),
+    "GuardrailsEngine": ("nira.security.guardrails", "GuardrailsEngine"),
+    "PIIScanner": ("nira.security.scanner", "PIIScanner"),
+    "RedactionMode": ("nira.security.types", "RedactionMode"),
+    "ScanFinding": ("nira.security.types", "ScanFinding"),
+    "ScanResult": ("nira.security.types", "ScanResult"),
+    "SecretScanner": ("nira.security.scanner", "SecretScanner"),
     "SecurityBlockError": (
-        "openjarvis.security.guardrails",
+        "nira.security.guardrails",
         "SecurityBlockError",
     ),
-    "SecurityEvent": ("openjarvis.security.types", "SecurityEvent"),
-    "SecurityEventType": ("openjarvis.security.types", "SecurityEventType"),
-    "ThreatLevel": ("openjarvis.security.types", "ThreatLevel"),
-    "check_ssrf": ("openjarvis.security.ssrf", "check_ssrf"),
+    "SecurityEvent": ("nira.security.types", "SecurityEvent"),
+    "SecurityEventType": ("nira.security.types", "SecurityEventType"),
+    "ThreatLevel": ("nira.security.types", "ThreatLevel"),
+    "check_ssrf": ("nira.security.ssrf", "check_ssrf"),
     "filter_sensitive_paths": (
-        "openjarvis.security.file_policy",
+        "nira.security.file_policy",
         "filter_sensitive_paths",
     ),
-    "is_private_ip": ("openjarvis.security.ssrf", "is_private_ip"),
-    "is_sensitive_file": ("openjarvis.security.file_policy", "is_sensitive_file"),
+    "is_private_ip": ("nira.security.ssrf", "is_private_ip"),
+    "is_sensitive_file": ("nira.security.file_policy", "is_sensitive_file"),
 }
 
 

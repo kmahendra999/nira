@@ -1,29 +1,29 @@
 [package]
-name = "openjarvis-python"
+name = "nira-python"
 version = "0.1.0"
 edition = "2021"
 
 [lib]
-name = "openjarvis_rust"
+name = "nira_rust"
 crate-type = ["cdylib"]
 
 [dependencies]
-openjarvis-core = { path = "../openjarvis-core" }
-openjarvis-engine = { path = "../openjarvis-engine" }
-openjarvis-security = { path = "../openjarvis-security" }
-openjarvis-tools = { path = "../openjarvis-tools" }
-openjarvis-agents = { path = "../openjarvis-agents" }
-openjarvis-traces = { path = "../openjarvis-traces" }
-openjarvis-telemetry = { path = "../openjarvis-telemetry" }
-openjarvis-learning = { path = "../openjarvis-learning" }
-openjarvis-mcp = { path = "../openjarvis-mcp" }
-openjarvis-sessions = { path = "../openjarvis-sessions" }
-openjarvis-workflow = { path = "../openjarvis-workflow" }
-openjarvis-skills = { path = "../openjarvis-skills" }
-openjarvis-recipes = { path = "../openjarvis-recipes" }
-openjarvis-templates = { path = "../openjarvis-templates" }
-openjarvis-a2a = { path = "../openjarvis-a2a" }
-openjarvis-scheduler = { path = "../openjarvis-scheduler" }
+nira-core = { path = "../nira-core" }
+nira-engine = { path = "../nira-engine" }
+nira-security = { path = "../nira-security" }
+nira-tools = { path = "../nira-tools" }
+nira-agents = { path = "../nira-agents" }
+nira-traces = { path = "../nira-traces" }
+nira-telemetry = { path = "../nira-telemetry" }
+nira-learning = { path = "../nira-learning" }
+nira-mcp = { path = "../nira-mcp" }
+nira-sessions = { path = "../nira-sessions" }
+nira-workflow = { path = "../nira-workflow" }
+nira-skills = { path = "../nira-skills" }
+nira-recipes = { path = "../nira-recipes" }
+nira-templates = { path = "../nira-templates" }
+nira-a2a = { path = "../nira-a2a" }
+nira-scheduler = { path = "../nira-scheduler" }
 pyo3 = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

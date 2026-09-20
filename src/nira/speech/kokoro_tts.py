@@ -18,8 +18,8 @@ import threading
 from collections import OrderedDict
 from typing import Any, Dict, List
 
-from openjarvis.core.registry import TTSRegistry
-from openjarvis.speech.tts import TTSBackend, TTSResult
+from nira.core.registry import TTSRegistry
+from nira.speech.tts import TTSBackend, TTSResult
 
 # Kokoro's voice-prefix → ``lang_code`` mapping. Keep this in sync with
 # ``kokoro.pipeline.LANG_CODES``: Kokoro 0.9.x does not expose a Korean
@@ -222,7 +222,7 @@ class KokoroTTSBackend(TTSBackend):
 
     def available_voices(self) -> List[str]:
         # Curated subset of Kokoro v1.x voices. The full catalog is larger;
-        # the list here covers the languages OpenJarvis users most commonly
+        # the list here covers the languages Nira users most commonly
         # ask for and avoids voice IDs that have changed across Kokoro
         # releases.
         return [

@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    OpenJarvis native Windows installer.
+    Nira native Windows installer.
 
 .DESCRIPTION
     Phase-1 of the native-Windows-support RFC (#298). Mirrors the
@@ -14,18 +14,18 @@
          see #432).
       3. Check git on PATH.
       4. Install uv (https://astral.sh/uv) if absent.
-      5. Clone the OpenJarvis repository to $env:LOCALAPPDATA\OpenJarvis
-         (override with $env:OPENJARVIS_HOME).
+      5. Clone the Nira repository to $env:LOCALAPPDATA\Nira
+         (override with $env:NIRA_HOME).
       6. Run `uv sync --extra desktop --group desktop-native` so the FastAPI
          server, speech backend, and native extension are importable.
       7. Optionally register the scheduled-task service (see
-         deploy/windows/jarvis-service.ps1).
+         deploy/windows/nira-service.ps1).
 
     Usage (one-liner):
-      irm https://open-jarvis.github.io/OpenJarvis/install.ps1 | iex
+      irm https://nira-ai.github.io/nira/install.ps1 | iex
 
     Usage (file invocation, supports flags):
-      irm https://open-jarvis.github.io/OpenJarvis/install.ps1 -OutFile install.ps1
+      irm https://nira-ai.github.io/nira/install.ps1 -OutFile install.ps1
       .\install.ps1 -SkipService
 
     Flags (when running the file directly):
@@ -36,14 +36,14 @@
     Under `irm | iex` the param block is unreachable (Invoke-Expression
     can't pass named args into a piped script string), so the same knobs
     are honored via env vars when the corresponding flag is absent:
-      $env:OPENJARVIS_SKIP_SERVICE = '1'
-      $env:OPENJARVIS_SERVICE      = '1'
-      $env:OPENJARVIS_FORCE        = '1'
+      $env:NIRA_SKIP_SERVICE = '1'
+      $env:NIRA_SERVICE      = '1'
+      $env:NIRA_FORCE        = '1'
 
 .NOTES
     Loopback default: the scheduled-task service binds 127.0.0.1, so no
     API key is needed. To expose on the LAN, edit the registered task to
-    pass `--host 0.0.0.0` AND set $env:OPENJARVIS_API_KEY (an
+    pass `--host 0.0.0.0` AND set $env:NIRA_API_KEY (an
     unauthenticated 0.0.0.0 server refuses to start). See
     deploy/windows/README.md.
 #>
@@ -60,9 +60,9 @@ $ErrorActionPreference = 'Stop'
 # Env-var fallback for the `irm | iex` path, where the param block is
 # unreachable (see header comment). Any explicit -switch wins; env vars
 # only fill in the gaps.
-if (-not $SkipService -and $env:OPENJARVIS_SKIP_SERVICE) { $SkipService = $true }
-if (-not $Service     -and $env:OPENJARVIS_SERVICE)      { $Service     = $true }
-if (-not $Force       -and $env:OPENJARVIS_FORCE)        { $Force       = $true }
+if (-not $SkipService -and $env:NIRA_SKIP_SERVICE) { $SkipService = $true }
+if (-not $Service     -and $env:NIRA_SERVICE)      { $Service     = $true }
+if (-not $Force       -and $env:NIRA_FORCE)        { $Force       = $true }
 
 # ---------------------------------------------------------------------------
 # Output helpers - coloured but plain enough for Constrained Language Mode.
@@ -185,7 +185,7 @@ $pyMajor = [int]$verMatch.Groups[1].Value
 $pyMinor = [int]$verMatch.Groups[2].Value
 if ($pyMajor -ne 3 -or $pyMinor -lt 10 -or $pyMinor -gt 13) {
     Write-Fail @"
-Found Python $pyMajor.$pyMinor at $pythonExe, but OpenJarvis requires
+Found Python $pyMajor.$pyMinor at $pythonExe, but Nira requires
 3.10 - 3.13. Python 3.14 has no numpy Windows wheels yet (#432, will
 re-open once numpy ships cp314).
 "@
@@ -247,10 +247,10 @@ Write-Ok "uv ($uvExe)"
 # 5. Clone the repo
 # ---------------------------------------------------------------------------
 
-$installRoot = if ($env:OPENJARVIS_HOME) {
-    $env:OPENJARVIS_HOME
+$installRoot = if ($env:NIRA_HOME) {
+    $env:NIRA_HOME
 } else {
-    Join-Path $env:LOCALAPPDATA 'OpenJarvis'
+    Join-Path $env:LOCALAPPDATA 'Nira'
 }
 $srcDir = Join-Path $installRoot 'src'
 
@@ -260,10 +260,10 @@ if (-not (Test-Path $installRoot)) {
     New-Item -ItemType Directory -Path $installRoot | Out-Null
 }
 
-$repoUrl = if ($env:OPENJARVIS_REPO_URL) {
-    $env:OPENJARVIS_REPO_URL
+$repoUrl = if ($env:NIRA_REPO_URL) {
+    $env:NIRA_REPO_URL
 } else {
-    'https://github.com/open-jarvis/OpenJarvis.git'
+    'https://github.com/nira-ai/nira.git'
 }
 
 if (Test-Path (Join-Path $srcDir '.git')) {
@@ -377,7 +377,7 @@ if (-not $ollamaReady) {
 
 $modelPullOk = $false
 if ($ollamaReady) {
-    Write-Info "Pulling qwen3.5:2b (~1.5 GB) so 'jarvis' works on first run..."
+    Write-Info "Pulling qwen3.5:2b (~1.5 GB) so 'nira' works on first run..."
     & $ollamaExe pull 'qwen3.5:2b'
     if ($LASTEXITCODE -eq 0) {
         $modelPullOk = $true
@@ -390,18 +390,18 @@ if ($ollamaReady) {
 }
 
 # ---------------------------------------------------------------------------
-# 9. jarvis.cmd shim - so bare `jarvis` works in any new PowerShell
+# 9. nira.cmd shim - so bare `nira` works in any new PowerShell
 # ---------------------------------------------------------------------------
 
 $binDir = Join-Path $installRoot 'bin'
-$shimPath = Join-Path $binDir 'jarvis.cmd'
+$shimPath = Join-Path $binDir 'nira.cmd'
 
 if (-not (Test-Path $binDir)) {
     New-Item -ItemType Directory -Path $binDir | Out-Null
 }
 
 # %~dp0 in a .cmd file resolves to the directory containing the script,
-# so the shim is self-locating - moving %LOCALAPPDATA%\OpenJarvis won't
+# so the shim is self-locating - moving %LOCALAPPDATA%\Nira won't
 # break it as long as the user moves the whole tree. `uv` is resolved
 # from PATH at runtime (astral installer adds it to User PATH); avoids
 # pinning to the install-time uv.exe path which can shift on uv updates.
@@ -409,16 +409,16 @@ $shimContent = @"
 @echo off
 setlocal
 set "SRC=%~dp0..\src"
-uv run --project "%SRC%" jarvis %*
+uv run --project "%SRC%" nira %*
 "@
 Set-Content -Path $shimPath -Value $shimContent -Encoding ASCII
 
-# Add %LOCALAPPDATA%\OpenJarvis\bin to User PATH if it isn't already
+# Add %LOCALAPPDATA%\Nira\bin to User PATH if it isn't already
 # there. The current process won't see it until restart - handled in the
 # final banner.
 #
 # Compare against the EXPANDED form: a previous install may have written
-# the entry as `%LOCALAPPDATA%\OpenJarvis\bin` (unexpanded) into User
+# the entry as `%LOCALAPPDATA%\Nira\bin` (unexpanded) into User
 # PATH, and a literal `-ieq` against the expanded `$binDir` would miss
 # it and append a duplicate every re-run.
 $userPath = [System.Environment]::GetEnvironmentVariable('Path', 'User')
@@ -435,13 +435,13 @@ if (-not $pathOnUser) {
     [System.Environment]::SetEnvironmentVariable('Path', $newUserPath, 'User')
     $pathNeedsRefresh = $true
 }
-Write-Ok "jarvis shim installed at $shimPath"
+Write-Ok "nira shim installed at $shimPath"
 
 # ---------------------------------------------------------------------------
 # 10. Optional: register the scheduled-task service
 # ---------------------------------------------------------------------------
 
-$serviceScript = Join-Path $srcDir 'deploy\windows\jarvis-service.ps1'
+$serviceScript = Join-Path $srcDir 'deploy\windows\nira-service.ps1'
 $shouldInstallService = $false
 
 # Pre-check admin if the user wants the service - Register-ScheduledTask
@@ -475,7 +475,7 @@ if ($Service) {
     $isInteractive = [Environment]::UserInteractive `
         -and -not [System.Console]::IsInputRedirected
     if ($isInteractive) {
-        $reply = Read-Host "Register OpenJarvis as a Windows scheduled task (auto-start at logon, loopback only)? [y/N]"
+        $reply = Read-Host "Register Nira as a Windows scheduled task (auto-start at logon, loopback only)? [y/N]"
         $shouldInstallService = ($reply -match '^[yY]')
     } else {
         Write-Warn2 "Non-interactive install - skipping scheduled-task setup."
@@ -493,7 +493,7 @@ if ($shouldInstallService) {
     if ($LASTEXITCODE -ne 0) {
         Write-Fail "Scheduled task setup failed."
     }
-    Write-Ok "Scheduled task 'OpenJarvis' registered (loopback default)."
+    Write-Ok "Scheduled task 'Nira' registered (loopback default)."
 }
 
 # ---------------------------------------------------------------------------
@@ -502,7 +502,7 @@ if ($shouldInstallService) {
 
 Write-Host ""
 Write-Host "  +----------------------------------+" -ForegroundColor Green
-Write-Host "  |   OpenJarvis install complete    |" -ForegroundColor Green
+Write-Host "  |   Nira install complete    |" -ForegroundColor Green
 Write-Host "  +----------------------------------+" -ForegroundColor Green
 Write-Host ""
 Write-Host "  Repo:    $srcDir"
@@ -510,12 +510,12 @@ Write-Host "  Repo:    $srcDir"
 # Tell the truth about what the user can run next, given (a) whether the
 # starter model finished pulling and (b) whether the User-PATH update
 # needs a fresh PowerShell to take effect.
-$nextCmd = if ($modelPullOk) { 'jarvis' } else { 'jarvis doctor' }
+$nextCmd = if ($modelPullOk) { 'nira' } else { 'nira doctor' }
 
 if ($pathNeedsRefresh) {
     Write-Host ""
     Write-Host "  Run it:  open a NEW PowerShell, then: $nextCmd" -ForegroundColor Yellow
-    Write-Host "           (the jarvis shim was added to your User PATH; the"
+    Write-Host "           (the nira shim was added to your User PATH; the"
     Write-Host "            current PowerShell won't see it until restart)"
 } else {
     Write-Host "  Run it:  $nextCmd"
@@ -525,14 +525,14 @@ if (-not $modelPullOk) {
     Write-Host ""
     Write-Host "  NOTE: the qwen3.5:2b model didn't finish downloading." -ForegroundColor Yellow
     Write-Host "        Chat will fail until the bg-orchestrator finishes the retry."
-    Write-Host "        'jarvis doctor' shows progress."
+    Write-Host "        'nira doctor' shows progress."
 }
 
 if ($shouldInstallService) {
     Write-Host ""
-    Write-Host "  Service: schtasks /Query /TN OpenJarvis     (status)"
+    Write-Host "  Service: schtasks /Query /TN Nira     (status)"
     Write-Host "           powershell -File `"$serviceScript`" uninstall    (remove)"
 }
 Write-Host ""
-Write-Host "  Docs:    https://open-jarvis.github.io/OpenJarvis/"
+Write-Host "  Docs:    https://nira-ai.github.io/nira/"
 Write-Host ""

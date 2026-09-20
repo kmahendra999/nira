@@ -1,6 +1,6 @@
 """Gmail connector — bulk email sync via the Gmail REST API.
 
-Uses OAuth 2.0 tokens stored locally (see :mod:`openjarvis.connectors.oauth`).
+Uses OAuth 2.0 tokens stored locally (see :mod:`nira.connectors.oauth`).
 All network calls are isolated in module-level functions (``_gmail_api_*``)
 to make them trivially mockable in tests.
 """
@@ -17,14 +17,14 @@ from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 import httpx
 
-from openjarvis.connectors._stubs import BaseConnector, Document, SyncStatus
-from openjarvis.connectors.google_auth import (
+from nira.connectors._stubs import BaseConnector, Document, SyncStatus
+from nira.connectors.google_auth import (
     GoogleAuthError,
 )
-from openjarvis.connectors.google_auth import (
+from nira.connectors.google_auth import (
     call_with_refresh as _call_with_refresh,
 )
-from openjarvis.connectors.oauth import (
+from nira.connectors.oauth import (
     GOOGLE_ALL_SCOPES,
     build_google_auth_url,
     delete_tokens,
@@ -33,9 +33,9 @@ from openjarvis.connectors.oauth import (
     resolve_google_credentials,
     save_tokens,
 )
-from openjarvis.core.config import DEFAULT_CONFIG_DIR
-from openjarvis.core.registry import ConnectorRegistry
-from openjarvis.tools._stubs import ToolSpec
+from nira.core.config import DEFAULT_CONFIG_DIR
+from nira.core.registry import ConnectorRegistry
+from nira.tools._stubs import ToolSpec
 
 logger = logging.getLogger(__name__)
 
@@ -340,7 +340,7 @@ class GmailConnector(BaseConnector):
     ----------
     credentials_path:
         Path to the JSON file where OAuth tokens are stored.  Defaults to
-        ``~/.openjarvis/connectors/gmail.json``.
+        ``~/.nira/connectors/gmail.json``.
     """
 
     connector_id = "gmail"
@@ -365,7 +365,7 @@ class GmailConnector(BaseConnector):
 
         The previous "any non-empty dict counts" check returned True for
         files containing only client_id/client_secret (no actual OAuth
-        token), which made `jarvis connect gmail` short-circuit with
+        token), which made `nira connect gmail` short-circuit with
         "already connected" before any OAuth flow ran.
         """
         tokens = load_tokens(self._credentials_path)
@@ -540,7 +540,7 @@ class GmailConnector(BaseConnector):
         new = refresh_google_token(self._credentials_path)
         if not new:
             raise RuntimeError(
-                "Gmail token refresh failed — re-run `jarvis connect gmail`"
+                "Gmail token refresh failed — re-run `nira connect gmail`"
             )
         return new
 

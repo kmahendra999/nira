@@ -12,9 +12,9 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
-from openjarvis.core.types import StepType, Trace
-from openjarvis.learning.routing._utils import classify_query
-from openjarvis.traces.store import TraceStore
+from nira.core.types import StepType, Trace
+from nira.learning.routing._utils import classify_query
+from nira.traces.store import TraceStore
 
 
 def _format_toml_value(value: Any) -> str:

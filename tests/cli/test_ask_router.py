@@ -1,4 +1,4 @@
-"""Tests for model resolution fallback chain in jarvis ask."""
+"""Tests for model resolution fallback chain in nira ask."""
 
 from __future__ import annotations
 
@@ -7,10 +7,10 @@ from unittest import mock
 
 from click.testing import CliRunner
 
-from openjarvis.cli import cli
-from openjarvis.core.config import JarvisConfig
+from nira.cli import cli
+from nira.core.config import NiraConfig
 
-_ask_mod = importlib.import_module("openjarvis.cli.ask")
+_ask_mod = importlib.import_module("nira.cli.ask")
 
 
 def _mock_engine():
@@ -31,12 +31,12 @@ def _mock_engine():
 def _register_agents():
     """Re-register agents after the conftest registry clear.
 
-    The default ``JarvisConfig().agent.default_agent`` is ``"simple"``,
-    so ``jarvis ask "..."`` (without ``--agent``) routes through SimpleAgent.
+    The default ``NiraConfig().agent.default_agent`` is ``"simple"``,
+    so ``nira ask "..."`` (without ``--agent``) routes through SimpleAgent.
     Without this re-registration, that path raises ``Unknown agent: simple``.
     """
-    from openjarvis.agents.simple import SimpleAgent
-    from openjarvis.core.registry import AgentRegistry
+    from nira.agents.simple import SimpleAgent
+    from nira.core.registry import AgentRegistry
 
     if not AgentRegistry.contains("simple"):
         AgentRegistry.register_value("simple", SimpleAgent)
@@ -103,7 +103,7 @@ class TestAskModelResolution:
             mock.patch.object(
                 _ask_mod,
                 "load_config",
-                return_value=JarvisConfig(),
+                return_value=NiraConfig(),
             ) as mock_config,
         ):
             cfg = mock_config.return_value
@@ -137,7 +137,7 @@ class TestAskModelResolution:
             mock.patch.object(
                 _ask_mod,
                 "load_config",
-                return_value=JarvisConfig(),
+                return_value=NiraConfig(),
             ) as mock_config,
         ):
             cfg = mock_config.return_value

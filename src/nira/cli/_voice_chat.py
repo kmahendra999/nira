@@ -41,8 +41,8 @@ class VoiceSession:
     def get_stt_backend(self) -> Any:
         """Resolve and health-check STT once, then reuse the loaded backend."""
         if not self._stt_resolved:
-            from openjarvis.core.config import load_config
-            from openjarvis.speech._discovery import get_speech_backend
+            from nira.core.config import load_config
+            from nira.speech._discovery import get_speech_backend
 
             config = self._config if self._config is not None else load_config()
             self._stt_backend = get_speech_backend(config)
@@ -56,8 +56,8 @@ class VoiceSession:
 
         # Import triggers built-in backend registration only when voice output
         # is actually requested.
-        import openjarvis.speech  # noqa: F401
-        from openjarvis.core.registry import TTSRegistry
+        import nira.speech  # noqa: F401
+        from nira.core.registry import TTSRegistry
 
         preferred, _, _ = self.get_voice_preferences()
         backend_order = dict.fromkeys((preferred, *_TTS_BACKEND_ORDER))
@@ -79,7 +79,7 @@ class VoiceSession:
     def get_voice_preferences(self) -> tuple[str, str, float]:
         """Resolve configured (tts_backend, voice_id, speed), cached per session."""
         if self._voice_prefs is None:
-            from openjarvis.core.config import load_config
+            from nira.core.config import load_config
 
             config = self._config if self._config is not None else load_config()
             speech = getattr(config, "speech", None)
@@ -133,7 +133,7 @@ def record_voice(
     session: VoiceSession | None = None,
 ) -> Optional[str] | object:
     """Record from mic, transcribe, and return text or a loop sentinel."""
-    from openjarvis.speech.voice_io import record_until_silence
+    from nira.speech.voice_io import record_until_silence
 
     active_session = session or VoiceSession()
     backend = active_session.get_stt_backend()
@@ -141,7 +141,7 @@ def record_voice(
         console.print(
             "[red]No speech-to-text backend available. "
             "Install the voice dependencies with: "
-            "pip install 'OpenJarvis[speech]', or configure a healthy "
+            "pip install 'Nira[speech]', or configure a healthy "
             "OpenAI/Deepgram backend.[/red]"
         )
         return VOICE_EXIT
@@ -175,7 +175,7 @@ def record_voice(
 
 def speak(text: str, console: Any, session: VoiceSession | None = None) -> None:
     """Synthesize and play text, reusing a healthy backend for the session."""
-    from openjarvis.speech.voice_io import play_wav
+    from nira.speech.voice_io import play_wav
 
     active_session = session or VoiceSession()
 

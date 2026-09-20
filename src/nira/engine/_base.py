@@ -5,8 +5,8 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any, Dict, List
 
-from openjarvis.core.types import Message
-from openjarvis.engine._stubs import InferenceEngine
+from nira.core.types import Message
+from nira.engine._stubs import InferenceEngine
 
 
 class EngineConnectionError(Exception):

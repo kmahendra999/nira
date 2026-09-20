@@ -15,11 +15,11 @@ from typing import Any, Dict, Iterator, List, Optional
 
 import httpx
 
-from openjarvis.connectors._stubs import BaseConnector, Document, SyncStatus
-from openjarvis.connectors.oauth import delete_tokens, load_tokens, save_tokens
-from openjarvis.core.config import DEFAULT_CONFIG_DIR
-from openjarvis.core.registry import ConnectorRegistry
-from openjarvis.tools._stubs import ToolSpec
+from nira.connectors._stubs import BaseConnector, Document, SyncStatus
+from nira.connectors.oauth import delete_tokens, load_tokens, save_tokens
+from nira.core.config import DEFAULT_CONFIG_DIR
+from nira.core.registry import ConnectorRegistry
+from nira.tools._stubs import ToolSpec
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -248,7 +248,7 @@ class NotionConnector(BaseConnector):
         stored credentials file.
     credentials_path:
         Path to the JSON file where the token is stored.  Defaults to
-        ``~/.openjarvis/connectors/notion.json``.
+        ``~/.nira/connectors/notion.json``.
     """
 
     connector_id = "notion"

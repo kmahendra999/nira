@@ -8,10 +8,10 @@ import httpx
 import pytest
 import respx
 
-from openjarvis.core.registry import EngineRegistry
-from openjarvis.core.types import Message, Role
-from openjarvis.engine._base import EngineConnectionError
-from openjarvis.engine.ollama import OllamaEngine
+from nira.core.registry import EngineRegistry
+from nira.core.types import Message, Role
+from nira.engine._base import EngineConnectionError
+from nira.engine.ollama import OllamaEngine
 
 OLLAMA_HOST = "http://testhost:11434"
 NEW_MODELS = ["gpt-oss:120b", "qwen3:8b", "glm-4.7-flash", "trinity-mini"]

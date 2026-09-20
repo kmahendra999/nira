@@ -24,7 +24,7 @@ num_gpus = 2
 
 [[benchmarks]]
 name = "pinchbench"
-backend = "jarvis-agent"
+backend = "nira-agent"
 max_samples = 23
 agent = "native_openhands"
 tools = [

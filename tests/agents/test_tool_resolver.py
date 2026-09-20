@@ -6,12 +6,12 @@ from collections import Counter
 
 import pytest
 
-from openjarvis.agents import tool_resolver
-from openjarvis.connectors.store import KnowledgeStore
-from openjarvis.core.registry import ToolRegistry
-from openjarvis.core.types import ToolResult
-from openjarvis.tools import description_loader
-from openjarvis.tools._stubs import BaseTool, ToolSpec
+from nira.agents import tool_resolver
+from nira.connectors.store import KnowledgeStore
+from nira.core.registry import ToolRegistry
+from nira.core.types import ToolResult
+from nira.tools import description_loader
+from nira.tools._stubs import BaseTool, ToolSpec
 
 
 class _AlphaTool(BaseTool):

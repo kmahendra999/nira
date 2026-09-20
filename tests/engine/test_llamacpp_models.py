@@ -8,10 +8,10 @@ import httpx
 import pytest
 import respx
 
-from openjarvis.core.registry import EngineRegistry
-from openjarvis.core.types import Message, Role
-from openjarvis.engine._base import EngineConnectionError
-from openjarvis.engine.openai_compat_engines import LlamaCppEngine
+from nira.core.registry import EngineRegistry
+from nira.core.types import Message, Role
+from nira.engine._base import EngineConnectionError
+from nira.engine.openai_compat_engines import LlamaCppEngine
 
 LLAMACPP_HOST = "http://testhost:8080"
 # Only models with llamacpp in supported_engines

@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional, Tuple
 
-from openjarvis.evals.core.backend import InferenceBackend
-from openjarvis.evals.core.scorer import LLMJudgeScorer
-from openjarvis.evals.core.types import EvalRecord
+from nira.evals.core.backend import InferenceBackend
+from nira.evals.core.scorer import LLMJudgeScorer
+from nira.evals.core.types import EvalRecord
 
 
 class PersonalBenchmarkScorer(LLMJudgeScorer):

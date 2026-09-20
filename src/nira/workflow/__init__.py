@@ -1,10 +1,10 @@
 """Workflow engine — DAG-based multi-agent pipelines."""
 
-from openjarvis.workflow.builder import WorkflowBuilder
-from openjarvis.workflow.engine import WorkflowEngine
-from openjarvis.workflow.graph import WorkflowGraph
-from openjarvis.workflow.loader import load_workflow
-from openjarvis.workflow.types import (
+from nira.workflow.builder import WorkflowBuilder
+from nira.workflow.engine import WorkflowEngine
+from nira.workflow.graph import WorkflowGraph
+from nira.workflow.loader import load_workflow
+from nira.workflow.types import (
     WorkflowEdge,
     WorkflowNode,
     WorkflowResult,

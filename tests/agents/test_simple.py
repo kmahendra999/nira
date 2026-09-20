@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
-from openjarvis.agents._stubs import AgentContext, AgentResult
-from openjarvis.agents.simple import SimpleAgent
-from openjarvis.core.events import EventBus, EventType
-from openjarvis.core.types import Conversation, Message, Role
+from nira.agents._stubs import AgentContext, AgentResult
+from nira.agents.simple import SimpleAgent
+from nira.core.events import EventBus, EventType
+from nira.core.types import Conversation, Message, Role
 
 
 def _make_mock_engine(content: str = "Hello there!") -> MagicMock:

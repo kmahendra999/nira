@@ -17,9 +17,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Union
 
-from openjarvis.core.events import EventType, get_event_bus
-from openjarvis.core.registry import MemoryRegistry
-from openjarvis.tools.storage._stubs import MemoryBackend, RetrievalResult
+from nira.core.events import EventType, get_event_bus
+from nira.core.registry import MemoryRegistry
+from nira.tools.storage._stubs import MemoryBackend, RetrievalResult
 
 # ---------------------------------------------------------------------------
 # DDL
@@ -157,14 +157,14 @@ class KnowledgeStore(MemoryBackend):
 
     def __init__(self, db_path: Union[str, Path] = "") -> None:
         if not db_path:
-            from openjarvis.core.config import DEFAULT_CONFIG_DIR
+            from nira.core.config import DEFAULT_CONFIG_DIR
 
             db_path = DEFAULT_CONFIG_DIR / "knowledge.db"
 
         self._db_path = str(db_path)
         # Ensure the parent directory exists (skip for :memory:)
         if self._db_path != ":memory:":
-            from openjarvis.security.file_utils import secure_create
+            from nira.security.file_utils import secure_create
 
             secure_create(Path(self._db_path))
 

@@ -7,11 +7,11 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from openjarvis.agents._stubs import AgentResult
-from openjarvis.agents.deep_research import DeepResearchAgent
-from openjarvis.connectors.store import KnowledgeStore
-from openjarvis.core.registry import AgentRegistry
-from openjarvis.tools.knowledge_search import KnowledgeSearchTool
+from nira.agents._stubs import AgentResult
+from nira.agents.deep_research import DeepResearchAgent
+from nira.connectors.store import KnowledgeStore
+from nira.core.registry import AgentRegistry
+from nira.tools.knowledge_search import KnowledgeSearchTool
 
 # ---------------------------------------------------------------------------
 # Fixtures

@@ -1,6 +1,6 @@
-"""Allow running as ``python -m openjarvis.evals``."""
+"""Allow running as ``python -m nira.evals``."""
 
-from openjarvis.evals.cli import main
+from nira.evals.cli import main
 
 if __name__ == "__main__":
     main()

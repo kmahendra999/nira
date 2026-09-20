@@ -18,11 +18,11 @@ import logging
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, List, Optional
 
-from openjarvis.connectors.store import KnowledgeStore
-from openjarvis.tools.storage._stubs import RetrievalResult
+from nira.connectors.store import KnowledgeStore
+from nira.tools.storage._stubs import RetrievalResult
 
 if TYPE_CHECKING:
-    from openjarvis.connectors.embedding_store import EmbeddingStore
+    from nira.connectors.embedding_store import EmbeddingStore
 
 logger = logging.getLogger(__name__)
 

@@ -34,14 +34,14 @@ impl PyMessage {
 }
 
 impl PyMessage {
-    pub fn to_core(&self) -> openjarvis_core::Message {
+    pub fn to_core(&self) -> nira_core::Message {
         let role = match self.role.as_str() {
-            "system" => openjarvis_core::Role::System,
-            "assistant" => openjarvis_core::Role::Assistant,
-            "tool" => openjarvis_core::Role::Tool,
-            _ => openjarvis_core::Role::User,
+            "system" => nira_core::Role::System,
+            "assistant" => nira_core::Role::Assistant,
+            "tool" => nira_core::Role::Tool,
+            _ => nira_core::Role::User,
         };
-        openjarvis_core::Message {
+        nira_core::Message {
             role,
             content: self.content.clone(),
             name: self.name.clone(),
@@ -96,7 +96,7 @@ impl PyToolCall {
 
 #[pyclass(name = "Config")]
 pub struct PyConfig {
-    pub inner: openjarvis_core::JarvisConfig,
+    pub inner: nira_core::NiraConfig,
 }
 
 #[pymethods]
@@ -104,7 +104,7 @@ impl PyConfig {
     #[new]
     fn new() -> Self {
         Self {
-            inner: openjarvis_core::JarvisConfig::default(),
+            inner: nira_core::NiraConfig::default(),
         }
     }
 
@@ -128,7 +128,7 @@ impl PyConfig {
 
 #[pyclass(name = "EventBus")]
 pub struct PyEventBus {
-    pub inner: std::sync::Arc<openjarvis_core::EventBus>,
+    pub inner: std::sync::Arc<nira_core::EventBus>,
 }
 
 #[pymethods]
@@ -136,7 +136,7 @@ impl PyEventBus {
     #[new]
     fn new() -> Self {
         Self {
-            inner: std::sync::Arc::new(openjarvis_core::EventBus::new(true)),
+            inner: std::sync::Arc::new(nira_core::EventBus::new(true)),
         }
     }
 

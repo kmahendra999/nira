@@ -17,8 +17,8 @@ import sys
 from datetime import datetime
 from typing import Iterator, Optional
 
-from openjarvis.connectors._stubs import BaseConnector, Document, SyncStatus
-from openjarvis.core.registry import ConnectorRegistry
+from nira.connectors._stubs import BaseConnector, Document, SyncStatus
+from nira.core.registry import ConnectorRegistry
 
 logger = logging.getLogger(__name__)
 

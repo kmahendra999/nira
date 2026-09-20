@@ -4,7 +4,7 @@ The benchmarking framework measures inference engine performance with reproducib
 
 ## Overview
 
-OpenJarvis ships with two benchmarks:
+Nira ships with two benchmarks:
 
 | Benchmark     | Registry Key   | Measures                                      |
 |---------------|----------------|-----------------------------------------------|
@@ -19,8 +19,8 @@ All benchmarks implement the `BaseBenchmark` abstract base class.
 
 ```python
 from abc import ABC, abstractmethod
-from openjarvis.bench._stubs import BenchmarkResult
-from openjarvis.engine._stubs import InferenceEngine
+from nira.bench._stubs import BenchmarkResult
+from nira.engine._stubs import InferenceEngine
 
 class BaseBenchmark(ABC):
 
@@ -140,9 +140,9 @@ throughput (10 samples, 0 errors)
 The `BenchmarkSuite` class runs a collection of benchmarks and provides aggregation and serialization utilities.
 
 ```python
-from openjarvis.bench._stubs import BenchmarkSuite
-from openjarvis.bench.latency import LatencyBenchmark
-from openjarvis.bench.throughput import ThroughputBenchmark
+from nira.bench._stubs import BenchmarkSuite
+from nira.bench.latency import LatencyBenchmark
+from nira.bench.throughput import ThroughputBenchmark
 
 suite = BenchmarkSuite([LatencyBenchmark(), ThroughputBenchmark()])
 
@@ -205,28 +205,28 @@ Each line in the JSONL output is a JSON object:
 
 ```bash
 # Run all benchmarks with default settings (10 samples)
-jarvis bench run
+nira bench run
 
 # Run with more samples for better statistical accuracy
-jarvis bench run -n 50
+nira bench run -n 50
 
 # Run only the latency benchmark
-jarvis bench run -b latency
+nira bench run -b latency
 
 # Run only the throughput benchmark with 20 samples
-jarvis bench run -b throughput -n 20
+nira bench run -b throughput -n 20
 
 # Specify model and engine
-jarvis bench run -m qwen3:8b -e ollama
+nira bench run -m qwen3:8b -e ollama
 
 # Output JSON summary to stdout
-jarvis bench run --json
+nira bench run --json
 
 # Write JSONL results to a file
-jarvis bench run -o results.jsonl
+nira bench run -o results.jsonl
 
 # Combine options
-jarvis bench run -b latency -n 100 -m qwen3:8b --json -o latency.jsonl
+nira bench run -b latency -n 100 -m qwen3:8b --json -o latency.jsonl
 ```
 
 | Option                     | Type   | Default | Description                              |
@@ -248,10 +248,10 @@ Create a custom benchmark by subclassing `BaseBenchmark` and registering it with
 
 ```python
 import time
-from openjarvis.bench._stubs import BaseBenchmark, BenchmarkResult
-from openjarvis.core.registry import BenchmarkRegistry
-from openjarvis.core.types import Message, Role
-from openjarvis.engine._stubs import InferenceEngine
+from nira.bench._stubs import BaseBenchmark, BenchmarkResult
+from nira.core.registry import BenchmarkRegistry
+from nira.core.types import Message, Role
+from nira.engine._stubs import InferenceEngine
 
 
 class ContextLengthBenchmark(BaseBenchmark):
@@ -323,13 +323,13 @@ class ContextLengthBenchmark(BaseBenchmark):
 Once registered, your benchmark is available through the CLI:
 
 ```bash
-jarvis bench run -b context_length
+nira bench run -b context_length
 ```
 
 And through the `BenchmarkSuite`:
 
 ```python
-from openjarvis.core.registry import BenchmarkRegistry
+from nira.core.registry import BenchmarkRegistry
 
 bench_cls = BenchmarkRegistry.get("context_length")
 bench = bench_cls()

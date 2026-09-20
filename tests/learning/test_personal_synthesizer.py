@@ -8,16 +8,16 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from openjarvis.core.types import Trace
-from openjarvis.evals.core.types import EvalRecord
-from openjarvis.learning.optimize.personal.dataset import PersonalBenchmarkDataset
-from openjarvis.learning.optimize.personal.scorer import PersonalBenchmarkScorer
-from openjarvis.learning.optimize.personal.synthesizer import (
+from nira.core.types import Trace
+from nira.evals.core.types import EvalRecord
+from nira.learning.optimize.personal.dataset import PersonalBenchmarkDataset
+from nira.learning.optimize.personal.scorer import PersonalBenchmarkScorer
+from nira.learning.optimize.personal.synthesizer import (
     PersonalBenchmark,
     PersonalBenchmarkSample,
     PersonalBenchmarkSynthesizer,
 )
-from openjarvis.traces.store import TraceStore
+from nira.traces.store import TraceStore
 
 # ---------------------------------------------------------------------------
 # Helpers

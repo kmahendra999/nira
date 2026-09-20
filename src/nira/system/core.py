@@ -1,4 +1,4 @@
-"""JarvisSystem — the fully wired system dataclass."""
+"""NiraSystem — the fully wired system dataclass."""
 
 from __future__ import annotations
 
@@ -6,54 +6,54 @@ import logging
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-from openjarvis.core.config import JarvisConfig
-from openjarvis.core.events import EventBus
-from openjarvis.core.types import Message, Role
-from openjarvis.engine._stubs import InferenceEngine
-from openjarvis.system.bundles import (
+from nira.core.config import NiraConfig
+from nira.core.events import EventBus
+from nira.core.types import Message, Role
+from nira.engine._stubs import InferenceEngine
+from nira.system.bundles import (
     AgentRuntime,
     Observability,
     Scheduling,
     SecurityContext,
 )
-from openjarvis.tools._stubs import BaseTool, ToolExecutor
+from nira.tools._stubs import BaseTool, ToolExecutor
 
 if TYPE_CHECKING:
-    from openjarvis.agents._stubs import BaseAgent
-    from openjarvis.agents.executor import AgentExecutor
-    from openjarvis.agents.manager import AgentManager
-    from openjarvis.agents.scheduler import AgentScheduler
-    from openjarvis.channels._stubs import BaseChannel
-    from openjarvis.learning._stubs import RouterPolicy
-    from openjarvis.learning.learning_orchestrator import LearningOrchestrator
-    from openjarvis.mcp.client import MCPClient
-    from openjarvis.mcp.server import MCPServer
-    from openjarvis.operators.manager import OperatorManager
-    from openjarvis.sandbox.runner import ContainerRunner
-    from openjarvis.scheduler.scheduler import TaskScheduler
-    from openjarvis.scheduler.store import SchedulerStore
-    from openjarvis.security.audit import AuditLogger
-    from openjarvis.security.boundary import BoundaryGuard
-    from openjarvis.security.capabilities import CapabilityPolicy
-    from openjarvis.sessions.session import SessionStore
-    from openjarvis.skills.manager import SkillManager
-    from openjarvis.speech._stubs import SpeechBackend
-    from openjarvis.system.orchestrator import QueryOrchestrator
-    from openjarvis.telemetry.gpu_monitor import GpuMonitor
-    from openjarvis.telemetry.store import TelemetryStore
-    from openjarvis.tools.storage._stubs import MemoryBackend
-    from openjarvis.traces.collector import TraceCollector
-    from openjarvis.traces.store import TraceStore
-    from openjarvis.workflow.engine import WorkflowEngine
+    from nira.agents._stubs import BaseAgent
+    from nira.agents.executor import AgentExecutor
+    from nira.agents.manager import AgentManager
+    from nira.agents.scheduler import AgentScheduler
+    from nira.channels._stubs import BaseChannel
+    from nira.learning._stubs import RouterPolicy
+    from nira.learning.learning_orchestrator import LearningOrchestrator
+    from nira.mcp.client import MCPClient
+    from nira.mcp.server import MCPServer
+    from nira.operators.manager import OperatorManager
+    from nira.sandbox.runner import ContainerRunner
+    from nira.scheduler.scheduler import TaskScheduler
+    from nira.scheduler.store import SchedulerStore
+    from nira.security.audit import AuditLogger
+    from nira.security.boundary import BoundaryGuard
+    from nira.security.capabilities import CapabilityPolicy
+    from nira.sessions.session import SessionStore
+    from nira.skills.manager import SkillManager
+    from nira.speech._stubs import SpeechBackend
+    from nira.system.orchestrator import QueryOrchestrator
+    from nira.telemetry.gpu_monitor import GpuMonitor
+    from nira.telemetry.store import TelemetryStore
+    from nira.tools.storage._stubs import MemoryBackend
+    from nira.traces.collector import TraceCollector
+    from nira.traces.store import TraceStore
+    from nira.workflow.engine import WorkflowEngine
 
 logger = logging.getLogger(__name__)
 
 
 @dataclass
-class JarvisSystem:
+class NiraSystem:
     """Fully wired system -- the single source of truth for primitive composition."""
 
-    config: JarvisConfig
+    config: NiraConfig
     bus: EventBus
     engine: InferenceEngine
     engine_key: str
@@ -87,7 +87,7 @@ class JarvisSystem:
     _learning_orchestrator: Optional[LearningOrchestrator] = None
     _mcp_clients: List[MCPClient] = field(default_factory=list)
     # Keep newly added fields after every pre-existing positional field so
-    # older positional JarvisSystem(...) calls retain their original meaning.
+    # older positional NiraSystem(...) calls retain their original meaning.
     mcp_tools: List[BaseTool] = field(default_factory=list)
     rate_limiter: Optional[Any] = None
 
@@ -129,7 +129,7 @@ class JarvisSystem:
     def _get_orchestrator(self) -> QueryOrchestrator:
         orch = self.__dict__.get("_orchestrator")
         if orch is None:
-            from openjarvis.system.orchestrator import QueryOrchestrator
+            from nira.system.orchestrator import QueryOrchestrator
 
             orch = QueryOrchestrator(self)
             self.__dict__["_orchestrator"] = orch
@@ -201,11 +201,11 @@ class JarvisSystem:
         Parameters
         ----------
         channel_bridge:
-            A connected :class:`~openjarvis.channels._stubs.BaseChannel`
+            A connected :class:`~nira.channels._stubs.BaseChannel`
             instance whose ``on_message`` method accepts a callable.
         """
-        from openjarvis.core.types import Message
-        from openjarvis.sessions.session import SessionStore
+        from nira.core.types import Message
+        from nira.sessions.session import SessionStore
 
         if self.session_store is None:
             from pathlib import Path
@@ -325,11 +325,11 @@ class JarvisSystem:
             self.agent_scheduler.stop()
         self._close_mcp_clients()
 
-    def __enter__(self) -> JarvisSystem:
+    def __enter__(self) -> NiraSystem:
         return self
 
     def __exit__(self, *exc: Any) -> None:
         self.close()
 
 
-__all__ = ["JarvisSystem"]
+__all__ = ["NiraSystem"]

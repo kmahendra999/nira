@@ -11,10 +11,10 @@ import shutil
 from pathlib import Path
 from typing import Iterable, List, MutableMapping, Optional, Sequence
 
-from openjarvis.core.paths import get_cache_dir
-from openjarvis.evals.core.dataset import DatasetProvider
-from openjarvis.evals.core.splits import apply_split
-from openjarvis.evals.core.types import EvalRecord
+from nira.core.paths import get_cache_dir
+from nira.evals.core.dataset import DatasetProvider
+from nira.evals.core.splits import apply_split
+from nira.evals.core.types import EvalRecord
 
 _DEFAULT_CACHE_DIR = get_cache_dir() / "gaia_benchmark"
 

@@ -18,13 +18,13 @@ import pytest
 pytestmark = pytest.mark.hub
 
 PROVIDERS = [
-    ("openjarvis.evals.datasets.pinchbench", "PinchBenchDataset"),
-    ("openjarvis.evals.datasets.liveresearch", "LiveResearchBenchDataset"),
-    ("openjarvis.evals.datasets.gaia", "GAIADataset"),
-    ("openjarvis.evals.datasets.liveresearchbench", "LiveResearchBenchDataset"),
-    ("openjarvis.evals.datasets.taubench", "TauBenchDataset"),
-    ("openjarvis.evals.datasets.toolcall15", "ToolCall15Dataset"),
-    ("openjarvis.evals.datasets.livecodebench", "LiveCodeBenchDataset"),
+    ("nira.evals.datasets.pinchbench", "PinchBenchDataset"),
+    ("nira.evals.datasets.liveresearch", "LiveResearchBenchDataset"),
+    ("nira.evals.datasets.gaia", "GAIADataset"),
+    ("nira.evals.datasets.liveresearchbench", "LiveResearchBenchDataset"),
+    ("nira.evals.datasets.taubench", "TauBenchDataset"),
+    ("nira.evals.datasets.toolcall15", "ToolCall15Dataset"),
+    ("nira.evals.datasets.livecodebench", "LiveCodeBenchDataset"),
 ]
 
 
@@ -80,7 +80,7 @@ def test_train_and_test_are_disjoint_per_provider(mod_name, cls_name):
 @pytest.mark.slow
 def test_toolcall15_split_is_nonempty():
     """Regression: toolcall15 must not silently return 0 records for split=train."""
-    from openjarvis.evals.datasets.toolcall15 import ToolCall15Dataset
+    from nira.evals.datasets.toolcall15 import ToolCall15Dataset
 
     ds = ToolCall15Dataset()
     ds.load(split="train", seed=42)

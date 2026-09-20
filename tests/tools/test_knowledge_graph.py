@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from openjarvis.tools.storage.knowledge_graph import (
+from nira.tools.storage.knowledge_graph import (
     Entity,
     KnowledgeGraphMemory,
     Relation,

@@ -1,4 +1,4 @@
-"""Jarvis Agent backend — agent-level inference with tool calling."""
+"""Nira Agent backend — agent-level inference with tool calling."""
 
 from __future__ import annotations
 
@@ -6,19 +6,19 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from openjarvis.evals.backends._commit_util import openjarvis_commit
-from openjarvis.evals.core.backend import InferenceBackend
+from nira.evals.backends._commit_util import nira_commit
+from nira.evals.core.backend import InferenceBackend
 
 
-class JarvisAgentBackend(InferenceBackend):
-    """Agent-level inference via SystemBuilder + JarvisSystem.ask().
+class NiraAgentBackend(InferenceBackend):
+    """Agent-level inference via SystemBuilder + NiraSystem.ask().
 
     Supports tool calling via the agent harness. Works for both local
     and cloud models.
     """
 
-    backend_id = "jarvis-agent"
-    framework_name = "openjarvis"
+    backend_id = "nira-agent"
+    framework_name = "nira"
 
     def __init__(
         self,
@@ -34,7 +34,7 @@ class JarvisAgentBackend(InferenceBackend):
         base_url: Optional[str] = None,
         api_key: Optional[str] = None,
     ) -> None:
-        from openjarvis.system import SystemBuilder
+        from nira.system import SystemBuilder
 
         self._agent_name = agent_name
         self._tools = tools or []
@@ -46,7 +46,7 @@ class JarvisAgentBackend(InferenceBackend):
             # Explicit endpoint targeting (--base-url): pin the eval to
             # exactly this OpenAI-compatible endpoint. Fails fast if it is
             # unreachable; never falls back to a discovered engine.
-            from openjarvis.evals.backends._endpoint_util import (
+            from nira.evals.backends._endpoint_util import (
                 build_endpoint_engine,
             )
 
@@ -63,7 +63,7 @@ class JarvisAgentBackend(InferenceBackend):
         # creates a GpuMonitor when building the InstrumentedEngine.
         if gpu_metrics:
             builder._config.telemetry.gpu_metrics = True
-        # Override the agent's per-run turn budget. JarvisConfig.agent.max_turns
+        # Override the agent's per-run turn budget. NiraConfig.agent.max_turns
         # defaults to 10, which is too low for thinking/reasoning models on
         # multi-step agentic benchmarks (Trinity-Large hit the cap on 25/50
         # GAIA tasks before this was configurable per-eval).
@@ -78,10 +78,10 @@ class JarvisAgentBackend(InferenceBackend):
 
     @property
     def framework_commit_value(self) -> str:
-        """OpenJarvis repo HEAD commit (for telemetry tagging)."""
-        from openjarvis.evals.backends._commit_util import openjarvis_commit
+        """Nira repo HEAD commit (for telemetry tagging)."""
+        from nira.evals.backends._commit_util import nira_commit
 
-        return openjarvis_commit()
+        return nira_commit()
 
     def generate(
         self,
@@ -205,8 +205,8 @@ class JarvisAgentBackend(InferenceBackend):
             "trace_data": trace_data,
             "tool_calls": tool_calls_count,
             "turn_count": turn_count,
-            "framework": "openjarvis",
-            "framework_commit": openjarvis_commit(),
+            "framework": "nira",
+            "framework_commit": nira_commit(),
             "error": None,
         }
 
@@ -220,4 +220,4 @@ class JarvisAgentBackend(InferenceBackend):
         self._system.close()
 
 
-__all__ = ["JarvisAgentBackend"]
+__all__ = ["NiraAgentBackend"]

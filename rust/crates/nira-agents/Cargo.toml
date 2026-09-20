@@ -1,12 +1,12 @@
 [package]
-name = "openjarvis-agents"
+name = "nira-agents"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-openjarvis-core = { path = "../openjarvis-core" }
-openjarvis-engine = { path = "../openjarvis-engine" }
-openjarvis-tools = { path = "../openjarvis-tools" }
+nira-core = { path = "../nira-core" }
+nira-engine = { path = "../nira-engine" }
+nira-tools = { path = "../nira-tools" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }

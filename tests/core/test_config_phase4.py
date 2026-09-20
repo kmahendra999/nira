@@ -1,13 +1,13 @@
-"""Tests for LearningConfig and its integration into JarvisConfig."""
+"""Tests for LearningConfig and its integration into NiraConfig."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from openjarvis.core.config import (
+from nira.core.config import (
     HardwareInfo,
-    JarvisConfig,
     LearningConfig,
+    NiraConfig,
     generate_default_toml,
     load_config,
 )
@@ -35,8 +35,8 @@ class TestLearningConfig:
         assert cfg.metrics.cost_weight == 0.3
         assert cfg.metrics.efficiency_weight == 0.3
 
-    def test_jarvis_config_has_learning(self) -> None:
-        cfg = JarvisConfig()
+    def test_nira_config_has_learning(self) -> None:
+        cfg = NiraConfig()
         assert hasattr(cfg, "learning")
         assert isinstance(cfg.learning, LearningConfig)
         assert cfg.learning.routing.policy == "heuristic"

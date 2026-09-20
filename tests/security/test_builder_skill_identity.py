@@ -4,14 +4,14 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from openjarvis.core.config import JarvisConfig
-from openjarvis.core.types import ToolCall
-from openjarvis.security.capabilities import CapabilityPolicy
-from openjarvis.skills.executor import SkillExecutor
-from openjarvis.skills.tool_adapter import SkillTool
-from openjarvis.skills.types import SkillManifest, SkillStep
-from openjarvis.system import SystemBuilder
-from openjarvis.tools.repl import ReplTool
+from nira.core.config import NiraConfig
+from nira.core.types import ToolCall
+from nira.security.capabilities import CapabilityPolicy
+from nira.skills.executor import SkillExecutor
+from nira.skills.tool_adapter import SkillTool
+from nira.skills.types import SkillManifest, SkillStep
+from nira.system import SystemBuilder
+from nira.tools.repl import ReplTool
 
 
 class _HealthyEngine:
@@ -52,7 +52,7 @@ class _PipelineSkillManager:
 def test_builder_nested_skill_cannot_fall_back_to_default_identity(
     tmp_path, monkeypatch
 ) -> None:
-    config = JarvisConfig()
+    config = NiraConfig()
     config.telemetry.enabled = False
     config.traces.enabled = False
     config.skills.enabled = True
@@ -68,7 +68,7 @@ def test_builder_nested_skill_cannot_fall_back_to_default_identity(
     repl = ReplTool()
 
     monkeypatch.setattr(
-        "openjarvis.security.setup_security",
+        "nira.security.setup_security",
         lambda config, engine, bus: SimpleNamespace(
             engine=engine,
             capability_policy=policy,
@@ -76,7 +76,7 @@ def test_builder_nested_skill_cannot_fall_back_to_default_identity(
             audit_logger=None,
         ),
     )
-    monkeypatch.setattr("openjarvis.skills.manager.SkillManager", _PipelineSkillManager)
+    monkeypatch.setattr("nira.skills.manager.SkillManager", _PipelineSkillManager)
 
     builder = (
         SystemBuilder(config)

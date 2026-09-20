@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from openjarvis.telemetry.itl import compute_itl_stats
+from nira.telemetry.itl import compute_itl_stats
 
 
 class TestComputeItlStats:

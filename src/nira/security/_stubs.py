@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
-from openjarvis.security.types import ScanResult
+from nira.security.types import ScanResult
 
 
 class BaseScanner(ABC):

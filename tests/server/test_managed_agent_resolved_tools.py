@@ -10,10 +10,10 @@ import pytest
 
 pytest.importorskip("fastapi")
 
-from openjarvis.core.registry import ToolRegistry  # noqa: E402
-from openjarvis.core.types import Role, ToolResult  # noqa: E402
-from openjarvis.engine._stubs import StreamChunk  # noqa: E402
-from openjarvis.tools._stubs import BaseTool, ToolSpec  # noqa: E402
+from nira.core.registry import ToolRegistry  # noqa: E402
+from nira.core.types import Role, ToolResult  # noqa: E402
+from nira.engine._stubs import StreamChunk  # noqa: E402
+from nira.tools._stubs import BaseTool, ToolSpec  # noqa: E402
 
 
 class _StatefulConfiguredTool(BaseTool):
@@ -142,7 +142,7 @@ class _SyntheticHttpSink(BaseTool):
 async def test_sse_advertises_and_executes_the_same_resolved_tool_instance() -> None:
     """The schema and dispatch map must come from one first-wins toolkit."""
 
-    from openjarvis.server.agent_manager_routes import _stream_managed_agent
+    from nira.server.agent_manager_routes import _stream_managed_agent
 
     _StatefulConfiguredTool.instances.clear()
     ToolRegistry.register_value("stateful_probe", _StatefulConfiguredTool)
@@ -221,7 +221,7 @@ async def test_sse_advertises_and_executes_the_same_resolved_tool_instance() -> 
 async def test_sse_mcp_opt_out_skips_discovery(monkeypatch) -> None:
     """Opting out skips request-local discovery and hides MCP specs."""
 
-    from openjarvis.server import agent_manager_routes as routes
+    from nira.server import agent_manager_routes as routes
 
     discovery = MagicMock(side_effect=AssertionError("MCP discovery must not run"))
     monkeypatch.setattr(routes, "_get_mcp_tools", discovery)
@@ -257,7 +257,7 @@ async def test_sse_mcp_opt_out_skips_discovery(monkeypatch) -> None:
 
 @pytest.mark.asyncio
 async def test_sse_rehydrates_taint_from_replayed_tool_history() -> None:
-    from openjarvis.server.agent_manager_routes import _stream_managed_agent
+    from nira.server.agent_manager_routes import _stream_managed_agent
 
     secret = "token=synthetic-secret-value"
     _SyntheticHttpSink.calls.clear()
@@ -329,8 +329,8 @@ async def test_sse_memory_tools_resolve_backend_when_context_injection_is_off(
 ) -> None:
     """Prompt context opt-out must not disable explicit memory tools."""
 
-    from openjarvis.server import agent_manager_routes as routes
-    from openjarvis.tools.storage_tools import MemoryStoreTool
+    from nira.server import agent_manager_routes as routes
+    from nira.tools.storage_tools import MemoryStoreTool
 
     if not ToolRegistry.contains("memory_store"):
         ToolRegistry.register_value("memory_store", MemoryStoreTool)

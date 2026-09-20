@@ -1,7 +1,7 @@
 """RL environment for orchestrator training.
 
-Adapted from IPW's ``environment.py``.  Uses OpenJarvis's
-:class:`~openjarvis.tools._stubs.ToolExecutor` for real tool dispatch
+Adapted from IPW's ``environment.py``.  Uses Nira's
+:class:`~nira.tools._stubs.ToolExecutor` for real tool dispatch
 (as opposed to IPW's cached-telemetry approach), making it suitable for
 both training and evaluation.
 """
@@ -11,20 +11,20 @@ from __future__ import annotations
 import time
 from typing import Any, List, Optional, Tuple
 
-from openjarvis.core.events import EventBus
-from openjarvis.core.types import ToolCall
-from openjarvis.learning.intelligence.orchestrator.types import (
+from nira.core.events import EventBus
+from nira.core.types import ToolCall
+from nira.learning.intelligence.orchestrator.types import (
     EpisodeState,
     OrchestratorAction,
     OrchestratorObservation,
 )
-from openjarvis.tools._stubs import BaseTool, ToolExecutor
+from nira.tools._stubs import BaseTool, ToolExecutor
 
 _LEARNING_AGENT_ID = "learning"
 
 
 class OrchestratorEnvironment:
-    """RL environment that executes tools via OpenJarvis ``ToolExecutor``.
+    """RL environment that executes tools via Nira ``ToolExecutor``.
 
     Parameters
     ----------

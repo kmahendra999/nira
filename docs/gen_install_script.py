@@ -2,11 +2,11 @@
 
 Serves the installers at::
 
-    https://open-jarvis.github.io/OpenJarvis/install.sh   (Linux / macOS / WSL2)
-    https://open-jarvis.github.io/OpenJarvis/install.ps1  (native Windows)
+    https://nira-ai.github.io/nira/install.sh   (Linux / macOS / WSL2)
+    https://nira-ai.github.io/nira/install.ps1  (native Windows)
 
 so users have an HTTPS-valid, project-controlled install URL that does not
-depend on the externally-hosted ``openjarvis.ai`` domain — whose TLS config
+depend on the externally-hosted ``nira.ai`` domain — whose TLS config
 broke and which the project does not control (issue #337).
 
 Single source of truth: the scripts live under ``scripts/install/`` and

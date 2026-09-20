@@ -31,9 +31,9 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Iterator, List, Optional
 
-from openjarvis.connectors._stubs import BaseConnector, Document, SyncStatus
-from openjarvis.core.registry import ConnectorRegistry
-from openjarvis.tools._stubs import ToolSpec
+from nira.connectors._stubs import BaseConnector, Document, SyncStatus
+from nira.core.registry import ConnectorRegistry
+from nira.tools._stubs import ToolSpec
 
 # ---------------------------------------------------------------------------
 # Constants

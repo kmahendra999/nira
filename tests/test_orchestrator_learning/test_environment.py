@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import pytest
 
-from openjarvis.core.events import EventBus, EventType
-from openjarvis.core.types import ToolResult
-from openjarvis.learning.intelligence.orchestrator.environment import (
+from nira.core.events import EventBus, EventType
+from nira.core.types import ToolResult
+from nira.learning.intelligence.orchestrator.environment import (
     OrchestratorEnvironment,
 )
-from openjarvis.learning.intelligence.orchestrator.types import OrchestratorAction
-from openjarvis.tools._stubs import BaseTool, ToolSpec
+from nira.learning.intelligence.orchestrator.types import OrchestratorAction
+from nira.tools._stubs import BaseTool, ToolSpec
 
 # -- Mock tool ---------------------------------------------------------------
 

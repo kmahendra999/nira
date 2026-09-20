@@ -1,4 +1,4 @@
-"""``jarvis start|stop|restart|status`` — daemon management commands."""
+"""``nira start|stop|restart|status`` — daemon management commands."""
 
 from __future__ import annotations
 
@@ -13,9 +13,9 @@ from typing import Iterator
 import click
 from rich.console import Console
 
-from openjarvis.core.config import DEFAULT_CONFIG_DIR, load_config
-from openjarvis.core.utils import process_alive, terminate_process
-from openjarvis.security.file_utils import secure_write_json, secure_write_text
+from nira.core.config import DEFAULT_CONFIG_DIR, load_config
+from nira.core.utils import process_alive, terminate_process
+from nira.security.file_utils import secure_write_json, secure_write_text
 
 _PID_FILE = DEFAULT_CONFIG_DIR / "server.pid"
 _LOG_FILE = DEFAULT_CONFIG_DIR / "server.log"
@@ -149,10 +149,10 @@ def _server_url(host: str, port: int) -> str:
 
 
 def record_server_state(pid: int, host: str, port: int) -> None:
-    """Register a running server so `jarvis status` can find it.
+    """Register a running server so `nira status` can find it.
 
-    Called by `jarvis serve` itself, so a server supervised by launchd/systemd
-    (which never goes through `jarvis start`) is still reported as running.
+    Called by `nira serve` itself, so a server supervised by launchd/systemd
+    (which never goes through `nira start`) is still reported as running.
     """
     _write_pid(pid, host, port)
 
@@ -165,7 +165,7 @@ def clear_server_state(pid: int) -> None:
 
 @click.group()
 def daemon() -> None:
-    """Manage the OpenJarvis server daemon."""
+    """Manage the Nira server daemon."""
 
 
 @daemon.command()
@@ -181,21 +181,21 @@ def start(
     model_name: str | None,
     agent_name: str | None,
 ) -> None:
-    """Start the OpenJarvis server as a background daemon."""
+    """Start the Nira server as a background daemon."""
     console = Console(stderr=True)
 
     existing = _read_pid()
     if existing is not None:
         console.print(f"[yellow]Server already running (PID {existing}).[/yellow]")
-        console.print("Use 'jarvis stop' to stop it first, or 'jarvis restart'.")
+        console.print("Use 'nira stop' to stop it first, or 'nira restart'.")
         sys.exit(1)
 
     config = load_config()
     bind_host = host or config.server.host
     bind_port = port if port is not None else config.server.port
 
-    # Build command to run jarvis serve
-    cmd = [sys.executable, "-m", "openjarvis.cli", "serve"]
+    # Build command to run nira serve
+    cmd = [sys.executable, "-m", "nira.cli", "serve"]
     if host:
         cmd.extend(["--host", host])
     if port is not None:
@@ -237,7 +237,7 @@ def start(
         raise click.ClickException(str(exc)) from exc
 
     console.print(
-        f"[green]OpenJarvis server starting[/green] (PID {proc.pid})\n"
+        f"[green]Nira server starting[/green] (PID {proc.pid})\n"
         f"  Requested URL: {_server_url(bind_host, bind_port)}\n"
         f"  Log: {_LOG_FILE}"
     )
@@ -245,7 +245,7 @@ def start(
 
 @daemon.command()
 def stop() -> None:
-    """Stop the running OpenJarvis server daemon."""
+    """Stop the running Nira server daemon."""
     console = Console(stderr=True)
     pid = _read_pid()
     if pid is None:
@@ -263,7 +263,7 @@ def stop() -> None:
 @daemon.command()
 @click.pass_context
 def restart(ctx: click.Context) -> None:
-    """Restart the OpenJarvis server daemon."""
+    """Restart the Nira server daemon."""
     console = Console(stderr=True)
     pid = _read_pid()
     previous = _read_state() if pid is not None else {}
@@ -283,7 +283,7 @@ def restart(ctx: click.Context) -> None:
 
 @daemon.command()
 def status() -> None:
-    """Show status of the OpenJarvis server daemon."""
+    """Show status of the Nira server daemon."""
     console = Console(stderr=True)
     pid = _read_pid()
     if pid is None:

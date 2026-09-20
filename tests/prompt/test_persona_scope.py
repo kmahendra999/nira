@@ -2,9 +2,9 @@
 
 import pytest
 
-from openjarvis.core.config import MemoryFilesConfig
-from openjarvis.core.paths import get_config_dir
-from openjarvis.prompt.builder import SystemPromptBuilder
+from nira.core.config import MemoryFilesConfig
+from nira.core.paths import get_config_dir
+from nira.prompt.builder import SystemPromptBuilder
 
 
 def test_empty_persona_passes_through_global_defaults():
@@ -39,9 +39,9 @@ def test_none_persona_build_does_not_raise(tmp_path, monkeypatch):
     """
     import dataclasses
 
-    from openjarvis.core.config import load_config
+    from nira.core.config import load_config
 
-    monkeypatch.setenv("OPENJARVIS_HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("NIRA_HOME", str(tmp_path / "home"))
     cfg = load_config(tmp_path / "missing-config.toml")
     mf = dataclasses.replace(cfg.memory_files, persona_name="none")
     builder = SystemPromptBuilder(

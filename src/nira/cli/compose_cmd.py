@@ -1,4 +1,4 @@
-"""``jarvis compose`` — unified composition CLI for discrete agents and operators."""
+"""``nira compose`` — unified composition CLI for discrete agents and operators."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from rich.table import Table
 
 @click.group()
 def compose() -> None:
-    """Compose, run, benchmark, and deploy OpenJarvis configurations.
+    """Compose, run, benchmark, and deploy Nira configurations.
 
     Recipes are unified TOML configs that wire all five primitives
     (Intelligence, Engine, Agent, Tools, Learning).  They come in two
@@ -25,7 +25,7 @@ def compose() -> None:
 
 
 # ------------------------------------------------------------------ #
-# jarvis compose list
+# nira compose list
 # ------------------------------------------------------------------ #
 
 
@@ -42,14 +42,14 @@ def compose_list(kind: Optional[str]) -> None:
     """List all discovered compositions (recipes and operators)."""
     console = Console(stderr=True)
     try:
-        from openjarvis.recipes.loader import discover_recipes
+        from nira.recipes.loader import discover_recipes
 
         recipes = discover_recipes(kind=kind)
         if not recipes:
             console.print("[dim]No compositions found.[/dim]")
             console.print(
-                "[dim]Place TOML recipes in src/openjarvis/recipes/data/ "
-                "or ~/.openjarvis/recipes/[/dim]"
+                "[dim]Place TOML recipes in src/nira/recipes/data/ "
+                "or ~/.nira/recipes/[/dim]"
             )
             return
 
@@ -80,7 +80,7 @@ def compose_list(kind: Optional[str]) -> None:
 
 
 # ------------------------------------------------------------------ #
-# jarvis compose show
+# nira compose show
 # ------------------------------------------------------------------ #
 
 
@@ -90,7 +90,7 @@ def compose_show(name: str) -> None:
     """Show detailed configuration of a composition."""
     console = Console(stderr=True)
     try:
-        from openjarvis.recipes.loader import resolve_recipe
+        from nira.recipes.loader import resolve_recipe
 
         recipe = resolve_recipe(name)
         if recipe is None:
@@ -151,7 +151,7 @@ def compose_show(name: str) -> None:
 
 
 # ------------------------------------------------------------------ #
-# jarvis compose run
+# nira compose run
 # ------------------------------------------------------------------ #
 
 
@@ -165,7 +165,7 @@ def compose_run(name: str, query: tuple[str, ...], output_json: bool) -> None:
     query_text = " ".join(query)
 
     try:
-        from openjarvis.recipes.loader import resolve_recipe
+        from nira.recipes.loader import resolve_recipe
 
         recipe = resolve_recipe(name)
         if recipe is None:
@@ -179,7 +179,7 @@ def compose_run(name: str, query: tuple[str, ...], output_json: bool) -> None:
             f"{recipe.model or 'default'})...[/dim]"
         )
 
-        from openjarvis.system import SystemBuilder
+        from nira.system import SystemBuilder
 
         builder = SystemBuilder()
         if "engine_key" in kwargs:
@@ -235,7 +235,7 @@ def compose_run(name: str, query: tuple[str, ...], output_json: bool) -> None:
 
 
 # ------------------------------------------------------------------ #
-# jarvis compose bench
+# nira compose bench
 # ------------------------------------------------------------------ #
 
 
@@ -287,7 +287,7 @@ def compose_bench(
     console = Console(stderr=True)
 
     try:
-        from openjarvis.recipes.loader import resolve_recipe
+        from nira.recipes.loader import resolve_recipe
 
         recipe = resolve_recipe(name)
         if recipe is None:
@@ -301,7 +301,7 @@ def compose_bench(
             judge_model=judge_model,
         )
 
-        from openjarvis.evals.core.config import expand_suite
+        from nira.evals.core.config import expand_suite
 
         run_configs = expand_suite(suite)
 
@@ -314,7 +314,7 @@ def compose_bench(
         )
 
         try:
-            from openjarvis.evals.cli import _run_single
+            from nira.evals.cli import _run_single
         except ImportError:
             console.print("[red]Eval CLI module not available.[/red]")
             sys.exit(1)
@@ -351,7 +351,7 @@ def compose_bench(
 
 
 # ------------------------------------------------------------------ #
-# jarvis compose deploy
+# nira compose deploy
 # ------------------------------------------------------------------ #
 
 
@@ -362,7 +362,7 @@ def compose_deploy(name: str) -> None:
     console = Console(stderr=True)
 
     try:
-        from openjarvis.recipes.loader import resolve_recipe
+        from nira.recipes.loader import resolve_recipe
 
         recipe = resolve_recipe(name)
         if recipe is None:
@@ -378,8 +378,8 @@ def compose_deploy(name: str) -> None:
 
         manifest = recipe.to_operator_manifest()
 
-        from openjarvis.operators.manager import OperatorManager
-        from openjarvis.system import SystemBuilder
+        from nira.operators.manager import OperatorManager
+        from nira.system import SystemBuilder
 
         system = SystemBuilder().scheduler(True).sessions(True).build()
         manager = OperatorManager(system)
@@ -399,7 +399,7 @@ def compose_deploy(name: str) -> None:
 
 
 # ------------------------------------------------------------------ #
-# jarvis compose stop
+# nira compose stop
 # ------------------------------------------------------------------ #
 
 
@@ -410,16 +410,16 @@ def compose_stop(name: str) -> None:
     console = Console(stderr=True)
 
     try:
-        from openjarvis.operators.manager import OperatorManager
-        from openjarvis.system import SystemBuilder
+        from nira.operators.manager import OperatorManager
+        from nira.system import SystemBuilder
 
         system = SystemBuilder().scheduler(True).sessions(True).build()
         manager = OperatorManager(system)
         system.operator_manager = manager
 
         # Discover all known operators so the manager knows about them
-        from openjarvis.core.config import DEFAULT_CONFIG_DIR
-        from openjarvis.recipes.loader import _PROJECT_OPERATORS_DIR
+        from nira.core.config import DEFAULT_CONFIG_DIR
+        from nira.recipes.loader import _PROJECT_OPERATORS_DIR
 
         for d in [DEFAULT_CONFIG_DIR / "operators", _PROJECT_OPERATORS_DIR]:
             if d.is_dir():
@@ -433,7 +433,7 @@ def compose_stop(name: str) -> None:
 
 
 # ------------------------------------------------------------------ #
-# jarvis compose status
+# nira compose status
 # ------------------------------------------------------------------ #
 
 
@@ -443,15 +443,15 @@ def compose_status() -> None:
     console = Console(stderr=True)
 
     try:
-        from openjarvis.operators.manager import OperatorManager
-        from openjarvis.system import SystemBuilder
+        from nira.operators.manager import OperatorManager
+        from nira.system import SystemBuilder
 
         system = SystemBuilder().scheduler(True).sessions(True).build()
         manager = OperatorManager(system)
         system.operator_manager = manager
 
-        from openjarvis.core.config import DEFAULT_CONFIG_DIR
-        from openjarvis.recipes.loader import _PROJECT_OPERATORS_DIR
+        from nira.core.config import DEFAULT_CONFIG_DIR
+        from nira.recipes.loader import _PROJECT_OPERATORS_DIR
 
         for d in [DEFAULT_CONFIG_DIR / "operators", _PROJECT_OPERATORS_DIR]:
             if d.is_dir():

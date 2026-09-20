@@ -1,4 +1,4 @@
-"""Verify that importing openjarvis.tools registers all built-in tools."""
+"""Verify that importing nira.tools registers all built-in tools."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import importlib
 import subprocess
 import sys
 
-from openjarvis.core.registry import ToolRegistry
+from nira.core.registry import ToolRegistry
 
 # Every tool name that should be registered after importing the package.
 EXPECTED_TOOLS = {
@@ -84,17 +84,17 @@ EXPECTED_TOOLS = {
 
 
 def _reload_tool_modules() -> None:
-    """Reload all openjarvis.tools.* submodules to re-trigger @register decorators.
+    """Reload all nira.tools.* submodules to re-trigger @register decorators.
 
     The autouse ``_clean_registries`` fixture clears all registries before each
-    test.  A plain ``import openjarvis.tools`` won't re-register because the
+    test.  A plain ``import nira.tools`` won't re-register because the
     submodules are already cached in ``sys.modules``.  We must reload the
     individual submodules so their class-level ``@ToolRegistry.register``
     decorators execute again.
     """
     for mod_name in list(sys.modules):
         if (
-            mod_name.startswith("openjarvis.tools.")
+            mod_name.startswith("nira.tools.")
             and not mod_name.endswith("_stubs")
             and not mod_name.endswith("agent_tools")
         ):
@@ -121,8 +121,8 @@ def test_package_import_registers_deep_research_tools():
             sys.executable,
             "-c",
             (
-                "import openjarvis.tools; "
-                "from openjarvis.core.registry import ToolRegistry; "
+                "import nira.tools; "
+                "from nira.core.registry import ToolRegistry; "
                 "expected = {'knowledge_sql', 'scan_chunks'}; "
                 "missing = expected - set(ToolRegistry.keys()); "
                 "assert not missing, f'Missing tools: {sorted(missing)}'"
@@ -143,8 +143,8 @@ def test_calendar_tools_register_when_connector_is_imported_first():
             sys.executable,
             "-c",
             (
-                "import openjarvis.connectors.apple_calendar; "
-                "from openjarvis.core.registry import ToolRegistry; "
+                "import nira.connectors.apple_calendar; "
+                "from nira.core.registry import ToolRegistry; "
                 "expected = {'calendar_upcoming', 'calendar_search'}; "
                 "missing = expected - set(ToolRegistry.keys()); "
                 "assert not missing, f'Missing tools: {sorted(missing)}'"

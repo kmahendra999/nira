@@ -13,14 +13,14 @@ import urllib.parse
 import uuid
 from typing import Any, Dict, List, Optional
 
-from openjarvis.channels._stubs import (
+from nira.channels._stubs import (
     BaseChannel,
     ChannelHandler,
     ChannelMessage,
     ChannelStatus,
 )
-from openjarvis.core.events import EventBus, EventType
-from openjarvis.core.registry import ChannelRegistry
+from nira.core.events import EventBus, EventType
+from nira.core.registry import ChannelRegistry
 
 logger = logging.getLogger(__name__)
 

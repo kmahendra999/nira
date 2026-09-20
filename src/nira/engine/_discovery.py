@@ -6,9 +6,9 @@ import logging
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, List, Tuple
 
-from openjarvis.core.config import JarvisConfig
-from openjarvis.core.registry import EngineRegistry
-from openjarvis.engine._base import InferenceEngine
+from nira.core.config import NiraConfig
+from nira.core.registry import EngineRegistry
+from nira.engine._base import InferenceEngine
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +33,7 @@ _HOST_MAP: Dict[str, str | None] = {
 }
 
 
-def _make_engine(key: str, config: JarvisConfig) -> InferenceEngine:
+def _make_engine(key: str, config: NiraConfig) -> InferenceEngine:
     """Instantiate a registered engine with the appropriate config host."""
     cls = EngineRegistry.get(key)
 
@@ -81,8 +81,8 @@ def _maybe_register_mining_sidecar_engine() -> None:
     sidecars don't include ``vllm_endpoint``.
     """
     try:
-        from openjarvis.mining import Sidecar
-        from openjarvis.mining._constants import SIDECAR_PATH
+        from nira.mining import Sidecar
+        from nira.mining._constants import SIDECAR_PATH
     except ImportError:
         return
 
@@ -98,7 +98,7 @@ def _maybe_register_mining_sidecar_engine() -> None:
     if not endpoint or not model:
         return  # data-driven gate: no vllm_endpoint → don't register
 
-    from openjarvis.engine._openai_compat import _OpenAICompatibleEngine
+    from nira.engine._openai_compat import _OpenAICompatibleEngine
 
     # Strip a trailing "/v1" path segment so _default_host is the bare
     # base URL and _api_prefix="/v1" combines correctly in request paths.
@@ -119,7 +119,7 @@ def _maybe_register_mining_sidecar_engine() -> None:
     EngineRegistry.register_value("vllm-pearl-mining", _cls)
 
 
-def discover_engines(config: JarvisConfig) -> List[Tuple[str, InferenceEngine]]:
+def discover_engines(config: NiraConfig) -> List[Tuple[str, InferenceEngine]]:
     """Probe registered engines and return ``[(key, instance)]`` for healthy ones.
 
     Results are sorted with the config default engine first.
@@ -174,7 +174,7 @@ def discover_models(
 
 
 def get_engine(
-    config: JarvisConfig,
+    config: NiraConfig,
     engine_key: str | None = None,
     model: str | None = None,
 ) -> Tuple[str, InferenceEngine] | None:

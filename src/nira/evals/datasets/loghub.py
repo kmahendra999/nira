@@ -13,9 +13,9 @@ import re
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
 
-from openjarvis.core.paths import get_cache_dir
-from openjarvis.evals.core.dataset import DatasetProvider
-from openjarvis.evals.core.types import EvalRecord
+from nira.core.paths import get_cache_dir
+from nira.evals.core.dataset import DatasetProvider
+from nira.evals.core.types import EvalRecord
 
 logger = logging.getLogger(__name__)
 

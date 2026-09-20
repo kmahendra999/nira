@@ -9,10 +9,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, Callable, Dict, Generic, Tuple, Type, TypeVar
 
 if TYPE_CHECKING:
-    from openjarvis.agents._stubs import BaseAgent
-    from openjarvis.engine._stubs import InferenceEngine
-    from openjarvis.memory.store import FactStore
-    from openjarvis.tools.storage._stubs import MemoryBackend
+    from nira.agents._stubs import BaseAgent
+    from nira.engine._stubs import InferenceEngine
+    from nira.memory.store import FactStore
+    from nira.tools.storage._stubs import MemoryBackend
 
 T = TypeVar("T")
 
@@ -162,7 +162,7 @@ class MinerRegistry(RegistryBase[Any]):
     """Registry for Pearl mining provider implementations.
 
     Each provider implements the ``MiningProvider`` ABC defined in
-    ``openjarvis.mining._stubs``. Registry keys are short lowercase strings
+    ``nira.mining._stubs``. Registry keys are short lowercase strings
     such as ``"vllm-pearl"`` (CUDA + Hopper) and (future) ``"mlx-pearl"``,
     ``"llamacpp-pearl-metal"``, ``"ollama-pearl"``.
     """

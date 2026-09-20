@@ -1,4 +1,4 @@
-"""``jarvis serve`` — OpenAI-compatible API server."""
+"""``nira serve`` — OpenAI-compatible API server."""
 
 from __future__ import annotations
 
@@ -9,17 +9,17 @@ import sys
 import click
 from rich.console import Console
 
-from openjarvis.cli._banner import print_banner
-from openjarvis.core.config import load_config
-from openjarvis.core.credentials import inject_credentials
-from openjarvis.core.events import EventBus
-from openjarvis.core.paths import get_config_dir
-from openjarvis.engine import (
+from nira.cli._banner import print_banner
+from nira.core.config import load_config
+from nira.core.credentials import inject_credentials
+from nira.core.events import EventBus
+from nira.core.paths import get_config_dir
+from nira.engine import (
     discover_engines,
     discover_models,
     get_engine,
 )
-from openjarvis.intelligence import (
+from nira.intelligence import (
     merge_discovered_models,
     register_builtin_models,
 )
@@ -31,7 +31,7 @@ _DEFAULT_TOOLS = frozenset({"think", "calculator", "web_search"})
 
 def _resolve_server_cors_origins(configured: object) -> list[str]:
     """Resolve server CORS origins with environment taking precedence."""
-    raw = os.environ.get("OPENJARVIS_CORS_ORIGINS", "").strip()
+    raw = os.environ.get("NIRA_CORS_ORIGINS", "").strip()
     if raw:
         return [origin.strip() for origin in raw.split(",") if origin.strip()]
     if isinstance(configured, list):
@@ -158,7 +158,7 @@ def serve(
         )
         sys.exit(1)
 
-    # Tool credentials saved through the browser UI live in the OpenJarvis
+    # Tool credentials saved through the browser UI live in the Nira
     # credential store. Restore them before engines and tools are constructed
     # so availability checks and tool instances see the same environment.
     inject_credentials()
@@ -179,7 +179,7 @@ def serve(
         try:
             from pathlib import Path
 
-            from openjarvis.telemetry.store import TelemetryStore
+            from nira.telemetry.store import TelemetryStore
 
             db_path = Path(config.telemetry.db_path).expanduser()
             db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -205,7 +205,7 @@ def serve(
     engine_name, engine = resolved
 
     # Apply security guardrails
-    from openjarvis.security import setup_security
+    from nira.security import setup_security
 
     sec = setup_security(config, engine, bus)
     engine = sec.engine
@@ -223,7 +223,7 @@ def serve(
     )
     if _has_cloud and engine_name != "cloud":
         try:
-            from openjarvis.engine.cloud import CloudEngine
+            from nira.engine.cloud import CloudEngine
 
             cloud_engine = CloudEngine()
             if cloud_engine.health():
@@ -238,11 +238,11 @@ def serve(
 
     # Wrap engine with InstrumentedEngine for telemetry recording
     try:
-        from openjarvis.telemetry.instrumented_engine import InstrumentedEngine
+        from nira.telemetry.instrumented_engine import InstrumentedEngine
 
         energy_mon = None
         try:
-            from openjarvis.telemetry.energy_monitor import create_energy_monitor
+            from nira.telemetry.energy_monitor import create_energy_monitor
 
             energy_mon = create_energy_monitor()
             if energy_mon is not None:
@@ -271,7 +271,7 @@ def serve(
         multi_entries.append(("cloud", cloud_engine))
 
     if len(multi_entries) > 1:
-        from openjarvis.engine.multi import MultiEngine
+        from nira.engine.multi import MultiEngine
 
         engine = MultiEngine(multi_entries)
         engine_name = "multi"
@@ -315,7 +315,7 @@ def serve(
     managed_mcp_tools: list = []
     mcp_clients: list = []
     try:
-        from openjarvis.mcp.loader import load_mcp_tools_from_config
+        from nira.mcp.loader import load_mcp_tools_from_config
 
         managed_mcp_tools, mcp_clients = load_mcp_tools_from_config(config.tools.mcp)
     except Exception as exc:
@@ -323,8 +323,8 @@ def serve(
 
     if agent_key:
         try:
-            import openjarvis.agents  # noqa: F401
-            from openjarvis.core.registry import AgentRegistry
+            import nira.agents  # noqa: F401
+            from nira.core.registry import AgentRegistry
 
             if AgentRegistry.contains(agent_key):
                 agent_cls = AgentRegistry.get(agent_key)
@@ -337,9 +337,9 @@ def serve(
                         agent_kwargs["capability_policy"] = sec.capability_policy
                     if sec.rate_limiter is not None:
                         agent_kwargs["rate_limiter"] = sec.rate_limiter
-                    import openjarvis.tools  # noqa: F401  # trigger registration
-                    from openjarvis.core.registry import ToolRegistry
-                    from openjarvis.tools._stubs import BaseTool
+                    import nira.tools  # noqa: F401  # trigger registration
+                    from nira.core.registry import ToolRegistry
+                    from nira.tools._stubs import BaseTool
 
                     allowed, tools_configured = _resolve_allowed_tools(config)
 
@@ -379,7 +379,7 @@ def serve(
                 if getattr(agent_cls, "accepts_tools", False):
                     agent_kwargs["max_turns"] = config.agent.max_turns
 
-                from openjarvis.security.runtime import agent_security_kwargs
+                from nira.security.runtime import agent_security_kwargs
 
                 agent_kwargs.update(
                     agent_security_kwargs(
@@ -403,7 +403,7 @@ def serve(
                     "prompt_builder"
                     in _inspect.signature(agent_cls.__init__).parameters
                 ):
-                    from openjarvis.prompt.builder import SystemPromptBuilder
+                    from nira.prompt.builder import SystemPromptBuilder
 
                     agent_kwargs["prompt_builder"] = SystemPromptBuilder(
                         agent_template=config.agent.default_system_prompt or "",
@@ -412,7 +412,7 @@ def serve(
                     )
 
                 agent = agent_cls(engine, model_name, **agent_kwargs)
-                from openjarvis.security.runtime import wire_agent_security
+                from nira.security.runtime import wire_agent_security
 
                 wire_agent_security(
                     agent,
@@ -435,7 +435,7 @@ def serve(
     channel_bridge = None
     if config.channel.enabled and config.channel.default_channel:
         try:
-            from openjarvis.system import SystemBuilder
+            from nira.system import SystemBuilder
 
             # Reuse _resolve_channel logic from SystemBuilder
             sb = SystemBuilder(config)
@@ -452,22 +452,22 @@ def serve(
 
     # Wire channel messages → agent / engine (per-chat session isolation)
     if channel_bridge is not None:
-        from openjarvis.system import JarvisSystem
+        from nira.system import NiraSystem
 
         channel_agent = config.channel.default_agent or agent_key or "simple"
 
         _channel_tools: list = []
         if channel_agent:
             try:
-                import openjarvis.agents
-                from openjarvis.core.registry import AgentRegistry
+                import nira.agents
+                from nira.core.registry import AgentRegistry
 
                 if AgentRegistry.contains(channel_agent):
                     _ch_cls = AgentRegistry.get(channel_agent)
                     if getattr(_ch_cls, "accepts_tools", False):
-                        import openjarvis.tools
-                        from openjarvis.core.registry import ToolRegistry
-                        from openjarvis.tools._stubs import BaseTool
+                        import nira.tools
+                        from nira.core.registry import ToolRegistry
+                        from nira.tools._stubs import BaseTool
 
                         _allowed, _tools_configured = _resolve_allowed_tools(config)
 
@@ -498,7 +498,7 @@ def serve(
             except Exception as exc:
                 logger.warning("Channel tools failed to load: %s", exc)
 
-        _wire_system = JarvisSystem(
+        _wire_system = NiraSystem(
             config=config,
             bus=bus,
             engine=engine,
@@ -517,7 +517,7 @@ def serve(
     # Set up speech backend
     speech_backend = None
     try:
-        from openjarvis.speech._discovery import get_speech_backend
+        from nira.speech._discovery import get_speech_backend
 
         speech_backend = get_speech_backend(config)
         if speech_backend:
@@ -526,7 +526,7 @@ def serve(
         logger.debug("Speech backend discovery failed: %s", exc)
 
     # Create app
-    from openjarvis.server.app import create_app
+    from nira.server.app import create_app
 
     # Set up the memory backend for storage tools, API routes, and optional
     # prompt-context injection. ``context_from_memory`` controls only the last
@@ -534,8 +534,8 @@ def serve(
     # null backend. Built before the scheduler so AgentExecutor can reuse it.
     memory_backend = None
     try:
-        import openjarvis.tools.storage  # noqa: F401
-        from openjarvis.core.registry import MemoryRegistry
+        import nira.tools.storage  # noqa: F401
+        from nira.core.registry import MemoryRegistry
 
         mem_key = config.memory.default_backend
         if MemoryRegistry.contains(mem_key):
@@ -550,7 +550,7 @@ def serve(
     # Automatic long-term memory service (background fact extraction).
     memory_service = None
     try:
-        from openjarvis.memory import build_memory_service
+        from nira.memory import build_memory_service
 
         memory_service = build_memory_service(
             config,
@@ -569,7 +569,7 @@ def serve(
     agent_manager = None
     if config.agent_manager.enabled:
         try:
-            from openjarvis.agents.manager import AgentManager
+            from nira.agents.manager import AgentManager
 
             am_db = config.agent_manager.db_path or str(get_config_dir() / "agents.db")
             # The server owns the scheduler and is the authoritative tick
@@ -583,13 +583,13 @@ def serve(
     agent_scheduler = None
     if agent_manager is not None:
         try:
-            from openjarvis.agents.executor import AgentExecutor
-            from openjarvis.agents.scheduler import AgentScheduler
+            from nira.agents.executor import AgentExecutor
+            from nira.agents.scheduler import AgentScheduler
 
             _trace_store = None
             try:
                 if config.traces.enabled:
-                    from openjarvis.traces.store import TraceStore
+                    from nira.traces.store import TraceStore
 
                     _trace_store = TraceStore(db_path=config.traces.db_path)
             except Exception:
@@ -608,9 +608,9 @@ def serve(
             # only reads engine/model/config/memory_backend/tool_executor/
             # session_store/channel_backend from the system (see
             # AgentExecutor), all of which are wired here.
-            from openjarvis.sessions.session import SessionStore
-            from openjarvis.system import JarvisSystem
-            from openjarvis.tools._stubs import ToolExecutor
+            from nira.sessions.session import SessionStore
+            from nira.system import NiraSystem
+            from nira.tools._stubs import ToolExecutor
 
             _sched_session_store = None
             if config.sessions.enabled:
@@ -639,7 +639,7 @@ def serve(
                 else None
             )
 
-            system = JarvisSystem(
+            system = NiraSystem(
                 config=config,
                 bus=bus,
                 engine=engine,
@@ -683,7 +683,7 @@ def serve(
     # --- Channel Gateway: API key, sessions, ChannelBridge ---
     import os as _os
 
-    api_key = _os.environ.get("OPENJARVIS_API_KEY", "")
+    api_key = _os.environ.get("NIRA_API_KEY", "")
     if not api_key:
         try:
             import tomllib
@@ -695,12 +695,12 @@ def serve(
         except (FileNotFoundError, ImportError):
             pass
 
-    from openjarvis.server.auth_middleware import check_bind_safety
+    from nira.server.auth_middleware import check_bind_safety
 
     check_bind_safety(bind_host, api_key=api_key)
 
     # Log credential status at startup
-    from openjarvis.core.credentials import TOOL_CREDENTIALS, get_credential_status
+    from nira.core.credentials import TOOL_CREDENTIALS, get_credential_status
 
     _cred_parts = []
     for _tool_name in sorted(TOOL_CREDENTIALS):
@@ -722,10 +722,10 @@ def serve(
     # Wrap existing channel in ChannelBridge orchestrator
     if channel_bridge is not None:
         try:
-            from openjarvis.server.channel_bridge import (
+            from nira.server.channel_bridge import (
                 ChannelBridge,
             )
-            from openjarvis.server.session_store import (
+            from nira.server.session_store import (
                 SessionStore,
             )
 
@@ -768,7 +768,7 @@ def serve(
     )
 
     console.print(
-        f"[green]Starting OpenJarvis API server[/green]\n"
+        f"[green]Starting Nira API server[/green]\n"
         f"  Engine: [cyan]{engine_name}[/cyan]\n"
         f"  Model:  [cyan]{model_name}[/cyan]\n"
         f"  Agent:  [cyan]{agent_key or 'none'}[/cyan]\n"
@@ -790,6 +790,6 @@ def serve(
             "authenticated requests to your instance."
         )
 
-    from openjarvis.server.daemon import run_server
+    from nira.server.daemon import run_server
 
     run_server(app, host=bind_host, port=bind_port, log_level="info")

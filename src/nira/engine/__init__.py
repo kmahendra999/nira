@@ -6,17 +6,17 @@ import importlib
 import logging
 
 # Import engine modules to trigger @EngineRegistry.register() decorators
-import openjarvis.engine.nim  # noqa: F401
-import openjarvis.engine.ollama  # noqa: F401
-import openjarvis.engine.openai_compat_engines  # noqa: F401
-from openjarvis.engine._base import (
+import nira.engine.nim  # noqa: F401
+import nira.engine.ollama  # noqa: F401
+import nira.engine.openai_compat_engines  # noqa: F401
+from nira.engine._base import (
     EngineConnectionError,
     EngineContextLengthError,
     InferenceEngine,
     looks_like_context_length_error,
     messages_to_dicts,
 )
-from openjarvis.engine._discovery import discover_engines, discover_models, get_engine
+from nira.engine._discovery import discover_engines, discover_models, get_engine
 
 logger = logging.getLogger(__name__)
 

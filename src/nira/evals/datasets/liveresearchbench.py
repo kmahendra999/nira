@@ -20,9 +20,9 @@ import logging
 import random
 from typing import Any, Dict, Iterable, List, Optional
 
-from openjarvis.evals.core.dataset import DatasetProvider
-from openjarvis.evals.core.splits import apply_split
-from openjarvis.evals.core.types import EvalRecord
+from nira.evals.core.dataset import DatasetProvider
+from nira.evals.core.splits import apply_split
+from nira.evals.core.types import EvalRecord
 
 LOGGER = logging.getLogger(__name__)
 

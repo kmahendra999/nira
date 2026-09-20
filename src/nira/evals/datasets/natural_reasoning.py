@@ -8,8 +8,8 @@ from __future__ import annotations
 import random
 from typing import Iterable, List, MutableMapping, Optional, Sequence
 
-from openjarvis.evals.core.dataset import DatasetProvider
-from openjarvis.evals.core.types import EvalRecord
+from nira.evals.core.dataset import DatasetProvider
+from nira.evals.core.types import EvalRecord
 
 _PROMPT_TEMPLATE = (
     "Please solve the following reasoning problem. "

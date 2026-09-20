@@ -1,12 +1,12 @@
-"""Tests for openjarvis.optimize.search_space module."""
+"""Tests for nira.optimize.search_space module."""
 
 from __future__ import annotations
 
-from openjarvis.learning.optimize.search_space import (
+from nira.learning.optimize.search_space import (
     DEFAULT_SEARCH_SPACE,
     build_search_space,
 )
-from openjarvis.learning.optimize.types import SearchSpace
+from nira.learning.optimize.types import SearchSpace
 
 # ---------------------------------------------------------------------------
 # build_search_space

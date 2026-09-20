@@ -1,26 +1,26 @@
-"""Optimization framework for OpenJarvis configuration tuning."""
+"""Optimization framework for Nira configuration tuning."""
 
-from openjarvis.learning.optimize.config import (
+from nira.learning.optimize.config import (
     load_benchmark_specs,
     load_objectives,
     load_optimize_config,
 )
-from openjarvis.learning.optimize.llm_optimizer import LLMOptimizer
-from openjarvis.learning.optimize.optimizer import (
+from nira.learning.optimize.llm_optimizer import LLMOptimizer
+from nira.learning.optimize.optimizer import (
     OptimizationEngine,
     compute_pareto_frontier,
 )
-from openjarvis.learning.optimize.search_space import (
+from nira.learning.optimize.search_space import (
     DEFAULT_SEARCH_SPACE,
     build_search_space,
 )
-from openjarvis.learning.optimize.store import OptimizationStore
-from openjarvis.learning.optimize.trial_runner import (
+from nira.learning.optimize.store import OptimizationStore
+from nira.learning.optimize.trial_runner import (
     BenchmarkSpec,
     MultiBenchTrialRunner,
     TrialRunner,
 )
-from openjarvis.learning.optimize.types import (
+from nira.learning.optimize.types import (
     ALL_OBJECTIVES,
     DEFAULT_OBJECTIVES,
     BenchmarkScore,

@@ -20,7 +20,7 @@ def app():
     except ImportError:
         pytest.skip("fastapi not installed")
 
-    from openjarvis.server.connectors_router import create_connectors_router
+    from nira.server.connectors_router import create_connectors_router
 
     _app = FastAPI()
     router = create_connectors_router()
@@ -93,9 +93,9 @@ def test_disconnect_clears_stale_sync_checkpoint(app) -> None:
     risking skipped items in the new vault whose timestamps predate the
     old watermark.
     """
-    from openjarvis.connectors.pipeline import IngestionPipeline
-    from openjarvis.connectors.store import KnowledgeStore
-    from openjarvis.connectors.sync_engine import SyncEngine
+    from nira.connectors.pipeline import IngestionPipeline
+    from nira.connectors.store import KnowledgeStore
+    from nira.connectors.sync_engine import SyncEngine
 
     with KnowledgeStore() as store:
         with SyncEngine(pipeline=IngestionPipeline(store=store)) as engine:
@@ -123,7 +123,7 @@ def test_disconnect_purges_previously_ingested_content(app) -> None:
     discards the new content -- the user's real notes never get indexed,
     with no error surfaced anywhere.
     """
-    from openjarvis.connectors.store import KnowledgeStore
+    from nira.connectors.store import KnowledgeStore
 
     with KnowledgeStore() as store:
         store.store(
@@ -150,9 +150,9 @@ def test_disconnect_purges_previously_ingested_content(app) -> None:
 
 
 def test_disconnect_cancels_inflight_sync_before_purge(app) -> None:
-    from openjarvis.connectors._stubs import Document, SyncStatus
-    from openjarvis.connectors.store import KnowledgeStore
-    from openjarvis.server.connectors_router import _instances
+    from nira.connectors._stubs import Document, SyncStatus
+    from nira.connectors.store import KnowledgeStore
+    from nira.server.connectors_router import _instances
 
     started = threading.Event()
     released = threading.Event()
@@ -224,9 +224,9 @@ def test_disconnect_timeout_preserves_source_and_guards_reconnect(
     monkeypatch,
     tmp_path,
 ) -> None:
-    from openjarvis.connectors._stubs import SyncStatus
-    from openjarvis.server import connectors_router
-    from openjarvis.server.connectors_router import _instances
+    from nira.connectors._stubs import SyncStatus
+    from nira.server import connectors_router
+    from nira.server.connectors_router import _instances
 
     started = threading.Event()
     released = threading.Event()
@@ -306,9 +306,9 @@ def test_disconnect_prevents_sync_start_racing_checkpoint_read(
     monkeypatch,
 ) -> None:
     """Disconnect waits for an in-progress start decision, then purges it."""
-    from openjarvis.connectors._stubs import Document, SyncStatus
-    from openjarvis.connectors.sync_engine import SyncEngine
-    from openjarvis.server.connectors_router import _instances
+    from nira.connectors._stubs import Document, SyncStatus
+    from nira.connectors.sync_engine import SyncEngine
+    from nira.server.connectors_router import _instances
 
     baseline_started = threading.Event()
     release_baseline = threading.Event()
@@ -386,7 +386,7 @@ def test_disconnect_prevents_sync_start_racing_checkpoint_read(
         assert sync_response[0].json()["status"] == "started"
         assert disconnect_response[0].status_code == 200
 
-        from openjarvis.connectors.store import KnowledgeStore
+        from nira.connectors.store import KnowledgeStore
 
         with KnowledgeStore() as store:
             assert not any(
@@ -401,9 +401,9 @@ def test_disconnect_prevents_sync_start_racing_checkpoint_read(
 
 
 def test_disconnect_preserves_source_owned_by_connected_peer(app) -> None:
-    from openjarvis.connectors._stubs import SyncStatus
-    from openjarvis.connectors.store import KnowledgeStore
-    from openjarvis.server.connectors_router import _instances
+    from nira.connectors._stubs import SyncStatus
+    from nira.connectors.store import KnowledgeStore
+    from nira.server.connectors_router import _instances
 
     class FakeConnector:
         def __init__(self, connector_id, indexed_sources=()):
@@ -446,10 +446,10 @@ def test_disconnect_preserves_source_owned_by_connected_peer(app) -> None:
 
 
 def test_disconnect_restores_checkpoint_when_purge_fails(app, monkeypatch) -> None:
-    from openjarvis.connectors.pipeline import IngestionPipeline
-    from openjarvis.connectors.store import KnowledgeStore
-    from openjarvis.connectors.sync_engine import SyncEngine
-    from openjarvis.server.connectors_router import _instances
+    from nira.connectors.pipeline import IngestionPipeline
+    from nira.connectors.store import KnowledgeStore
+    from nira.connectors.sync_engine import SyncEngine
+    from nira.server.connectors_router import _instances
 
     class FakeObsidian:
         indexed_sources = ("obsidian",)
@@ -519,8 +519,8 @@ def test_trigger_sync(app, tmp_path: Path) -> None:
 
 def test_connect_slack_bot_token_returns_400(app, tmp_path: Path) -> None:
     """POST connect with an xoxb- token is rejected 400 and writes nothing."""
-    from openjarvis.connectors.slack_connector import SlackConnector
-    from openjarvis.server.connectors_router import _instances
+    from nira.connectors.slack_connector import SlackConnector
+    from nira.server.connectors_router import _instances
 
     creds = tmp_path / "slack.json"
     _instances["slack"] = SlackConnector(credentials_path=str(creds))
@@ -542,15 +542,15 @@ def test_connect_granola_invalid_key_returns_400_keeps_existing(
     import json
     from unittest.mock import patch
 
-    from openjarvis.connectors.granola import GranolaConnector, GranolaKeyError
-    from openjarvis.server.connectors_router import _instances
+    from nira.connectors.granola import GranolaConnector, GranolaKeyError
+    from nira.server.connectors_router import _instances
 
     creds = tmp_path / "granola.json"
     creds.write_text(json.dumps({"token": "grl_real_existing_key"}))
     _instances["granola"] = GranolaConnector(credentials_path=str(creds))
     try:
         with patch(
-            "openjarvis.connectors.granola._granola_api_validate_key",
+            "nira.connectors.granola._granola_api_validate_key",
             side_effect=GranolaKeyError(
                 "Invalid API key. Check your key in Granola Settings → API."
             ),
@@ -596,11 +596,11 @@ def test_connect_persists_generic_token_connector_credentials(
 ) -> None:
     """The generic token panel must actually configure each token connector."""
 
-    from openjarvis.connectors.github_notifications import GitHubNotificationsConnector
-    from openjarvis.connectors.oura import OuraConnector
-    from openjarvis.connectors.weather import WeatherConnector
-    from openjarvis.core.registry import ConnectorRegistry
-    from openjarvis.server.connectors_router import _instances
+    from nira.connectors.github_notifications import GitHubNotificationsConnector
+    from nira.connectors.oura import OuraConnector
+    from nira.connectors.weather import WeatherConnector
+    from nira.core.registry import ConnectorRegistry
+    from nira.server.connectors_router import _instances
 
     path = tmp_path / filename
     constructors = {
@@ -614,11 +614,11 @@ def test_connect_persists_generic_token_connector_credentials(
     ConnectorRegistry.register_value(connector_id, type(instance))
     validators = {
         "github_notifications": (
-            "openjarvis.connectors.github_notifications._github_api_get",
+            "nira.connectors.github_notifications._github_api_get",
             [],
         ),
-        "oura": ("openjarvis.connectors.oura._oura_api_get", {}),
-        "weather": ("openjarvis.connectors.weather._weather_api_get", {}),
+        "oura": ("nira.connectors.oura._oura_api_get", {}),
+        "weather": ("nira.connectors.weather._weather_api_get", {}),
     }
     target, result = validators[connector_id]
     monkeypatch.setattr(target, lambda *args, **kwargs: result)
@@ -639,11 +639,11 @@ def test_connect_persists_generic_token_connector_credentials(
 
 def test_invalid_token_is_not_persisted_or_synced(app, tmp_path, monkeypatch) -> None:
     """Validation failure preserves an existing credential byte-for-byte."""
-    from openjarvis.connectors.github_notifications import (
+    from nira.connectors.github_notifications import (
         GitHubNotificationsConnector,
     )
-    from openjarvis.core.registry import ConnectorRegistry
-    from openjarvis.server.connectors_router import _instances
+    from nira.core.registry import ConnectorRegistry
+    from nira.server.connectors_router import _instances
 
     path = tmp_path / "github.json"
     original = '{"token":"known-good"}'
@@ -659,7 +659,7 @@ def test_invalid_token_is_not_persisted_or_synced(app, tmp_path, monkeypatch) ->
 
     instance.sync = sync
     monkeypatch.setattr(
-        "openjarvis.connectors.github_notifications._github_api_get",
+        "nira.connectors.github_notifications._github_api_get",
         lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("401 Unauthorized")),
     )
     _instances["github_notifications"] = instance
@@ -677,8 +677,8 @@ def test_invalid_token_is_not_persisted_or_synced(app, tmp_path, monkeypatch) ->
 
 def test_connect_weather_requires_location(app, tmp_path: Path) -> None:
     """Weather must not report connected with an API key it cannot use."""
-    from openjarvis.connectors.weather import WeatherConnector
-    from openjarvis.server.connectors_router import _instances
+    from nira.connectors.weather import WeatherConnector
+    from nira.server.connectors_router import _instances
 
     path = tmp_path / "weather.json"
     _instances["weather"] = WeatherConnector(token_path=str(path))
@@ -693,8 +693,8 @@ def test_connect_weather_requires_location(app, tmp_path: Path) -> None:
 
 def test_connect_news_rss_requires_and_persists_feeds(app, tmp_path: Path) -> None:
     """A local connector with required setup cannot claim success for ``{}``."""
-    from openjarvis.connectors.news_rss import NewsRSSConnector
-    from openjarvis.server.connectors_router import _instances
+    from nira.connectors.news_rss import NewsRSSConnector
+    from nira.server.connectors_router import _instances
 
     path = tmp_path / "news_rss.json"
     instance = NewsRSSConnector(config_path=str(path))

@@ -1,4 +1,4 @@
-"""Command-line interface for OpenJarvis (Click-based)."""
+"""Command-line interface for Nira (Click-based)."""
 
 from __future__ import annotations
 
@@ -6,8 +6,8 @@ import sys
 
 import click
 
-import openjarvis
-from openjarvis.cli.scan_cmd import scan
+import nira
+from nira.cli.scan_cmd import scan
 
 
 def _invoked_command(argv: list[str]) -> str:
@@ -19,7 +19,7 @@ def _invoked_command(argv: list[str]) -> str:
     return ""
 
 
-# A data-boundary scan must be able to diagnose an invalid OPENJARVIS_HOME.
+# A data-boundary scan must be able to diagnose an invalid NIRA_HOME.
 # Importing the rest of the CLI eagerly would import core.config and resolve that
 # path before the scan can turn the failure into a finding.
 _DATA_BOUNDARY_BOOTSTRAP = (
@@ -35,10 +35,10 @@ def _should_skip_update_check(ctx: click.Context, argv: list[str]) -> bool:
 
 
 @click.group(
-    help="OpenJarvis — modular AI assistant backend",
+    help="Nira — modular AI assistant backend",
     invoke_without_command=True,
 )
-@click.version_option(version=openjarvis.__version__, prog_name="jarvis")
+@click.version_option(version=nira.__version__, prog_name="nira")
 @click.option("--verbose", is_flag=True, default=False, help="Enable debug logging")
 @click.option("--quiet", is_flag=True, default=False, help="Suppress non-error output")
 @click.option(
@@ -47,14 +47,23 @@ def _should_skip_update_check(ctx: click.Context, argv: list[str]) -> bool:
     is_flag=True,
     default=False,
     help=(
-        "Bare ``jarvis``: force interactive model list "
-        "(overrides JARVIS_SKIP_MODEL_PICK)."
+        "Bare ``nira``: force interactive model list (overrides NIRA_SKIP_MODEL_PICK)."
     ),
 )
 @click.pass_context
 def cli(ctx: click.Context, verbose: bool, quiet: bool, pick_model_bare: bool) -> None:
     """Top-level CLI group."""
-    from openjarvis.cli.log_config import setup_logging
+    from nira.cli.log_config import setup_logging
+
+    # Adopt a pre-rename ``~/.openjarvis`` root before anything can read or
+    # create config. Runs ahead of setup_logging because logging itself writes
+    # under the home directory — migrating after that would strand the log file
+    # in a directory we are about to move. No-ops on every run but the first.
+    from nira.core.paths import migrate_legacy_home
+
+    _migrated = migrate_legacy_home()
+    if _migrated is not None and not quiet:
+        click.echo(f"Migrated your OpenJarvis data to {_migrated}", err=True)
 
     ctx.ensure_object(dict)
     ctx.obj["verbose"] = verbose
@@ -63,10 +72,10 @@ def cli(ctx: click.Context, verbose: bool, quiet: bool, pick_model_bare: bool) -
     setup_logging(verbose=verbose, quiet=quiet)
 
     # Check for updates on interactive commands. The banner is noise in
-    # demo recordings of ``jarvis ask --research``, so skip it whenever
+    # demo recordings of ``nira ask --research``, so skip it whenever
     # the research flag is in argv (cheap argv sniff — Click hasn't
     # parsed the subcommand's args yet at this point). Also skip
-    # ``jarvis scan --data-boundaries`` because it is intended to be a
+    # ``nira scan --data-boundaries`` because it is intended to be a
     # local application-data diagnostic with no outbound calls.
     import sys
 
@@ -74,11 +83,11 @@ def cli(ctx: click.Context, verbose: bool, quiet: bool, pick_model_bare: bool) -
     if not quiet and ctx.invoked_subcommand and not skip_update_check:
         import threading
 
-        from openjarvis.cli._version_check import check_for_updates
+        from nira.cli._version_check import check_for_updates
 
         # Run the PyPI version poll off the hot path: on a cache miss it does
         # a blocking urlopen (up to 3s) that otherwise delays every command,
-        # notably `jarvis serve` startup (#263). It's best-effort and never
+        # notably `nira serve` startup (#263). It's best-effort and never
         # raises, and the nudge prints to stderr, so a daemon thread is safe —
         # for long-lived commands (serve) it finishes; for short commands that
         # exit first, the check is simply skipped this run (same as a miss).
@@ -88,50 +97,50 @@ def cli(ctx: click.Context, verbose: bool, quiet: bool, pick_model_bare: bool) -
             daemon=True,
         ).start()
 
-    # First-run guard — routes bare `jarvis` to chat or init.
+    # First-run guard — routes bare `nira` to chat or init.
     if ctx.invoked_subcommand is None:
-        from openjarvis.cli._first_run import check_and_route
+        from nira.cli._first_run import check_and_route
 
         check_and_route(ctx)
 
 
 cli.add_command(scan, "scan")
 if not _DATA_BOUNDARY_BOOTSTRAP:
-    from openjarvis.cli._bootstrap import bootstrap_cmd
-    from openjarvis.cli.add_cmd import add
-    from openjarvis.cli.agent_cmd import agent
-    from openjarvis.cli.ask import ask
-    from openjarvis.cli.bench_cmd import bench
-    from openjarvis.cli.channel_cmd import channel
-    from openjarvis.cli.channels_cmd import channels
-    from openjarvis.cli.chat_cmd import chat
-    from openjarvis.cli.compose_cmd import compose
-    from openjarvis.cli.config_cmd import config
-    from openjarvis.cli.connect_cmd import connect
-    from openjarvis.cli.daemon_cmd import restart, start, status, stop
-    from openjarvis.cli.digest_cmd import digest
-    from openjarvis.cli.doctor_cmd import doctor
-    from openjarvis.cli.eval_cmd import eval_group
-    from openjarvis.cli.feedback_cmd import feedback_group
-    from openjarvis.cli.gateway_cmd import gateway
-    from openjarvis.cli.host_cmd import host
-    from openjarvis.cli.init_cmd import init
-    from openjarvis.cli.memory_cmd import memory
-    from openjarvis.cli.mine_cmd import mine
-    from openjarvis.cli.model import model
-    from openjarvis.cli.operators_cmd import operators
-    from openjarvis.cli.optimize_cmd import optimize_group
-    from openjarvis.cli.pearl_cmd import pearl
-    from openjarvis.cli.quickstart_cmd import quickstart
-    from openjarvis.cli.registry_cmd import registry
-    from openjarvis.cli.scheduler_cmd import scheduler
-    from openjarvis.cli.self_update_cmd import self_update
-    from openjarvis.cli.serve import serve
-    from openjarvis.cli.skill_cmd import skill
-    from openjarvis.cli.telemetry_cmd import telemetry
-    from openjarvis.cli.tool_cmd import tool
-    from openjarvis.cli.vault_cmd import vault
-    from openjarvis.cli.workflow_cmd import workflow
+    from nira.cli._bootstrap import bootstrap_cmd
+    from nira.cli.add_cmd import add
+    from nira.cli.agent_cmd import agent
+    from nira.cli.ask import ask
+    from nira.cli.bench_cmd import bench
+    from nira.cli.channel_cmd import channel
+    from nira.cli.channels_cmd import channels
+    from nira.cli.chat_cmd import chat
+    from nira.cli.compose_cmd import compose
+    from nira.cli.config_cmd import config
+    from nira.cli.connect_cmd import connect
+    from nira.cli.daemon_cmd import restart, start, status, stop
+    from nira.cli.digest_cmd import digest
+    from nira.cli.doctor_cmd import doctor
+    from nira.cli.eval_cmd import eval_group
+    from nira.cli.feedback_cmd import feedback_group
+    from nira.cli.gateway_cmd import gateway
+    from nira.cli.host_cmd import host
+    from nira.cli.init_cmd import init
+    from nira.cli.memory_cmd import memory
+    from nira.cli.mine_cmd import mine
+    from nira.cli.model import model
+    from nira.cli.operators_cmd import operators
+    from nira.cli.optimize_cmd import optimize_group
+    from nira.cli.pearl_cmd import pearl
+    from nira.cli.quickstart_cmd import quickstart
+    from nira.cli.registry_cmd import registry
+    from nira.cli.scheduler_cmd import scheduler
+    from nira.cli.self_update_cmd import self_update
+    from nira.cli.serve import serve
+    from nira.cli.skill_cmd import skill
+    from nira.cli.telemetry_cmd import telemetry
+    from nira.cli.tool_cmd import tool
+    from nira.cli.vault_cmd import vault
+    from nira.cli.workflow_cmd import workflow
 
     cli.add_command(init, "init")
     cli.add_command(ask, "ask")
@@ -173,7 +182,7 @@ if not _DATA_BOUNDARY_BOOTSTRAP:
     # Deep Research setup pulls the ingestion pipeline (embeddings/numpy). Guard
     # it so an import-time dependency failure cannot take down the whole CLI.
     try:
-        from openjarvis.cli.deep_research_setup_cmd import deep_research_setup
+        from nira.cli.deep_research_setup_cmd import deep_research_setup
 
         cli.add_command(deep_research_setup, "deep-research-setup")
         cli.add_command(deep_research_setup, "research")
@@ -188,14 +197,14 @@ if not _DATA_BOUNDARY_BOOTSTRAP:
 
     # Gateway CLI commands (lazy import to avoid pulling starlette)
     try:
-        from openjarvis.cli.auth_cmd import auth
+        from nira.cli.auth_cmd import auth
 
         cli.add_command(auth, "auth")
     except ImportError:
         pass
 
     try:
-        from openjarvis.cli.tunnel_cmd import tunnel
+        from nira.cli.tunnel_cmd import tunnel
 
         cli.add_command(tunnel, "tunnel")
     except ImportError:
@@ -203,7 +212,7 @@ if not _DATA_BOUNDARY_BOOTSTRAP:
 
 
 def main() -> None:
-    """Entry point registered as ``jarvis`` console script."""
+    """Entry point registered as ``nira`` console script."""
     import sys
 
     if sys.platform == "win32":

@@ -7,13 +7,13 @@ import logging
 import os
 from typing import Any, Dict, List, Optional
 
-from openjarvis.channels._stubs import (
+from nira.channels._stubs import (
     BaseChannel,
     ChannelHandler,
     ChannelStatus,
 )
-from openjarvis.core.events import EventBus, EventType
-from openjarvis.core.registry import ChannelRegistry
+from nira.core.events import EventBus, EventType
+from nira.core.registry import ChannelRegistry
 
 logger = logging.getLogger(__name__)
 

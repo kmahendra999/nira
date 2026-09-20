@@ -1,12 +1,12 @@
 # Multi-Model Router
 
-Route queries to the cheapest capable model using OpenJarvis's learning/routing
+Route queries to the cheapest capable model using Nira's learning/routing
 system. Simple queries go to small fast models; complex code or math queries go
 to larger models.
 
 ## Requirements
 
-- OpenJarvis installed (`git clone https://github.com/open-jarvis/OpenJarvis.git && cd OpenJarvis && uv sync` or `uv sync --extra dev`)
+- Nira installed (`git clone https://github.com/nira-ai/nira.git && cd Nira && uv sync` or `uv sync --extra dev`)
 - An inference engine running with multiple models available
 
 ## Usage
@@ -37,7 +37,7 @@ python examples/multi_model_router/multi_model_router.py \
 
 ## How It Works
 
-The script uses OpenJarvis's routing infrastructure from the learning pillar:
+The script uses Nira's routing infrastructure from the learning pillar:
 
 - **HeuristicRouter** (default) -- rule-based routing that analyzes the query
   for code patterns, math keywords, length, and complexity to pick the right

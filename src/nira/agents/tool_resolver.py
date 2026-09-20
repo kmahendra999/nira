@@ -176,19 +176,19 @@ class ResolvedAgentTools:
 def ensure_registries_populated() -> None:
     """Populate tool/channel registries, including after tests clear them."""
 
-    from openjarvis.core.registry import ChannelRegistry, ToolRegistry
+    from nira.core.registry import ChannelRegistry, ToolRegistry
 
     try:
-        import openjarvis.channels  # noqa: F401
+        import nira.channels  # noqa: F401
     except Exception:
         pass
 
     try:
-        import openjarvis.tools  # noqa: F401
+        import nira.tools  # noqa: F401
     except Exception:
         pass
 
-    browser_modules = ("openjarvis.tools.browser", "openjarvis.tools.browser_axtree")
+    browser_modules = ("nira.tools.browser", "nira.tools.browser_axtree")
     for module_name in browser_modules:
         try:
             importlib.import_module(module_name)
@@ -197,9 +197,9 @@ def ensure_registries_populated() -> None:
 
     if not ChannelRegistry.keys():
         for module_name in list(sys.modules):
-            if module_name.startswith(
-                "openjarvis.channels."
-            ) and not module_name.endswith("_stubs"):
+            if module_name.startswith("nira.channels.") and not module_name.endswith(
+                "_stubs"
+            ):
                 try:
                     importlib.reload(sys.modules[module_name])
                 except Exception:
@@ -208,7 +208,7 @@ def ensure_registries_populated() -> None:
     if not ToolRegistry.keys():
         for module_name in list(sys.modules):
             if (
-                module_name.startswith("openjarvis.tools.")
+                module_name.startswith("nira.tools.")
                 and not module_name.endswith("_stubs")
                 and not module_name.endswith("agent_tools")
             ):
@@ -267,7 +267,7 @@ def build_deep_research_tools(
     """Construct the live knowledge tools granted to ``deep_research``."""
 
     if not knowledge_db_path:
-        from openjarvis.core.config import DEFAULT_CONFIG_DIR
+        from nira.core.config import DEFAULT_CONFIG_DIR
 
         knowledge_db_path = DEFAULT_CONFIG_DIR / "knowledge.db"
 
@@ -275,12 +275,12 @@ def build_deep_research_tools(
     if not path.exists():
         return []
 
-    from openjarvis.connectors.retriever import TwoStageRetriever
-    from openjarvis.connectors.store import KnowledgeStore
-    from openjarvis.tools.knowledge_search import KnowledgeSearchTool
-    from openjarvis.tools.knowledge_sql import KnowledgeSQLTool
-    from openjarvis.tools.scan_chunks import ScanChunksTool
-    from openjarvis.tools.think import ThinkTool
+    from nira.connectors.retriever import TwoStageRetriever
+    from nira.connectors.store import KnowledgeStore
+    from nira.tools.knowledge_search import KnowledgeSearchTool
+    from nira.tools.knowledge_sql import KnowledgeSQLTool
+    from nira.tools.scan_chunks import ScanChunksTool
+    from nira.tools.think import ThinkTool
 
     store = KnowledgeStore(str(path))
     try:
@@ -329,7 +329,7 @@ def resolve_agent_tools(
     """
 
     ensure_registries_populated()
-    from openjarvis.core.registry import ChannelRegistry, ToolRegistry
+    from nira.core.registry import ChannelRegistry, ToolRegistry
 
     config = agent_record.get("config") or {}
     if not isinstance(config, Mapping):

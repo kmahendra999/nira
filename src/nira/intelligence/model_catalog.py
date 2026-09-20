@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import List
 
-from openjarvis.core.registry import ModelRegistry
-from openjarvis.core.types import ModelSpec, Quantization
+from nira.core.registry import ModelRegistry
+from nira.core.types import ModelSpec, Quantization
 
 BUILTIN_MODELS: List[ModelSpec] = [
     # -----------------------------------------------------------------------

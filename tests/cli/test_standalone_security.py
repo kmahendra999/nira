@@ -9,8 +9,8 @@ from unittest.mock import MagicMock
 
 from click.testing import CliRunner
 
-from openjarvis.core.config import JarvisConfig
-from openjarvis.security import SecurityContext
+from nira.core.config import NiraConfig
+from nira.security import SecurityContext
 
 
 def _security(raw_engine, wrapped_engine, policy, limiter):
@@ -24,7 +24,7 @@ def _security(raw_engine, wrapped_engine, policy, limiter):
 
 
 def test_deep_research_setup_chat_wires_security(monkeypatch):
-    from openjarvis.cli.deep_research_setup_cmd import _launch_chat
+    from nira.cli.deep_research_setup_cmd import _launch_chat
 
     raw_engine = MagicMock(name="raw-engine")
     wrapped_engine = MagicMock(name="wrapped-engine")
@@ -42,10 +42,10 @@ def test_deep_research_setup_chat_wires_security(monkeypatch):
         def run(self, text):
             return SimpleNamespace(content="done")
 
-    monkeypatch.setattr("openjarvis.core.config.load_config", lambda: JarvisConfig())
-    monkeypatch.setattr("openjarvis.engine.ollama.OllamaEngine", lambda: raw_engine)
-    monkeypatch.setattr("openjarvis.security.setup_security", setup)
-    monkeypatch.setattr("openjarvis.agents.deep_research.DeepResearchAgent", _Agent)
+    monkeypatch.setattr("nira.core.config.load_config", lambda: NiraConfig())
+    monkeypatch.setattr("nira.engine.ollama.OllamaEngine", lambda: raw_engine)
+    monkeypatch.setattr("nira.security.setup_security", setup)
+    monkeypatch.setattr("nira.agents.deep_research.DeepResearchAgent", _Agent)
     console = MagicMock()
     console.input.return_value = "/quit"
 
@@ -59,7 +59,7 @@ def test_deep_research_setup_chat_wires_security(monkeypatch):
 
 
 def test_imessage_foreground_wires_security(monkeypatch):
-    from openjarvis.cli.channels_cmd import imessage_start
+    from nira.cli.channels_cmd import imessage_start
 
     raw_engine = MagicMock(name="raw-engine")
     wrapped_engine = MagicMock(name="wrapped-engine")
@@ -76,12 +76,12 @@ def test_imessage_foreground_wires_security(monkeypatch):
         def run(self, text):
             return SimpleNamespace(content="done")
 
-    monkeypatch.setattr("openjarvis.channels.imessage_daemon.is_running", lambda: False)
-    monkeypatch.setattr("openjarvis.channels.imessage_daemon.run_daemon", run_daemon)
-    monkeypatch.setattr("openjarvis.core.config.load_config", lambda: JarvisConfig())
-    monkeypatch.setattr("openjarvis.engine.ollama.OllamaEngine", lambda: raw_engine)
-    monkeypatch.setattr("openjarvis.security.setup_security", setup)
-    monkeypatch.setattr("openjarvis.agents.deep_research.DeepResearchAgent", _Agent)
+    monkeypatch.setattr("nira.channels.imessage_daemon.is_running", lambda: False)
+    monkeypatch.setattr("nira.channels.imessage_daemon.run_daemon", run_daemon)
+    monkeypatch.setattr("nira.core.config.load_config", lambda: NiraConfig())
+    monkeypatch.setattr("nira.engine.ollama.OllamaEngine", lambda: raw_engine)
+    monkeypatch.setattr("nira.security.setup_security", setup)
+    monkeypatch.setattr("nira.agents.deep_research.DeepResearchAgent", _Agent)
 
     result = CliRunner().invoke(
         imessage_start,
@@ -98,7 +98,7 @@ def test_imessage_foreground_wires_security(monkeypatch):
 
 
 def test_slack_daemon_wires_security(monkeypatch, tmp_path):
-    from openjarvis.channels import slack_daemon
+    from nira.channels import slack_daemon
 
     handlers = {}
 
@@ -148,12 +148,12 @@ def test_slack_daemon_wires_security(monkeypatch, tmp_path):
 
     monkeypatch.setattr(slack_daemon, "_PID_FILE", str(tmp_path / "slack.pid"))
     monkeypatch.setattr(slack_daemon.signal, "signal", MagicMock())
-    monkeypatch.setattr("openjarvis.core.config.load_config", lambda: JarvisConfig())
-    monkeypatch.setattr("openjarvis.engine.ollama.OllamaEngine", lambda: raw_engine)
-    monkeypatch.setattr("openjarvis.security.setup_security", setup)
-    monkeypatch.setattr("openjarvis.agents.deep_research.DeepResearchAgent", _Agent)
+    monkeypatch.setattr("nira.core.config.load_config", lambda: NiraConfig())
+    monkeypatch.setattr("nira.engine.ollama.OllamaEngine", lambda: raw_engine)
+    monkeypatch.setattr("nira.security.setup_security", setup)
+    monkeypatch.setattr("nira.agents.deep_research.DeepResearchAgent", _Agent)
     monkeypatch.setattr(
-        "openjarvis.server.agent_manager_routes._build_deep_research_tools",
+        "nira.server.agent_manager_routes._build_deep_research_tools",
         lambda **kwargs: [],
     )
 

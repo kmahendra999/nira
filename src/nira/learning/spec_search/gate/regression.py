@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from openjarvis.learning.spec_search.models import BenchmarkSnapshot
+from nira.learning.spec_search.models import BenchmarkSnapshot
 
 
 @dataclass

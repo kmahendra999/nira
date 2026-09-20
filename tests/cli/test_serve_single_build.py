@@ -1,4 +1,4 @@
-"""Regression tests for #263 — ``jarvis serve`` must build the system once.
+"""Regression tests for #263 — ``nira serve`` must build the system once.
 
 serve.py used to construct all heavy components inline and then call
 ``SystemBuilder(config).build()`` a second time inside the scheduler block,
@@ -7,7 +7,7 @@ the channel and re-creating the agent manager — ~30-40s of redundant work.
 
 These tests pin the fix:
 
-1. ``SystemBuilder.build`` is never called during ``jarvis serve`` startup
+1. ``SystemBuilder.build`` is never called during ``nira serve`` startup
    (the duplicate build is gone).
 2. The ``AgentExecutor`` still receives a system exposing the attributes it
    actually reads: ``tool_executor``, ``session_store``, ``memory_backend``,
@@ -22,14 +22,14 @@ from unittest.mock import MagicMock, patch
 import pytest
 from click.testing import CliRunner
 
-from openjarvis.cli import cli
+from nira.cli import cli
 
 pytest.importorskip("fastapi")
 pytest.importorskip("uvicorn")
 
-# ``openjarvis.cli.serve`` as an attribute resolves to the click *command*
+# ``nira.cli.serve`` as an attribute resolves to the click *command*
 # (re-exported on the package); grab the real module to monkeypatch its globals.
-serve_mod = importlib.import_module("openjarvis.cli.serve")
+serve_mod = importlib.import_module("nira.cli.serve")
 
 
 def _fake_engine() -> MagicMock:
@@ -52,10 +52,10 @@ def _repopulate_registries() -> None:
     import importlib
     import sys
 
-    import openjarvis.agents  # noqa: F401
-    import openjarvis.tools  # noqa: F401
-    import openjarvis.tools.storage  # noqa: F401
-    from openjarvis.core.registry import (
+    import nira.agents  # noqa: F401
+    import nira.tools  # noqa: F401
+    import nira.tools.storage  # noqa: F401
+    from nira.core.registry import (
         AgentRegistry,
         MemoryRegistry,
         ToolRegistry,
@@ -63,9 +63,7 @@ def _repopulate_registries() -> None:
 
     if not AgentRegistry.keys():
         for mod_name in list(sys.modules):
-            if mod_name.startswith("openjarvis.agents.") and not mod_name.endswith(
-                "_stubs"
-            ):
+            if mod_name.startswith("nira.agents.") and not mod_name.endswith("_stubs"):
                 try:
                     importlib.reload(sys.modules[mod_name])
                 except Exception:
@@ -74,7 +72,7 @@ def _repopulate_registries() -> None:
     if not ToolRegistry.keys():
         for mod_name in list(sys.modules):
             if (
-                mod_name.startswith("openjarvis.tools.")
+                mod_name.startswith("nira.tools.")
                 and not mod_name.endswith("_stubs")
                 and not mod_name.endswith("agent_tools")
             ):
@@ -85,9 +83,9 @@ def _repopulate_registries() -> None:
 
     if not MemoryRegistry.keys():
         for mod_name in list(sys.modules):
-            if mod_name.startswith(
-                "openjarvis.tools.storage."
-            ) and not mod_name.endswith("_stubs"):
+            if mod_name.startswith("nira.tools.storage.") and not mod_name.endswith(
+                "_stubs"
+            ):
                 try:
                     importlib.reload(sys.modules[mod_name])
                 except Exception:
@@ -103,17 +101,17 @@ def _run_serve(
     security_primitives=None,
     channel_backend=None,
 ):
-    """Invoke ``jarvis serve`` with all heavy/blocking pieces stubbed out.
+    """Invoke ``nira serve`` with all heavy/blocking pieces stubbed out.
 
     Returns the CliRunner result. The server is never actually started
     (``run_server`` is a no-op) and no real engine is contacted.
     """
-    from openjarvis.core.config import JarvisConfig
-    from openjarvis.core.registry import MemoryRegistry
+    from nira.core.config import NiraConfig
+    from nira.core.registry import MemoryRegistry
 
     _repopulate_registries()
 
-    config = JarvisConfig()
+    config = NiraConfig()
     # Keep the scheduler block alive (it owns the executor wiring under test)
     # while pointing every store at the temp dir.
     config.agent_manager.enabled = True
@@ -153,7 +151,7 @@ def _run_serve(
     monkeypatch.setattr(serve_mod, "discover_models", lambda *a, **k: {})
     if channel_backend is not None:
         monkeypatch.setattr(
-            "openjarvis.system.builder.SystemBuilder._resolve_channel",
+            "nira.system.builder.SystemBuilder._resolve_channel",
             lambda *args, **kwargs: channel_backend,
         )
 
@@ -164,18 +162,18 @@ def _run_serve(
     if security_primitives is None:
         security_primitives = (None, None, None)
     sec.capability_policy, sec.rate_limiter, sec.audit_logger = security_primitives
-    monkeypatch.setattr("openjarvis.security.setup_security", lambda *a, **k: sec)
+    monkeypatch.setattr("nira.security.setup_security", lambda *a, **k: sec)
 
     with (
         patch(
-            "openjarvis.system.builder.SystemBuilder.build",
+            "nira.system.builder.SystemBuilder.build",
             build_spy,
         ),
         patch(
-            "openjarvis.agents.executor.AgentExecutor.set_system",
+            "nira.agents.executor.AgentExecutor.set_system",
             set_system_spy,
         ),
-        patch("openjarvis.server.daemon.run_server", lambda *a, **k: None),
+        patch("nira.server.daemon.run_server", lambda *a, **k: None),
     ):
         return CliRunner().invoke(cli, ["serve"], catch_exceptions=False)
 
@@ -184,7 +182,7 @@ def test_serve_does_not_call_systembuilder_build(tmp_path, monkeypatch):
     """The redundant second full build is gone (#263)."""
     build_spy = MagicMock(
         side_effect=AssertionError(
-            "SystemBuilder.build() must not run during `jarvis serve` startup "
+            "SystemBuilder.build() must not run during `nira serve` startup "
             "— it is the duplicate build #263 removed."
         )
     )
@@ -207,12 +205,12 @@ def test_serve_does_not_call_systembuilder_build(tmp_path, monkeypatch):
 def test_serve_passes_environment_cors_origins(tmp_path, monkeypatch):
     """The normal CLI path must not mask the environment override."""
     monkeypatch.setenv(
-        "OPENJARVIS_CORS_ORIGINS",
+        "NIRA_CORS_ORIGINS",
         "https://frontend.example,https://admin.example",
     )
     create_app = MagicMock(return_value=MagicMock())
 
-    with patch("openjarvis.server.app.create_app", create_app):
+    with patch("nira.server.app.create_app", create_app):
         result = _run_serve(
             tmp_path,
             monkeypatch,
@@ -277,14 +275,14 @@ def test_executor_receives_required_system_attrs(tmp_path, monkeypatch):
 
 
 def test_channel_system_receives_remote_security_primitives(tmp_path, monkeypatch):
-    from openjarvis.system import JarvisSystem
+    from nira.system import NiraSystem
 
     captured = {}
 
     def _capture_wire(self, channel):
         captured["system"] = self
 
-    monkeypatch.setattr(JarvisSystem, "wire_channel", _capture_wire)
+    monkeypatch.setattr(NiraSystem, "wire_channel", _capture_wire)
     policy = object()
     limiter = object()
     audit = object()

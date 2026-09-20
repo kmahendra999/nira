@@ -1,6 +1,6 @@
 # Simple Chat
 
-A lightweight conversational AI with no tools and no agent overhead. This is the simplest possible OpenJarvis setup: just Ollama and a local model. Ideal for general-purpose chat, Q&A, brainstorming, and getting started quickly.
+A lightweight conversational AI with no tools and no agent overhead. This is the simplest possible Nira setup: just Ollama and a local model. Ideal for general-purpose chat, Q&A, brainstorming, and getting started quickly.
 
 ## Quickstart (3 minutes)
 
@@ -11,19 +11,19 @@ A lightweight conversational AI with no tools and no agent overhead. This is the
 ollama pull qwen3.5:4b
 ```
 
-### 2. Install and initialize OpenJarvis
+### 2. Install and initialize Nira
 
 ```bash
-git clone https://github.com/open-jarvis/OpenJarvis.git
-cd OpenJarvis
+git clone https://github.com/nira-ai/nira.git
+cd Nira
 uv sync
-jarvis init --preset chat-simple --force
+nira init --preset chat-simple --force
 ```
 
 ### 3. Ask a question
 
 ```bash
-jarvis ask "What is quantum computing?"
+nira ask "What is quantum computing?"
 ```
 
 That's it. No API keys, no tools, no cloud -- just a local model answering your questions.
@@ -32,27 +32,27 @@ That's it. No API keys, no tools, no cloud -- just a local model answering your 
 
 ```bash
 # Single question
-jarvis ask "Explain the difference between TCP and UDP"
+nira ask "Explain the difference between TCP and UDP"
 
 # Interactive chat session (multi-turn conversation)
-jarvis chat
+nira chat
 
 # Start the API server for the browser or desktop app
-jarvis serve
+nira serve
 
 # Override the model for a single query
-jarvis ask -m qwen3.5:9b "Explain general relativity"
+nira ask -m qwen3.5:9b "Explain general relativity"
 
 # Adjust temperature (0.0 = deterministic, 1.0 = creative)
-jarvis ask -t 0.2 "List the planets in our solar system"
+nira ask -t 0.2 "List the planets in our solar system"
 
 # Output raw JSON
-jarvis ask --json "What is 2+2?"
+nira ask --json "What is 2+2?"
 ```
 
 ## Configuration Reference
 
-The preset writes this to `~/.openjarvis/config.toml`:
+The preset writes this to `~/.nira/config.toml`:
 
 ```toml
 [engine]
@@ -80,10 +80,10 @@ port = 8000
 | `qwen3.5:35b` | 35B | Slower | Best | Complex reasoning, detailed analysis |
 | `llama3.1:8b` | 8B | Balanced | Good | Alternative if you prefer Meta models |
 
-To switch models, either edit `~/.openjarvis/config.toml` or override per-query:
+To switch models, either edit `~/.nira/config.toml` or override per-query:
 
 ```bash
-jarvis ask -m qwen3.5:35b "Write a detailed comparison of REST and GraphQL"
+nira ask -m qwen3.5:35b "Write a detailed comparison of REST and GraphQL"
 ```
 
 To pull a new model:
@@ -105,15 +105,15 @@ This opens [http://localhost:5173](http://localhost:5173) in your browser with a
 To run just the API server (for use with the desktop app or external clients):
 
 ```bash
-jarvis serve
+nira serve
 ```
 
 The server is OpenAI-compatible, so any client that works with the OpenAI API can point to `http://localhost:8000/v1`.
 
 ## Using the Desktop App
 
-1. Start the backend: `jarvis serve` (or `./scripts/quickstart.sh`)
-2. Download and open the desktop app from the [releases page](https://github.com/open-jarvis/OpenJarvis/releases)
+1. Start the backend: `nira serve` (or `./scripts/quickstart.sh`)
+2. Download and open the desktop app from the [releases page](https://github.com/nira-ai/nira/releases)
 3. The app connects to `http://localhost:8000` automatically
 
 ## Switching Models
@@ -124,7 +124,7 @@ You can change the default model at any time:
 
 ```bash
 # Open the config file
-${EDITOR:-nano} ~/.openjarvis/config.toml
+${EDITOR:-nano} ~/.nira/config.toml
 # Change default_model to your preferred model
 ```
 
@@ -132,13 +132,13 @@ ${EDITOR:-nano} ~/.openjarvis/config.toml
 
 ```bash
 ollama pull deepseek-r1:14b
-jarvis ask -m deepseek-r1:14b "Hello"
+nira ask -m deepseek-r1:14b "Hello"
 ```
 
 **Use an environment variable:**
 
 ```bash
-OPENJARVIS_MODEL=qwen3.5:9b jarvis ask "Hello"
+NIRA_MODEL=qwen3.5:9b nira ask "Hello"
 ```
 
 ## Troubleshooting
@@ -151,4 +151,4 @@ OPENJARVIS_MODEL=qwen3.5:9b jarvis ask "Hello"
 
 **Want to add tools later?** -- Switch to the [Code Assistant](code-assistant.md) or [Deep Research](deep-research.md) config. Simple chat is intentionally minimal.
 
-**Browser app not loading** -- Make sure both the backend (`jarvis serve`) and frontend are running. The `./scripts/quickstart.sh` script starts both automatically.
+**Browser app not loading** -- Make sure both the backend (`nira serve`) and frontend are running. The `./scripts/quickstart.sh` script starts both automatically.

@@ -1,9 +1,9 @@
-"""MCP (Model Context Protocol) layer for OpenJarvis."""
+"""MCP (Model Context Protocol) layer for Nira."""
 
-from openjarvis.mcp.client import MCPClient
-from openjarvis.mcp.protocol import MCPError, MCPNotification, MCPRequest, MCPResponse
-from openjarvis.mcp.server import MCPServer
-from openjarvis.mcp.transport import (
+from nira.mcp.client import MCPClient
+from nira.mcp.protocol import MCPError, MCPNotification, MCPRequest, MCPResponse
+from nira.mcp.server import MCPServer
+from nira.mcp.transport import (
     InProcessTransport,
     MCPTransport,
     SSETransport,

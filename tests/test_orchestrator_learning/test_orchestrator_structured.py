@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import pytest
 
-from openjarvis.agents.orchestrator import OrchestratorAgent
-from openjarvis.core.types import ToolResult
-from openjarvis.engine._stubs import InferenceEngine
-from openjarvis.tools._stubs import BaseTool, ToolSpec
+from nira.agents.orchestrator import OrchestratorAgent
+from nira.core.types import ToolResult
+from nira.engine._stubs import InferenceEngine
+from nira.tools._stubs import BaseTool, ToolSpec
 
 # -- Mocks -------------------------------------------------------------------
 

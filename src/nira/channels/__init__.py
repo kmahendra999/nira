@@ -2,7 +2,7 @@
 
 import importlib
 
-from openjarvis.channels._stubs import (
+from nira.channels._stubs import (
     BaseChannel,
     ChannelHandler,
     ChannelMessage,

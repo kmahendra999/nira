@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import pytest
 
-from openjarvis.mcp.client import MCPClient
-from openjarvis.mcp.server import MCPServer
-from openjarvis.mcp.transport import InProcessTransport
-from openjarvis.tools.calculator import CalculatorTool
-from openjarvis.tools.think import ThinkTool
+from nira.mcp.client import MCPClient
+from nira.mcp.server import MCPServer
+from nira.mcp.transport import InProcessTransport
+from nira.tools.calculator import CalculatorTool
+from nira.tools.think import ThinkTool
 
 # Tool configs: (tool_class, call_arguments, expected_substring)
 _TOOL_CONFIGS = {

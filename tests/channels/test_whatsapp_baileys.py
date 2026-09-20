@@ -9,10 +9,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from openjarvis.channels._stubs import ChannelMessage, ChannelStatus
-from openjarvis.channels.whatsapp_baileys import WhatsAppBaileysChannel
-from openjarvis.core.events import EventBus, EventType
-from openjarvis.core.registry import ChannelRegistry
+from nira.channels._stubs import ChannelMessage, ChannelStatus
+from nira.channels.whatsapp_baileys import WhatsAppBaileysChannel
+from nira.core.events import EventBus, EventType
+from nira.core.registry import ChannelRegistry
 
 
 @pytest.fixture(autouse=True)
@@ -45,7 +45,7 @@ class TestInit:
     def test_defaults(self):
         ch = WhatsAppBaileysChannel()
         assert ch._auth_dir == ""
-        assert ch._assistant_name == "Jarvis"
+        assert ch._assistant_name == "Nira"
         assert ch._assistant_has_own_number is False
         assert ch._status == ChannelStatus.DISCONNECTED
         assert ch._process is None

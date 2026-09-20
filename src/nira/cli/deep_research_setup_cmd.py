@@ -1,4 +1,4 @@
-"""``jarvis deep-research-setup`` — auto-detect local sources, ingest, and chat.
+"""``nira deep-research-setup`` — auto-detect local sources, ingest, and chat.
 
 Walks the user through connecting local data sources (Apple Notes, iMessage,
 Obsidian), ingesting them into a shared KnowledgeStore, and launching an
@@ -16,10 +16,10 @@ import click
 from rich.console import Console
 from rich.table import Table
 
-from openjarvis.connectors.pipeline import IngestionPipeline
-from openjarvis.connectors.store import KnowledgeStore
-from openjarvis.connectors.sync_engine import SyncEngine
-from openjarvis.core.config import DEFAULT_CONFIG_DIR
+from nira.connectors.pipeline import IngestionPipeline
+from nira.connectors.store import KnowledgeStore
+from nira.connectors.sync_engine import SyncEngine
+from nira.core.config import DEFAULT_CONFIG_DIR
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -208,35 +208,35 @@ def _prompt_connect_sources(console: Console) -> List[Dict[str, Any]]:
 def _instantiate_connector(connector_id: str, config: Dict[str, Any]) -> Any:
     """Lazily import and instantiate a connector by ID."""
     if connector_id == "apple_notes":
-        from openjarvis.connectors.apple_notes import AppleNotesConnector
+        from nira.connectors.apple_notes import AppleNotesConnector
 
         return AppleNotesConnector(db_path=config.get("db_path", ""))
     elif connector_id == "imessage":
-        from openjarvis.connectors.imessage import IMessageConnector
+        from nira.connectors.imessage import IMessageConnector
 
         return IMessageConnector(db_path=config.get("db_path", ""))
     elif connector_id == "obsidian":
-        from openjarvis.connectors.obsidian import ObsidianConnector
+        from nira.connectors.obsidian import ObsidianConnector
 
         return ObsidianConnector(vault_path=config.get("vault_path", ""))
     elif connector_id == "gmail_imap":
-        from openjarvis.connectors.gmail_imap import GmailIMAPConnector
+        from nira.connectors.gmail_imap import GmailIMAPConnector
 
         return GmailIMAPConnector()
     elif connector_id == "outlook":
-        from openjarvis.connectors.outlook import OutlookConnector
+        from nira.connectors.outlook import OutlookConnector
 
         return OutlookConnector()
     elif connector_id == "slack":
-        from openjarvis.connectors.slack_connector import SlackConnector
+        from nira.connectors.slack_connector import SlackConnector
 
         return SlackConnector()
     elif connector_id == "notion":
-        from openjarvis.connectors.notion import NotionConnector
+        from nira.connectors.notion import NotionConnector
 
         return NotionConnector()
     elif connector_id == "granola":
-        from openjarvis.connectors.granola import GranolaConnector
+        from nira.connectors.granola import GranolaConnector
 
         return GranolaConnector()
     else:
@@ -256,7 +256,7 @@ def ingest_sources(
     ----------
     state_db:
         Path for the SyncEngine checkpoint database.  Defaults to
-        ``~/.openjarvis/sync_state.db`` when empty.
+        ``~/.nira/sync_state.db`` when empty.
 
     Returns total chunks indexed across all sources.
     """
@@ -277,16 +277,16 @@ def ingest_sources(
 
 def _launch_chat(store: KnowledgeStore, console: Console) -> None:
     """Start an interactive Deep Research chat session."""
-    from openjarvis.agents.deep_research import DeepResearchAgent
-    from openjarvis.connectors.retriever import TwoStageRetriever
-    from openjarvis.core.config import load_config
-    from openjarvis.core.events import EventBus
-    from openjarvis.engine.ollama import OllamaEngine
-    from openjarvis.security import setup_security
-    from openjarvis.tools.knowledge_search import KnowledgeSearchTool
-    from openjarvis.tools.knowledge_sql import KnowledgeSQLTool
-    from openjarvis.tools.scan_chunks import ScanChunksTool
-    from openjarvis.tools.think import ThinkTool
+    from nira.agents.deep_research import DeepResearchAgent
+    from nira.connectors.retriever import TwoStageRetriever
+    from nira.core.config import load_config
+    from nira.core.events import EventBus
+    from nira.engine.ollama import OllamaEngine
+    from nira.security import setup_security
+    from nira.tools.knowledge_search import KnowledgeSearchTool
+    from nira.tools.knowledge_sql import KnowledgeSQLTool
+    from nira.tools.scan_chunks import ScanChunksTool
+    from nira.tools.think import ThinkTool
 
     console.print("\n[bold]Setting up Deep Research agent...[/bold]")
 

@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from openjarvis.core.registry import ToolRegistry
-from openjarvis.core.types import Message, Role, ToolResult
-from openjarvis.engine._stubs import InferenceEngine
-from openjarvis.tools._stubs import BaseTool, ToolSpec
+from nira.core.registry import ToolRegistry
+from nira.core.types import Message, Role, ToolResult
+from nira.engine._stubs import InferenceEngine
+from nira.tools._stubs import BaseTool, ToolSpec
 
 
 @ToolRegistry.register("llm")

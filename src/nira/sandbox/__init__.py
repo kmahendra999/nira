@@ -1,12 +1,12 @@
 """Container sandbox for isolated agent execution."""
 
-from openjarvis.sandbox.mount_security import (
+from nira.sandbox.mount_security import (
     AllowedRoot,
     MountAllowlist,
     validate_mount,
     validate_mounts,
 )
-from openjarvis.sandbox.runner import ContainerRunner, SandboxedAgent
+from nira.sandbox.runner import ContainerRunner, SandboxedAgent
 
 __all__ = [
     "AllowedRoot",

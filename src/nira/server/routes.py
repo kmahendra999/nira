@@ -13,10 +13,10 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
-from openjarvis.core.paths import get_config_dir
-from openjarvis.core.types import Message, Role, ToolCall
-from openjarvis.server.model_capabilities import is_embed_only_model
-from openjarvis.server.models import (
+from nira.core.paths import get_config_dir
+from nira.core.types import Message, Role, ToolCall
+from nira.server.model_capabilities import is_embed_only_model
+from nira.server.models import (
     ChatCompletionChunk,
     ChatCompletionRequest,
     ChatCompletionResponse,
@@ -93,8 +93,7 @@ def _ensure_identity_prompt(messages: list[Message], app_config) -> list[Message
         _is_caller_system_prompt(message) for message in system_messages
     )
     identity_already_applied = any(
-        message.metadata.get("openjarvis_identity_prompt")
-        for message in system_messages
+        message.metadata.get("nira_identity_prompt") for message in system_messages
     )
 
     prompt = ""
@@ -102,11 +101,11 @@ def _ensure_identity_prompt(messages: list[Message], app_config) -> list[Message
         try:
             cfg = app_config
             if cfg is None:
-                from openjarvis.core.config import load_config
+                from nira.core.config import load_config
 
                 cfg = load_config()
 
-            from openjarvis.prompt.builder import SystemPromptBuilder
+            from nira.prompt.builder import SystemPromptBuilder
 
             builder = SystemPromptBuilder(
                 agent_template=cfg.agent.default_system_prompt or "",
@@ -115,7 +114,7 @@ def _ensure_identity_prompt(messages: list[Message], app_config) -> list[Message
             )
             prompt = builder.build()
         except Exception:
-            logging.getLogger("openjarvis.server").debug(
+            logging.getLogger("nira.server").debug(
                 "Identity system prompt resolution failed; "
                 "serving request without identity grounding",
                 exc_info=True,
@@ -139,7 +138,7 @@ def _ensure_identity_prompt(messages: list[Message], app_config) -> list[Message
             # Preserve the first system message's metadata while tagging the
             # server-built identity so BaseAgent does not build it a second
             # time if this normalized conversation later reaches agent code.
-            metadata["openjarvis_identity_prompt"] = True
+            metadata["nira_identity_prompt"] = True
         combined_system = replace(
             first_system,
             content="\n\n".join(system_parts),
@@ -149,7 +148,7 @@ def _ensure_identity_prompt(messages: list[Message], app_config) -> list[Message
         combined_system = Message(
             role=Role.SYSTEM,
             content=prompt,
-            metadata={"openjarvis_identity_prompt": True},
+            metadata={"nira_identity_prompt": True},
         )
 
     return [combined_system, *non_system_messages]
@@ -176,7 +175,7 @@ async def chat_completions(request_body: ChatCompletionRequest, request: Request
         and request_body.messages
     ):
         try:
-            from openjarvis.tools.storage.context import ContextConfig, inject_context
+            from nira.tools.storage.context import ContextConfig, inject_context
 
             memory_service = getattr(request.app.state, "memory_service", None)
             facts = memory_service.list_facts() if memory_service is not None else []
@@ -210,7 +209,7 @@ async def chat_completions(request_body: ChatCompletionRequest, request: Request
                 )
                 # Rebuild after identity/context merging so downstream engine
                 # adapters always receive exactly one system message.
-                from openjarvis.server.models import ChatMessage
+                from nira.server.models import ChatMessage
 
                 new_msgs = []
                 for msg in enriched:
@@ -236,7 +235,7 @@ async def chat_completions(request_body: ChatCompletionRequest, request: Request
                     )
                 request_body.messages = new_msgs
         except Exception:
-            logging.getLogger("openjarvis.server").debug(
+            logging.getLogger("nira.server").debug(
                 "Memory context injection failed",
                 exc_info=True,
             )
@@ -250,7 +249,7 @@ async def chat_completions(request_body: ChatCompletionRequest, request: Request
             break
     if query_text_for_complexity:
         try:
-            from openjarvis.learning.routing.complexity import (
+            from nira.learning.routing.complexity import (
                 adjust_tokens_for_model,
                 score_complexity,
             )
@@ -270,7 +269,7 @@ async def chat_completions(request_body: ChatCompletionRequest, request: Request
             if suggested > request_body.max_tokens:
                 request_body.max_tokens = suggested
         except Exception:
-            logging.getLogger("openjarvis.server").debug(
+            logging.getLogger("nira.server").debug(
                 "Complexity analysis failed",
                 exc_info=True,
             )
@@ -393,7 +392,7 @@ def _record_completed_exchange(
         return
     try:
         if bus is not None:
-            from openjarvis.memory import publish_completed_exchange
+            from nira.memory import publish_completed_exchange
 
             publish_completed_exchange(
                 bus,
@@ -404,7 +403,7 @@ def _record_completed_exchange(
         elif memory_service is not None:
             memory_service.submit(user_text, assistant_text)
     except Exception:  # noqa: BLE001 — memory is best-effort, never fail a reply
-        logging.getLogger("openjarvis.server").debug(
+        logging.getLogger("nira.server").debug(
             "Memory submit failed",
             exc_info=True,
         )
@@ -430,9 +429,9 @@ def _remember_exchange(
 
 def _engine_key_for_model(engine: Any, model: str) -> str | None:
     """Resolve the engine that advertised *model* through wrapper layers."""
-    from openjarvis.engine.multi import MultiEngine
-    from openjarvis.security.guardrails import GuardrailsEngine
-    from openjarvis.telemetry.instrumented_engine import InstrumentedEngine
+    from nira.engine.multi import MultiEngine
+    from nira.security.guardrails import GuardrailsEngine
+    from nira.telemetry.instrumented_engine import InstrumentedEngine
 
     current = engine
     while current is not None:
@@ -451,7 +450,7 @@ def _engine_key_for_model(engine: Any, model: str) -> str | None:
 
 def _uses_direct_cloud_router(engine: Any, model: str) -> bool:
     """Whether *model* should bypass the configured engine for direct cloud."""
-    from openjarvis.server.cloud_router import is_cloud_model
+    from nira.server.cloud_router import is_cloud_model
 
     return is_cloud_model(model) and _engine_key_for_model(engine, model) != "litellm"
 
@@ -471,8 +470,8 @@ def _handle_direct(
     if req.tools:
         kwargs["tools"] = req.tools
     if bus:
-        from openjarvis.telemetry.instrumented_engine import InstrumentedEngine
-        from openjarvis.telemetry.wrapper import instrumented_generate
+        from nira.telemetry.instrumented_engine import InstrumentedEngine
+        from nira.telemetry.wrapper import instrumented_generate
 
         # `app.state.engine` may already be an InstrumentedEngine (the
         # common case when telemetry is wired in). If we then wrap it
@@ -606,7 +605,7 @@ def _handle_agent(
     ``traces.db`` stayed empty and spec_search's cold-start gate
     (``check_readiness``, min 20 traces) could never open.
     """
-    from openjarvis.agents._stubs import AgentContext
+    from nira.agents._stubs import AgentContext
 
     # Build context from prior messages
     ctx = AgentContext()
@@ -628,7 +627,7 @@ def _handle_agent(
             agent._model = model
         try:
             if trace_store is not None:
-                from openjarvis.traces.collector import TraceCollector
+                from nira.traces.collector import TraceCollector
 
                 collector = TraceCollector(agent, store=trace_store, bus=bus)
                 result = collector.run(input_text, context=ctx)
@@ -649,7 +648,7 @@ def _handle_agent(
     if audio_path:
         from pathlib import Path
 
-        from openjarvis.server.models import AudioMeta
+        from nira.server.models import AudioMeta
 
         if Path(audio_path).exists():
             audio_meta = AudioMeta(url="/api/digest/audio")
@@ -718,7 +717,7 @@ async def _handle_agent_stream(
                 bus=bus,
             )
         except Exception as exc:
-            logging.getLogger("openjarvis.server").error(
+            logging.getLogger("nira.server").error(
                 "Agent stream error: %s",
                 exc,
                 exc_info=True,
@@ -856,7 +855,7 @@ async def _handle_stream_tools(
         except Exception as exc:
             import logging
 
-            logging.getLogger("openjarvis.server").error(
+            logging.getLogger("nira.server").error(
                 "Tool stream error: %s",
                 exc,
                 exc_info=True,
@@ -929,7 +928,7 @@ async def _handle_stream(
     """
     import time
 
-    from openjarvis.server.cloud_router import stream_cloud, stream_local
+    from nira.server.cloud_router import stream_cloud, stream_local
 
     messages = _to_messages(req.messages)
     messages = _ensure_identity_prompt(messages, app_config)
@@ -986,7 +985,7 @@ async def _handle_stream(
                 # accidentally matched.
                 _use_local_fallback = False
                 try:
-                    from openjarvis.engine.multi import MultiEngine
+                    from nira.engine.multi import MultiEngine
 
                     _inner = getattr(engine, "_inner", engine)
                     if isinstance(_inner, MultiEngine):
@@ -1024,7 +1023,7 @@ async def _handle_stream(
             # display them instead of silently failing.
             import logging
 
-            logging.getLogger("openjarvis.server").error(
+            logging.getLogger("nira.server").error(
                 "Stream error: %s",
                 exc,
                 exc_info=True,
@@ -1049,7 +1048,7 @@ async def _handle_stream(
         # the response). Mirrors the agent path so streamed chats also
         # populate traces.db.
         if trace_store is not None and full_content:
-            from openjarvis.traces.collector import record_response_trace
+            from nira.traces.collector import record_response_trace
 
             record_response_trace(
                 trace_store,
@@ -1111,7 +1110,7 @@ async def list_models(request: Request) -> ModelListResponse:
     configured LiteLLM engine remain here because LiteLLM owns their routing
     and may use provider-qualified IDs that resemble OpenRouter IDs.
     """
-    from openjarvis.server.cloud_router import is_cloud_model, list_local_models
+    from nira.server.cloud_router import is_cloud_model, list_local_models
 
     # Prefer engine.list_models() so mock engines work in tests.
     # Filter out direct-cloud model IDs that may appear via MultiEngine, but
@@ -1139,7 +1138,7 @@ async def list_models(request: Request) -> ModelListResponse:
                 owned_by=(
                     "litellm"
                     if _engine_key_for_model(engine, mid) == "litellm"
-                    else "openjarvis"
+                    else "nira"
                 ),
             )
             for mid in model_ids
@@ -1255,8 +1254,8 @@ async def reload_cloud_engine(request: Request):
 
     # Try to build a fresh CloudEngine.
     try:
-        from openjarvis.engine.cloud import CloudEngine
-        from openjarvis.engine.multi import MultiEngine
+        from nira.engine.cloud import CloudEngine
+        from nira.engine.multi import MultiEngine
 
         cloud = CloudEngine()
         if not cloud.health():
@@ -1298,9 +1297,9 @@ async def savings(request: Request):
     Only includes telemetry from the current server session so that
     counters start at zero each time a new model + agent is launched.
     """
-    from openjarvis.core.config import DEFAULT_CONFIG_DIR
-    from openjarvis.server.savings import compute_savings, savings_to_dict
-    from openjarvis.telemetry.aggregator import TelemetryAggregator
+    from nira.core.config import DEFAULT_CONFIG_DIR
+    from nira.server.savings import compute_savings, savings_to_dict
+    from nira.telemetry.aggregator import TelemetryAggregator
 
     db_path = DEFAULT_CONFIG_DIR / "telemetry.db"
     if not db_path.exists():
@@ -1355,8 +1354,8 @@ async def reset_telemetry():
     that the savings dashboard and leaderboard submissions start
     fresh with corrected values.
     """
-    from openjarvis.core.config import DEFAULT_CONFIG_DIR
-    from openjarvis.telemetry.aggregator import TelemetryAggregator
+    from nira.core.config import DEFAULT_CONFIG_DIR
+    from nira.telemetry.aggregator import TelemetryAggregator
 
     db_path = DEFAULT_CONFIG_DIR / "telemetry.db"
     if not db_path.exists():
@@ -1451,7 +1450,7 @@ async def channel_status(request: Request):
 @router.get("/v1/security/scan")
 async def security_scan():
     """Run a read-only security environment audit and return findings."""
-    from openjarvis.cli.scan_cmd import PrivacyScanner
+    from nira.cli.scan_cmd import PrivacyScanner
 
     scanner = PrivacyScanner()
     results = await asyncio.to_thread(scanner.run_all)

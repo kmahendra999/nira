@@ -9,11 +9,11 @@ from __future__ import annotations
 
 from typing import Any, List, Optional
 
-from openjarvis.connectors.store import KnowledgeStore
-from openjarvis.core.registry import ToolRegistry
-from openjarvis.core.types import Message, Role, ToolResult
-from openjarvis.engine._stubs import InferenceEngine
-from openjarvis.tools._stubs import BaseTool, ToolSpec
+from nira.connectors.store import KnowledgeStore
+from nira.core.registry import ToolRegistry
+from nira.core.types import Message, Role, ToolResult
+from nira.engine._stubs import InferenceEngine
+from nira.tools._stubs import BaseTool, ToolSpec
 
 _DEFAULT_MAX_CHUNKS = 200
 _DEFAULT_BATCH_SIZE = 20
