@@ -800,7 +800,9 @@ chunk_size = 1024
 chunk_overlap = 128
 
 [server]
-host = "0.0.0.0"
+# Loopback by default. A non-loopback bind requires an API key, and the server
+# refuses to start without one — it fronts an agent with shell and file tools.
+host = "127.0.0.1"
 port = 8000
 agent = "orchestrator"
 model = "Qwen/Qwen2.5-72B-Instruct"

@@ -25,18 +25,27 @@ ephemeral.
 The server reads defaults from `~/.nira/config.toml` and auto-detects available engines and models. Override any option via CLI flags:
 
 ```bash
-nira serve --host 0.0.0.0 --port 8000 --engine ollama --model qwen3:8b --agent orchestrator
+nira serve --port 8000 --engine ollama --model qwen3:8b --agent orchestrator
 ```
 
 ### CLI Options
 
 | Option               | Description                                                                  | Default           |
 |----------------------|------------------------------------------------------------------------------|--------------------|
-| `--host`             | Network address to bind to                                                   | From config (`0.0.0.0`) |
+| `--host`             | Network address to bind to                                                   | From config (`127.0.0.1`) |
 | `--port`             | Port number to listen on                                                     | From config (`8000`)    |
 | `-e` / `--engine`    | Inference engine backend (`ollama`, `vllm`, `llamacpp`, `sglang`)            | Auto-detected      |
 | `-m` / `--model`     | Default model for completions                                                | First available     |
 | `-a` / `--agent`     | Agent for non-streaming requests (`simple`, `orchestrator`, `react`, `openhands`) | From config (`orchestrator`) |
+
+!!! danger "Binding beyond loopback"
+    The default is `127.0.0.1`, and that is deliberate: the server fronts an
+    agent with shell, file and browser tools, so exposing it is equivalent to
+    exposing those tools. `nira serve` refuses to start on a non-loopback
+    address unless `NIRA_API_KEY` (or `[server.auth] api_key`) is set.
+
+    Prefer binding to a Tailscale address over `0.0.0.0` when you need remote
+    access — it keeps the server off untrusted networks even while roaming.
 
 On startup, the server prints a summary:
 
@@ -45,7 +54,7 @@ Starting Nira API server
   Engine: ollama
   Model:  qwen3:8b
   Agent:  orchestrator
-  URL:    http://0.0.0.0:8000
+  URL:    http://127.0.0.1:8000
 ```
 
 !!! warning "Server dependency check"
@@ -457,7 +466,7 @@ The `[server]` section of `~/.nira/config.toml` controls default server behavior
 
 ```toml
 [server]
-host = "0.0.0.0"
+host = "127.0.0.1"
 port = 8000
 agent = "orchestrator"
 model = ""
@@ -466,7 +475,7 @@ workers = 1
 
 | Key       | Type      | Default         | Description                                                                |
 |-----------|-----------|-----------------|----------------------------------------------------------------------------|
-| `host`    | `string`  | `"0.0.0.0"`    | Network address to bind to. Use `"127.0.0.1"` for localhost-only access.   |
+| `host`    | `string`  | `"127.0.0.1"`   | Network address to bind to. Loopback by default. Binding anywhere else requires an API key — see [Authentication](#authentication). |
 | `port`    | `integer` | `8000`          | Port number.                                                               |
 | `agent`   | `string`  | `"orchestrator"`| Default agent for non-streaming requests. Set to `""` for direct engine mode. |
 | `model`   | `string`  | `""`            | Default model name. When empty, falls back to `[intelligence] default_model` or the first model discovered on the engine. |

@@ -329,7 +329,7 @@ services:
 
 | Option               | Description                                         |
 |----------------------|-----------------------------------------------------|
-| `--host`             | Bind address (default: from config, typically `0.0.0.0`) |
+| `--host`             | Bind address. The image's default command passes `0.0.0.0` so the port is reachable from the host; the config default is `127.0.0.1`. |
 | `--port`             | Port number (default: from config, typically `8000`)     |
 | `-e` / `--engine`    | Engine backend (`ollama`, `vllm`, `llamacpp`, `sglang`)  |
 | `-m` / `--model`     | Default model name                                       |

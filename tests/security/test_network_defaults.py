@@ -182,3 +182,61 @@ class TestCORSConfiguration:
             assert resp.headers.get("access-control-allow-origin") == origin, (
                 f"Tauri origin {origin} was not allowed by default CORS list"
             )
+
+
+class TestDocumentedBindDefaultMatchesCode:
+    """The docs must not disagree with ServerConfig about the bind address.
+
+    They did: docs/deployment/api-server.md documented the default as
+    "0.0.0.0" in its CLI table, its startup banner and its sample
+    config.toml, and docs/getting-started/configuration.md shipped a full
+    example config with host = "0.0.0.0". Anyone copying those exposed a
+    server that fronts an agent with shell, file and browser tools.
+
+    A wrong default in prose is a real vulnerability, so it is worth a test.
+    """
+
+    _DOCS = (
+        "docs/deployment/api-server.md",
+        "docs/getting-started/configuration.md",
+    )
+
+    def _repo_root(self):
+        from pathlib import Path
+
+        return Path(__file__).resolve().parents[2]
+
+    def test_sample_server_blocks_use_the_real_default(self) -> None:
+        import re
+
+        from nira.core.config import ServerConfig
+
+        default_host = ServerConfig().host
+
+        for rel in self._DOCS:
+            text = (self._repo_root() / rel).read_text(encoding="utf-8")
+            # Every ``[server]`` TOML block that sets host must set it to the
+            # real default; these blocks are what readers copy verbatim.
+            for block in re.findall(r"\[server\]\n(.*?)(?:\n\[|\n```)", text, re.S):
+                for line in block.splitlines():
+                    if line.strip().startswith("host"):
+                        assert f'"{default_host}"' in line, (
+                            f"{rel} documents host as {line.strip()!r}, "
+                            f"but ServerConfig defaults to {default_host!r}"
+                        )
+
+    def test_no_doc_claims_the_default_is_the_wildcard(self) -> None:
+        from nira.core.config import ServerConfig
+
+        assert ServerConfig().host != "0.0.0.0", "guard assumes a loopback default"
+
+        for rel in self._DOCS:
+            text = (self._repo_root() / rel).read_text(encoding="utf-8")
+            for line in text.splitlines():
+                lowered = line.lower()
+                if "0.0.0.0" in lowered and "default" in lowered:
+                    # Describing a container command that passes 0.0.0.0 is
+                    # fine; asserting it is the *config* default is not.
+                    assert "config default is" in lowered or "image" in lowered, (
+                        f"{rel} appears to document 0.0.0.0 as a default: {line.strip()!r}"
+                    )
