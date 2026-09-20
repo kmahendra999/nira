@@ -98,6 +98,19 @@ uv run pre-commit install
 
 This installs Git hooks that automatically run [Ruff](https://docs.astral.sh/ruff/) on every commit. If the hooks fail, fix the issues and commit again.
 
+### Frontend
+
+Working on `frontend/` needs **npm 11.19.0** specifically:
+
+```bash
+npm install --global npm@11.19.0
+```
+
+Do not work around the version check with `npm install --engine-strict=false`.
+It looks like it works, and it quietly strips platform constraints out of
+`package-lock.json` while disabling npm's install-script allowlisting. See
+[frontend/README.md](frontend/README.md).
+
 For detailed development setup, code conventions, and project structure, see the [Development Guide](docs/development/contributing.md).
 
 ---

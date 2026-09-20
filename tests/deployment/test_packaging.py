@@ -196,3 +196,47 @@ def test_sdist_omits_desktop_binaries_and_rebuilds_runtime_wheel(tmp_path) -> No
                     assert f"{destination}/{path.relative_to(project / source)}" in (
                         wheel_files
                     )
+
+
+class TestFrontendLockfileIntegrity:
+    """Guard against a lockfile rewritten by the wrong npm.
+
+    frontend/package.json pins npm 11.19.0 and .npmrc sets engine-strict, so
+    the natural workaround on a machine with an older npm is
+    `npm install --engine-strict=false`. That appears to succeed while
+    silently rewriting package-lock.json: npm < 11.19 drops the
+    "libc": ["glibc"] / ["musl"] constraints from optional dependencies, and
+    committing the result breaks installs on Alpine/musl and cross-platform
+    CI. Nothing in a diff review makes that obvious, so assert it here.
+    """
+
+    def _lockfile(self) -> dict:
+        import json
+        from pathlib import Path
+
+        path = Path(__file__).resolve().parents[2] / "frontend" / "package-lock.json"
+        return json.loads(path.read_text(encoding="utf-8"))
+
+    def test_platform_constrained_packages_keep_their_libc_fields(self) -> None:
+        packages = self._lockfile().get("packages", {})
+
+        with_libc = [name for name, meta in packages.items() if "libc" in meta]
+
+        assert with_libc, (
+            "no package declares a libc constraint; package-lock.json was "
+            "probably rewritten by npm < 11.19 "
+            "(see frontend/README.md). Restore it with: "
+            "git checkout -- frontend/package-lock.json"
+        )
+
+    def test_libc_constraints_are_well_formed(self) -> None:
+        packages = self._lockfile().get("packages", {})
+
+        for name, meta in packages.items():
+            libc = meta.get("libc")
+            if libc is None:
+                continue
+            assert isinstance(libc, list) and libc, f"{name} has a malformed libc field"
+            assert set(libc) <= {"glibc", "musl"}, (
+                f"{name} declares unknown libc {libc}"
+            )
