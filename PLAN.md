@@ -713,8 +713,46 @@ Writing the segmentation tests caught two bugs in my own first version, both pre
 one failure mode that matters, since audio cannot be taken back once it is playing. Noted in
 `6532c79`.
 
+### Phase 4 — Live task progress ✅
+
+**8,854 passing, 0 failing.** Verified end to end against a stubbed SDK: register a project,
+resolve "work on payments" to it, run an agent in that directory, and watch tool events arrive at
++0.11s, +0.19s, +0.27s and +0.35s of a 0.43s run — during the work, not after it.
+
+| § | Change | Commit |
+|---|---|---|
+| 1, 2, 3, 6, 7 | Streaming sidecar, real session resumption, `workspace` through the executor, scheduler events on the socket | `e9bfdff` |
+| 4 | Project registry (`nira project`) | `b109aec` |
+| — | MCP stdio server (`nira mcp serve`) | `94af54f` |
+| 5, 7 | `max_turns`/`permission_mode` plumbed; scheduler no longer serialises tasks | `7609a36` |
+
+The theme repeated from Phase 2: the capability was already built and one thing in the middle
+made it unreachable.
+
+- **Live progress needed no new UI.** The sidecar got a message per SDK event, the EventBus fed an
+  authenticated WebSocket, and `AgentsPage` rendered a tool timeline from it. The blocker was
+  `subprocess.run(capture_output=True)`, which buffers until exit — five minutes of silence, then
+  everything at once.
+- **`sessionId` is not `resume`.** The former assigns an id to a *new* session. Every follow-up was
+  a cold start that had forgotten the conversation it was part of, and the SDK's real id was never
+  read back, so a caller could not resume a session it had not invented an id for itself.
+- **MCP was half-built in the other direction too.** `MCPServer` was complete and never served —
+  no transport, no entry point. `nira mcp serve` now exposes 43 tools over stdio, so Claude Desktop
+  can call into Nira.
+- **Making the scheduler concurrent exposed a latent bug.** `next_run` only advances when a task
+  finishes, so the poll loop re-selects a still-running task. Inline that could never fire; with a
+  pool it would restart the same task every 60 seconds.
+
+Carried forward:
+
+- **Permission posture is now settable but not yet wired to approvals.** `permissionMode` reaches
+  the SDK; connecting `canUseTool` to the existing `ApprovalStore` and `/v1/approvals/*` — so a
+  risky step can be approved from a phone — belongs with the mobile work in Phase 5.
+- **A research deep link still cannot render its report** (carried from Phase 2). The project
+  registry is the natural place to hang that retrieval once the endpoint exists.
+
 ### Next
 
-**Phase 4 — Live task progress.** Stream the Claude sidecar so the existing EventBus → WebSocket →
-`AgentsPage` trace lights up, pass `workspace` through the executor allowlist, implement real
-session resumption, and add a project registry.
+**Phase 5 — Multi-device foundation.** Device registry, QR pairing, per-device keys and
+revocation; bind to the Tailscale interface with `tailscale serve` TLS; event cursor and replay so
+a phone surviving a network change does not lose progress.
