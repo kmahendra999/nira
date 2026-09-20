@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from types import SimpleNamespace
 
 import pytest
 from click.testing import CliRunner
@@ -151,3 +152,48 @@ class TestPairingPayload:
         from nira.cli.device_cmd import _tailscale_url
 
         assert _tailscale_url(8000) == "http://localhost:8000"
+
+
+class TestSecureContextGuidance:
+    """A plain http pairing address cannot install the web app.
+
+    Service workers require a secure context, so a MagicDNS name served over
+    http is reachable but not installable — a distinction a user has no way to
+    discover on their own.
+    """
+
+    def test_https_is_preferred_when_tailscale_serve_is_configured(
+        self, monkeypatch
+    ) -> None:
+        monkeypatch.setattr(
+            "nira.server.tailnet.https_serve_target",
+            lambda *a, **k: "https://box.tail0.ts.net",
+        )
+
+        from nira.cli.device_cmd import _tailscale_url
+
+        assert _tailscale_url(8000) == "https://box.tail0.ts.net"
+
+    def test_pairing_explains_the_limitation_on_http(self, monkeypatch) -> None:
+        monkeypatch.setattr(
+            "nira.server.tailnet.https_serve_target", lambda *a, **k: None
+        )
+        monkeypatch.setattr(
+            "nira.server.tailnet.get_identity",
+            lambda *a, **k: SimpleNamespace(dns_name="box.ts.net", ipv4="100.1.2.3"),
+        )
+
+        result = _run("pair", "Pixel 8")
+
+        assert "insecure context" in result.output
+        assert "tailscale serve" in result.output
+
+    def test_no_warning_when_the_address_is_already_https(self, monkeypatch) -> None:
+        monkeypatch.setattr(
+            "nira.server.tailnet.https_serve_target",
+            lambda *a, **k: "https://box.tail0.ts.net",
+        )
+
+        result = _run("pair", "Pixel 8")
+
+        assert "insecure context" not in result.output

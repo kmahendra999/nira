@@ -18,28 +18,26 @@ def _store() -> DeviceStore:
 
 
 def _tailscale_url(port: int) -> str:
-    """Best-effort MagicDNS URL for this machine, for the pairing payload.
+    """Best-effort URL for this machine, for the pairing payload.
 
     A phone needs somewhere to send the enrollment token, and on a tailnet the
     MagicDNS name is the one address that keeps working as the laptop moves
     between networks — unlike a LAN IP, which changes with the room.
-    """
-    import subprocess
 
-    try:
-        raw = subprocess.run(
-            ["tailscale", "status", "--json"],
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-        if raw.returncode == 0:
-            status = json.loads(raw.stdout)
-            name = (status.get("Self") or {}).get("DNSName", "").rstrip(".")
-            if name:
-                return f"http://{name}:{port}"
-    except Exception:  # noqa: BLE001 - Tailscale is optional
-        pass
+    Prefers the https origin from ``tailscale serve`` when one is configured,
+    because a plain http MagicDNS origin is an insecure context and a browser
+    will not register a service worker there — so the web app cannot install
+    as a PWA no matter how reachable it is.
+    """
+    from nira.server.tailnet import get_identity, https_serve_target
+
+    secure = https_serve_target()
+    if secure:
+        return secure
+
+    identity = get_identity()
+    if identity is not None and identity.dns_name:
+        return f"http://{identity.dns_name}:{port}"
     return f"http://localhost:{port}"
 
 
@@ -111,6 +109,19 @@ def pair_device(name: str, port: int, scopes: tuple[str, ...]) -> None:
     console.print(f"  Token {enrollment.token}")
     console.print()
     console.print("[dim]Single use, expires in 10 minutes.[/dim]")
+
+    if not _tailscale_url(port).startswith("https://"):
+        console.print()
+        console.print(
+            "[yellow]This is a plain http:// address.[/yellow] A browser treats "
+            "it as an insecure context, so the web app cannot install as a PWA "
+            "or work offline there. To get a real certificate for this "
+            "machine's tailnet name:"
+        )
+        console.print(f"    [bold]tailscale serve --bg {port}[/bold]")
+        console.print(
+            "[dim]Then pair again — the QR will carry the https address.[/dim]"
+        )
 
 
 @device.command("list")

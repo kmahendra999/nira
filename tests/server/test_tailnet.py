@@ -125,3 +125,62 @@ class TestBindSafety:
         from nira.server.auth_middleware import check_bind_safety
 
         check_bind_safety("100.123.66.19", api_key="nira_sk_test")
+
+
+class TestHttpsServeTarget:
+    """`tailscale serve` is what makes the web app installable on a phone.
+
+    A browser treats a plain http MagicDNS origin as an insecure context, and
+    an insecure context may not register a service worker — so the PWA will
+    not install and will not work offline, however reachable the port is.
+    """
+
+    def _stub_serve(self, monkeypatch, *, stdout="", returncode=0):
+        monkeypatch.setattr(
+            "nira.server.tailnet.shutil.which", lambda _: "/usr/bin/tailscale"
+        )
+        monkeypatch.setattr(
+            subprocess,
+            "run",
+            lambda *a, **k: SimpleNamespace(
+                returncode=returncode, stdout=stdout, stderr=""
+            ),
+        )
+
+    def test_returns_the_https_origin_when_configured(self, monkeypatch) -> None:
+        from nira.server.tailnet import https_serve_target
+
+        self._stub_serve(
+            monkeypatch,
+            stdout=json.dumps({"Web": {"diubuntu.tail0ab740.ts.net:443": {}}}),
+        )
+
+        assert https_serve_target() == "https://diubuntu.tail0ab740.ts.net"
+
+    def test_returns_none_when_serve_is_not_configured(self, monkeypatch) -> None:
+        from nira.server.tailnet import https_serve_target
+
+        self._stub_serve(monkeypatch, stdout="")
+
+        assert https_serve_target() is None
+
+    def test_returns_none_when_the_command_fails(self, monkeypatch) -> None:
+        from nira.server.tailnet import https_serve_target
+
+        self._stub_serve(monkeypatch, returncode=1, stdout="{}")
+
+        assert https_serve_target() is None
+
+    def test_returns_none_on_unparseable_output(self, monkeypatch) -> None:
+        from nira.server.tailnet import https_serve_target
+
+        self._stub_serve(monkeypatch, stdout="not json")
+
+        assert https_serve_target() is None
+
+    def test_returns_none_without_tailscale(self, monkeypatch) -> None:
+        from nira.server.tailnet import https_serve_target
+
+        monkeypatch.setattr("nira.server.tailnet.shutil.which", lambda _: None)
+
+        assert https_serve_target() is None

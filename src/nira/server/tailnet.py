@@ -96,6 +96,42 @@ def _is_ipv4(address: str) -> bool:
         return False
 
 
+def https_serve_target(timeout: float = 5.0) -> Optional[str]:
+    """Return the https:// origin `tailscale serve` is fronting, if any.
+
+    This is not a nicety. A browser treats a plain ``http://`` MagicDNS origin
+    as an insecure context, and an insecure context may not register a service
+    worker — so the PWA will not install on a phone and will not work offline,
+    however reachable the port is. ``tailscale serve`` terminates TLS with a
+    real certificate for the node's ``*.ts.net`` name, which is what turns the
+    address into something a phone will actually install from.
+    """
+    if not tailscale_available():
+        return None
+    try:
+        completed = subprocess.run(
+            ["tailscale", "serve", "status", "--json"],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if completed.returncode != 0 or not completed.stdout.strip():
+        return None
+    try:
+        config = json.loads(completed.stdout)
+    except ValueError:
+        return None
+
+    # Keys look like "host.tailnet.ts.net:443".
+    for target in config.get("Web") or {}:
+        host = str(target).split(":", 1)[0]
+        if host:
+            return f"https://{host}"
+    return None
+
+
 def is_tailnet_address(host: str) -> bool:
     """Whether *host* is in Tailscale's 100.64.0.0/10 CGNAT range."""
     try:
@@ -107,6 +143,7 @@ def is_tailnet_address(host: str) -> bool:
 __all__ = [
     "TailnetIdentity",
     "get_identity",
+    "https_serve_target",
     "is_tailnet_address",
     "tailscale_available",
 ]
