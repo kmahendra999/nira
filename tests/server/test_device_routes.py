@@ -35,6 +35,21 @@ def client(store):
     return TestClient(app)
 
 
+def _machine() -> dict[str, str]:
+    return {"Authorization": "Bearer nira_sk_machine"}
+
+
+def _bearer(key: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {key}"}
+
+
+def _enrol(store: DeviceStore, name: str) -> str:
+    """Pair a device and return the key it was issued."""
+    enrollment = store.create_enrollment(name)
+    _device, key = store.redeem_enrollment(enrollment.token, platform="android")
+    return key
+
+
 class TestEnrolment:
     def test_a_fresh_device_can_enrol_without_a_key(self, client, store) -> None:
         """The whole point: a device that has not paired has nothing to
@@ -147,3 +162,86 @@ class TestWithoutARegistry:
         resp = TestClient(app).post("/v1/devices/enroll", json={"token": "x"})
 
         assert resp.status_code == 501
+
+
+class TestListingAndRevoking:
+    """Seeing and removing devices, from something other than the machine.
+
+    The moment this matters most is the moment you are not at the desktop: a
+    phone has been lost, and the revoking has to happen from whatever device
+    you still have. Until now the only way was a shell on the machine itself.
+    """
+
+    def test_devices_can_be_listed(self, client, store) -> None:
+        _enrol(store, "phone-one")
+        _enrol(store, "phone-two")
+
+        response = client.get("/v1/devices", headers=_machine())
+
+        assert response.status_code == 200
+        names = [d["name"] for d in response.json()["devices"]]
+        assert sorted(names) == ["phone-one", "phone-two"]
+
+    def test_a_listing_never_carries_a_key(self, client, store) -> None:
+        key = _enrol(store, "phone-one")
+
+        body = client.get("/v1/devices", headers=_machine()).text
+
+        # Only a hash is stored, but a regression that started returning the
+        # key would hand every device every other device's credential.
+        assert key not in body
+
+    def test_revoked_devices_are_hidden_by_default(self, client, store) -> None:
+        _enrol(store, "phone-one")
+        device_id = store.list()[0].id
+        store.revoke(device_id)
+
+        listed = client.get("/v1/devices", headers=_machine()).json()
+
+        assert listed["devices"] == []
+        assert listed["count"] == 0
+
+    def test_revoked_devices_can_be_asked_for(self, client, store) -> None:
+        _enrol(store, "phone-one")
+        store.revoke(store.list()[0].id)
+
+        listed = client.get(
+            "/v1/devices", params={"include_revoked": "true"}, headers=_machine()
+        ).json()
+
+        assert [d["name"] for d in listed["devices"]] == ["phone-one"]
+
+    def test_a_device_can_be_revoked_over_http(self, client, store) -> None:
+        key = _enrol(store, "lost-phone")
+        device_id = store.list()[0].id
+
+        response = client.delete(f"/v1/devices/{device_id}", headers=_machine())
+
+        assert response.status_code == 200
+        # Gone immediately, not at the next restart: the point of revoking a
+        # lost phone is that it stops working now.
+        assert client.get("/v1/devices/me", headers=_bearer(key)).status_code == 401
+
+    def test_revoking_one_device_leaves_the_others(self, client, store) -> None:
+        keep = _enrol(store, "phone-two")
+        _enrol(store, "phone-one")
+        doomed = next(d.id for d in store.list() if d.name == "phone-one")
+
+        client.delete(f"/v1/devices/{doomed}", headers=_machine())
+
+        assert client.get("/v1/devices/me", headers=_bearer(keep)).status_code == 200
+
+    def test_revoking_an_unknown_device_is_a_404(self, client, store) -> None:
+        assert (
+            client.delete("/v1/devices/dev_nope", headers=_machine()).status_code == 404
+        )
+
+    def test_revoking_twice_is_a_404_the_second_time(self, client, store) -> None:
+        _enrol(store, "phone-one")
+        device_id = store.list()[0].id
+
+        path = f"/v1/devices/{device_id}"
+
+        assert client.delete(path, headers=_machine()).status_code == 200
+        # Already gone. Reporting success would suggest something happened.
+        assert client.delete(path, headers=_machine()).status_code == 404

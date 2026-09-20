@@ -8,9 +8,13 @@ import com.nira.android.data.Microphone
 import com.nira.android.data.ChatTurn
 import com.nira.android.data.Desktop
 import com.nira.android.data.DesktopRegistry
+import com.nira.android.data.LocatedProject
 import com.nira.android.data.Project
+import com.nira.android.data.ProjectIndex
 import com.nira.android.net.NiraClient
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -36,10 +40,10 @@ enum class MicState { Idle, Recording, Transcribing }
 
 data class AskState(
     val desktop: Desktop? = null,
-    /** Projects this desktop knows about; empty means plain chat only. */
-    val projects: List<Project> = emptyList(),
+    /** Every project across every paired desktop; empty means chat only. */
+    val projects: ProjectIndex = ProjectIndex(),
     /** When set, prompts start work in this project instead of chatting. */
-    val project: Project? = null,
+    val project: LocatedProject? = null,
     val turns: List<Turn> = emptyList(),
     val sending: Boolean = false,
     val mic: MicState = MicState.Idle,
@@ -96,20 +100,45 @@ class AskViewModel(
     }
 
     /** Point prompts at a project, or back at plain chat when null. */
-    fun chooseProject(project: Project?) {
+    fun chooseProject(project: LocatedProject?) {
         _state.value = _state.value.copy(project = project)
     }
 
-    private fun loadProjects(desktop: Desktop) {
+    /**
+     * Ask every paired desktop what projects it has, at once.
+     *
+     * All of them, not only the selected one: work lives on whichever machine
+     * it lives on, and that is the entire reason for pairing more than one.
+     * In parallel because these are separate computers and one that is asleep
+     * must not hold up the list — the same reason the desktop picker probes
+     * them together.
+     */
+    private fun loadProjects(@Suppress("UNUSED_PARAMETER") selected: Desktop) {
         viewModelScope.launch {
-            val found = withContext(Dispatchers.IO) {
-                runCatching { client(desktop).projects() }
-            }.getOrDefault(emptyList())
+            val desktops = registry.all()
+            val results = withContext(Dispatchers.IO) {
+                desktops.map { desktop ->
+                    async {
+                        desktop to runCatching { client(desktop).projects() }
+                    }
+                }.awaitAll()
+            }
+            val found = results
+                .filter { it.second.isSuccess }
+                .associate { it.first to it.second.getOrDefault(emptyList()) }
+            val unreachable = results.filter { it.second.isFailure }.map { it.first }
+
             // A desktop where nobody ran `nira project add` has none. That is
             // a normal answer, so it must not read as a failure.
+            val index = ProjectIndex.of(
+                found = found,
+                unreachable = unreachable,
+                selectedId = registry.selectedId(),
+            )
             _state.value = _state.value.copy(
-                projects = found,
-                project = found.firstOrNull { it.id == _state.value.project?.id },
+                projects = index,
+                // Keep the choice only if it still exists somewhere.
+                project = _state.value.project?.key?.let(index::find),
             )
         }
     }
@@ -192,9 +221,13 @@ class AskViewModel(
             error = null,
         )
 
-        val project = _state.value.project
-        if (project != null) {
-            startProjectRun(desktop, project, text)
+        val chosen = _state.value.project
+        if (chosen != null) {
+            // The project's own desktop, not whichever one is selected. A
+            // directory exists on exactly one machine, and asking a different
+            // one either fails or — worse — finds a same-named directory and
+            // works on the wrong tree.
+            startProjectRun(chosen.desktop, chosen.project, text)
             return
         }
 

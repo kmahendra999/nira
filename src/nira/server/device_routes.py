@@ -73,6 +73,37 @@ async def enroll_device(request: Request) -> dict:
     }
 
 
+@devices_router.get("")
+@devices_router.get("/")
+async def list_devices(request: Request) -> dict:
+    """Every device paired with this desktop.
+
+    Admin-only, and worth having over HTTP rather than only in the CLI: the
+    moment you most need this is the moment you are not at the machine —
+    a phone has been lost, and the revoking has to happen from whatever device
+    you still have.
+    """
+    store = _store(request)
+    include_revoked = request.query_params.get("include_revoked") == "true"
+    devices = store.list(include_revoked=include_revoked)
+    return {"devices": [device.to_dict() for device in devices], "count": len(devices)}
+
+
+@devices_router.delete("/{device_id}")
+async def revoke_device(device_id: str, request: Request) -> dict:
+    """Revoke a device's access immediately.
+
+    Not reversible: the key is gone and that device has to pair again. A
+    revoked device authenticates as nothing at all rather than as a device
+    lacking scopes, so nothing it holds keeps working.
+    """
+    store = _store(request)
+    if not store.revoke(device_id):
+        raise HTTPException(status_code=404, detail="No active device with that id")
+    logger.info("device %s revoked over HTTP", device_id)
+    return {"status": "revoked", "id": device_id}
+
+
 @devices_router.get("/me")
 async def current_device(request: Request) -> dict:
     """Report the device this request authenticated as.

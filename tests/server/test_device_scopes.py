@@ -244,3 +244,44 @@ class TestScopeEnforcement:
 
         response = client.get("/v1/config", headers={"Authorization": f"Bearer {key}"})
         assert API_KEY not in response.text
+
+
+class TestApiPathsAreNotAnsweredByTheWebApp:
+    """The SPA catch-all matched every unclaimed GET, including ``/v1``.
+
+    A missing, misspelled or not-yet-written API route returned 200 and a
+    kilobyte of ``index.html``. A browser shrugs at that; no other client does.
+    The phone parses it as JSON and reports a syntax error, which sends whoever
+    is debugging to the client instead of to the absent route — and it hides
+    endpoints that were never written at all.
+    """
+
+    def test_api_prefixes_are_recognised(self) -> None:
+        from nira.server.app import _is_api_path
+
+        for path in ("/v1/devices", "/v1/anything", "/api/digest", "/metrics"):
+            assert _is_api_path(path), path
+
+    def test_app_routes_are_not(self) -> None:
+        from nira.server.app import _is_api_path
+
+        # These have to keep reaching index.html or the web app stops working
+        # on a deep link.
+        for path in ("/", "/settings", "/agents", "/assets/index.js", "/favicon.ico"):
+            assert not _is_api_path(path), path
+
+    def test_a_path_that_merely_starts_with_the_letters_is_not_an_api_path(
+        self,
+    ) -> None:
+        from nira.server.app import _is_api_path
+
+        # "/v1-changelog" is a page, not an endpoint. Matching on the bare
+        # prefix would 404 a legitimate route in the web app.
+        assert not _is_api_path("/v1-changelog")
+        assert not _is_api_path("/apitest")
+
+    def test_the_bare_prefix_is_an_api_path(self) -> None:
+        from nira.server.app import _is_api_path
+
+        assert _is_api_path("/v1")
+        assert _is_api_path("/api")

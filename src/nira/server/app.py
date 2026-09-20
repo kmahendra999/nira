@@ -8,7 +8,7 @@ import pathlib
 import threading
 import time
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -130,6 +130,15 @@ _NO_CACHE_HEADERS = {
     "Pragma": "no-cache",
     "Expires": "0",
 }
+
+
+# Prefixes that belong to the API, not to the single-page app. Kept beside the
+# catch-all below, which would otherwise answer all of them with index.html.
+_API_PREFIXES = ("/v1/", "/api/", "/metrics", "/webhooks/")
+
+
+def _is_api_path(path: str) -> bool:
+    return path == "/v1" or path == "/api" or path.startswith(_API_PREFIXES)
 
 
 class _NoCacheStaticFiles(StaticFiles):
@@ -595,6 +604,16 @@ def create_app(
         @app.get("/{full_path:path}")
         async def spa_catch_all(full_path: str):
             """Serve static files directly, fall back to index.html for SPA routes."""
+            # Never answer an API path with the web app. This route matches
+            # every unclaimed GET, so a typo'd, removed or not-yet-implemented
+            # /v1 endpoint used to return 200 and 1 KB of HTML. A browser
+            # shrugs; every other client does not — the phone parses it as
+            # JSON and reports a syntax error, which sends whoever is
+            # debugging to the client rather than to the missing route. It
+            # also hides endpoints that were never written, which is precisely
+            # how the missing device listing went unnoticed.
+            if _is_api_path("/" + full_path):
+                raise HTTPException(status_code=404, detail="Not found")
             if full_path:
                 candidate = (static_dir / full_path).resolve()
                 # Path traversal prevention

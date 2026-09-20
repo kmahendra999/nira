@@ -446,7 +446,7 @@ class AskViewModelTest {
             awaitUntil(timeoutMs = 5_000) { it.canTranscribe != null }
             // Not an error state: plenty of desktops have never had
             // `nira project add` run on them.
-            assertThat(model.state.value.projects).isEmpty()
+            assertThat(model.state.value.projects.isEmpty).isTrue()
             assertThat(model.state.value.error).isNull()
             cancelAndIgnoreRemainingEvents()
         }
@@ -461,8 +461,8 @@ class AskViewModelTest {
 
         val model = AskViewModel(registry, SilentMic())
         model.state.test {
-            val ready = awaitUntil(timeoutMs = 5_000) { it.projects.isNotEmpty() }
-            assertThat(ready.projects.single().name).isEqualTo("nira")
+            val ready = awaitUntil(timeoutMs = 5_000) { !it.projects.isEmpty }
+            assertThat(ready.projects.located.single().project.name).isEqualTo("nira")
             // Chat until the user says otherwise: pointing an agent at a
             // directory with file and shell access is not a default.
             assertThat(ready.project).isNull()
@@ -487,8 +487,8 @@ class AskViewModelTest {
 
         val model = AskViewModel(registry, SilentMic())
         model.state.test {
-            val ready = awaitUntil(timeoutMs = 5_000) { it.projects.isNotEmpty() }
-            model.chooseProject(ready.projects.single())
+            val ready = awaitUntil(timeoutMs = 5_000) { !it.projects.isEmpty }
+            model.chooseProject(ready.projects.located.single())
             model.send("add a test for the parser")
 
             val finished = awaitUntil(timeoutMs = 20_000) {
@@ -514,8 +514,8 @@ class AskViewModelTest {
 
         val model = AskViewModel(registry, SilentMic())
         model.state.test {
-            val ready = awaitUntil(timeoutMs = 5_000) { it.projects.isNotEmpty() }
-            model.chooseProject(ready.projects.single())
+            val ready = awaitUntil(timeoutMs = 5_000) { !it.projects.isEmpty }
+            model.chooseProject(ready.projects.located.single())
             model.send("work on it")
 
             val failed = awaitUntil(timeoutMs = 10_000) { it.error != null }
@@ -535,8 +535,8 @@ class AskViewModelTest {
 
         val model = AskViewModel(registry, SilentMic())
         model.state.test {
-            val ready = awaitUntil(timeoutMs = 5_000) { it.projects.isNotEmpty() }
-            model.chooseProject(ready.projects.single())
+            val ready = awaitUntil(timeoutMs = 5_000) { !it.projects.isEmpty }
+            model.chooseProject(ready.projects.located.single())
             model.chooseProject(null)
             model.send("just answer me")
 
@@ -546,6 +546,132 @@ class AskViewModelTest {
         }
 
         assertThat(requestFor("/v1/chat/completions")).isNotNull()
+    }
+
+    @Test
+    fun `projects are gathered from every paired desktop`() = runBlocking {
+        val other = MockWebServer().apply {
+            dispatcher = Routes().also {
+                it.projects = Routes.json(
+                    """{"projects":[{"id":"p2","name":"site","path":"/home/u/site"}]}"""
+                )
+            }
+            start()
+        }
+        try {
+            routes.projects = Routes.json(
+                """{"projects":[{"id":"p1","name":"nira","path":"/home/u/nira"}]}"""
+            )
+            pair()
+            registry.save(
+                Desktop(
+                    id = "dev_2",
+                    name = "studio",
+                    baseUrl = other.url("/").toString().trimEnd('/'),
+                    deviceKey = "nira_dk_other",
+                    scopes = listOf("ask"),
+                )
+            )
+
+            val model = AskViewModel(registry, SilentMic())
+            model.state.test {
+                val ready = awaitUntil(timeoutMs = 10_000) { it.projects.located.size == 2 }
+                // Pairing a second machine is pointless if its work is
+                // invisible from the phone that paired it.
+                assertThat(ready.projects.located.map { it.project.name })
+                    .containsExactly("nira", "site")
+                assertThat(ready.projects.spansDesktops).isTrue()
+                cancelAndIgnoreRemainingEvents()
+            }
+        } finally {
+            other.shutdown()
+        }
+    }
+
+    @Test
+    fun `a run goes to the desktop that owns the project`() = runBlocking {
+        val owner = MockWebServer()
+        val ownerRoutes = Routes().also {
+            it.projects = Routes.json(
+                """{"projects":[{"id":"p2","name":"site","path":"/home/u/site"}]}"""
+            )
+            it.startedRun = Routes.json(
+                """{"run":{"id":"run_1","project_id":"p2","project_name":"site",""" +
+                    """"status":"done","result":"Did it."}}"""
+            )
+        }
+        owner.dispatcher = ownerRoutes
+        owner.start()
+        try {
+            // The *selected* desktop has no such project and must not be asked.
+            routes.projects = Routes.json("""{"projects":[]}""")
+            pair()
+            registry.save(
+                Desktop(
+                    id = "dev_2",
+                    name = "studio",
+                    baseUrl = owner.url("/").toString().trimEnd('/'),
+                    deviceKey = "nira_dk_other",
+                    scopes = listOf("ask"),
+                )
+            )
+            registry.select("dev_1")
+
+            val model = AskViewModel(registry, SilentMic())
+            model.state.test {
+                val ready = awaitUntil(timeoutMs = 10_000) { !it.projects.isEmpty }
+                model.chooseProject(ready.projects.located.single())
+                model.send("build the site")
+                awaitUntil(timeoutMs = 20_000) { it.run != null }
+                cancelAndIgnoreRemainingEvents()
+            }
+
+            // A directory exists on exactly one machine. Asking the selected
+            // one either fails, or finds a same-named directory and works on
+            // the wrong tree — which is worse than failing.
+            val started = generateSequence {
+                owner.takeRequest(200, java.util.concurrent.TimeUnit.MILLISECONDS)
+            }.map { it.path.orEmpty() }.toList()
+            assertThat(started.any { it == "/v1/projects/p2/run" }).isTrue()
+
+            val onSelected = generateSequence {
+                server.takeRequest(200, java.util.concurrent.TimeUnit.MILLISECONDS)
+            }.map { it.path.orEmpty() }.toList()
+            assertThat(onSelected.none { it.endsWith("/run") }).isTrue()
+        } finally {
+            owner.shutdown()
+        }
+    }
+
+    @Test
+    fun `a sleeping desktop does not hide the others`() = runBlocking {
+        val asleep = MockWebServer().apply { start() }
+        val sleepingUrl = asleep.url("/").toString().trimEnd('/')
+        asleep.shutdown()
+
+        routes.projects = Routes.json(
+            """{"projects":[{"id":"p1","name":"nira","path":"/home/u/nira"}]}"""
+        )
+        pair()
+        registry.save(
+            Desktop(
+                id = "dev_2",
+                name = "studio",
+                baseUrl = sleepingUrl,
+                deviceKey = "nira_dk_other",
+                scopes = listOf("ask"),
+            )
+        )
+
+        val model = AskViewModel(registry, SilentMic())
+        model.state.test {
+            val ready = awaitUntil(timeoutMs = 15_000) { !it.projects.isEmpty }
+            // One shut laptop must not empty the list, and its absence has to
+            // be explainable rather than look like "no projects".
+            assertThat(ready.projects.located.single().project.name).isEqualTo("nira")
+            assertThat(ready.projects.unreachable.map { it.name }).contains("studio")
+            cancelAndIgnoreRemainingEvents()
+        }
     }
 
     // --- helpers -----------------------------------------------------------

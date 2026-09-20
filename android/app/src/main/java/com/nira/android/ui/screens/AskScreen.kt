@@ -54,7 +54,8 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.nira.android.data.Project
+import com.nira.android.data.LocatedProject
+import com.nira.android.data.ProjectIndex
 import com.nira.android.ui.AskViewModel
 import com.nira.android.ui.MicState
 import com.nira.android.ui.Turn
@@ -180,9 +181,9 @@ fun AskScreen(
                 }
             }
 
-            if (state.projects.isNotEmpty()) {
+            if (!state.projects.isEmpty) {
                 ProjectChips(
-                    projects = state.projects,
+                    index = state.projects,
                     chosen = state.project,
                     onChoose = viewModel::chooseProject,
                 )
@@ -266,9 +267,9 @@ fun AskScreen(
  */
 @Composable
 private fun ProjectChips(
-    projects: List<Project>,
-    chosen: Project?,
-    onChoose: (Project?) -> Unit,
+    index: ProjectIndex,
+    chosen: LocatedProject?,
+    onChoose: (LocatedProject?) -> Unit,
 ) {
     LazyRow(
         modifier = Modifier.fillMaxWidth(),
@@ -282,11 +283,25 @@ private fun ProjectChips(
                 label = { Text("Chat") },
             )
         }
-        items(projects, key = { it.id }) { project ->
+        items(index.located, key = { it.key }) { located ->
             FilterChip(
-                selected = chosen?.id == project.id,
-                onClick = { onChoose(project) },
-                label = { Text(project.name) },
+                selected = chosen?.key == located.key,
+                onClick = { onChoose(located) },
+                label = {
+                    Column {
+                        Text(located.project.name)
+                        // Which machine, but only when there is more than one
+                        // in play. On a single-desktop setup it is noise on
+                        // every chip that tells the user nothing.
+                        if (index.spansDesktops) {
+                            Text(
+                                located.desktop.name,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                },
             )
         }
     }

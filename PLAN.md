@@ -1073,8 +1073,64 @@ and not for a harmless command in it.
   it, but neither the phone nor the bell offers the button, so the memory can only be populated by
   the proactive agent's own path.
 
+### Phase 10 — More than one machine ✅
+
+**Python: 9,125 passing. Android: 114. Frontend: 102.** This closes the last unfinished item from
+the original brief: *"we should be able to add more than one desktop/system (windows/ubuntu/mac)
+and android app in more than one mobile."*
+
+`examples/cross_device_travel/` was listed as the thing to port. It is not: it is a deterministic,
+in-memory Rust design study that says so itself — "before building real infrastructure". The parts
+worth having were already here, in the wrong shape.
+
+**Projects belong to machines, and the phone now knows it.** A project is a directory, and a
+directory exists on exactly one computer. The phone asked only the *selected* desktop what it had,
+so with three machines paired, finding work meant switching desktop, looking, switching back. Worse,
+a run went to whichever desktop was selected — which either fails, or finds a same-named directory
+and edits the wrong tree. `ProjectIndex` asks every paired desktop at once, labels each project
+with the machine it lives on, and routes a run to that machine regardless of what is selected. One
+shut laptop no longer empties the list: it is reported as unreachable, because "no projects there"
+and "that machine is asleep" are different facts and only one means look elsewhere.
+
+**Two bugs found by testing the platform half.**
+
+`shutil.which("tailscale")` is not enough on macOS. The App Store and standalone builds ship the
+CLI inside the .app bundle and never touch PATH, so a Mac happily on a tailnet looked exactly like
+one without Tailscale installed — and the consequence was not an error but a silent fall back to a
+LAN address that stops working the moment the laptop moves, which is the whole failure the tailnet
+module exists to prevent. The binary is now looked for where each platform's installer puts it, and
+the *found path* is invoked rather than the bare name.
+
+The SPA catch-all matched every unclaimed GET, including `/v1/*`. A missing, misspelled or
+not-yet-written endpoint returned 200 and a kilobyte of `index.html`. A browser shrugs; the phone
+parses it as JSON and reports a syntax error, sending whoever is debugging to the client instead of
+to the absent route. It also hides endpoints that were never written — which is exactly how the
+missing device listing went unnoticed for four phases. API paths now 404.
+
+**Devices can be seen and removed from somewhere other than the machine.** `GET /v1/devices` and
+`DELETE /v1/devices/{id}`, both admin. The moment this matters most is the moment you are not at
+the desktop: a phone has been lost, and the revoking has to happen from whatever device you still
+have. Until now the only way was a shell on the machine itself.
+
+Verified with two genuinely independent desktops — separate `NIRA_HOME`, separate API keys,
+separate ports, a different project on each, one phone paired with both. The phone saw one list
+across both machines correctly labelled; a run for the project on the second desktop was routed
+there; that desktop's approval queue held the question while the first desktop's stayed empty;
+approving on the owning machine let it through, and the file appeared with the right contents.
+That is Phases 7, 9 and 10 working as one thing.
+
+### Still open in Phase 10
+
+- **The web UI cannot aggregate.** It is served by one desktop and authenticates to it, so it is
+  structurally single-machine. The phone is the only client holding keys for several. A desktop
+  reaching another desktop directly would need a second pairing direction, which nothing needs yet.
+- **A run cannot be moved between machines.** Routing picks the owner; it does not migrate work, and
+  nothing tries to pick a machine by load or capability. That was the design study's subject and it
+  remains unbuilt, deliberately — there is no evidence yet that anyone needs it.
+
 ### Next
 
-Multi-desktop task routing (port `examples/cross_device_travel/`), and a research-session retrieval
-endpoint so `nira://research/<id>` renders. Then the two Phase 6 refactors still outstanding:
-splitting `AgentsPage.tsx` and `DataSourcesPage.tsx`, and the logo mark.
+A research-session retrieval endpoint so `nira://research/<id>` renders. Then the two Phase 6
+refactors still outstanding: splitting `AgentsPage.tsx` and `DataSourcesPage.tsx`, and the logo
+mark. Push notifications remain the strongest unbuilt item — without them an approval asked while
+the phone is asleep times out and denies.

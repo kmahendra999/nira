@@ -17,12 +17,39 @@ from __future__ import annotations
 import ipaddress
 import json
 import logging
+import os
 import shutil
 import subprocess
+import sys
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Optional
 
 logger = logging.getLogger(__name__)
+
+# Where Tailscale puts its CLI when the installer does not put it on PATH.
+#
+# This matters on macOS in particular: the App Store and standalone builds ship
+# the binary inside the .app bundle and never touch PATH, so a Mac that is
+# happily on a tailnet looks to `shutil.which` exactly like one without
+# Tailscale installed. The consequence is not an error message — pairing
+# quietly falls back to a LAN address that stops working the moment the laptop
+# moves, which is the failure this whole module exists to avoid.
+_FALLBACK_PATHS = {
+    "darwin": (
+        "/Applications/Tailscale.app/Contents/MacOS/Tailscale",
+        "/opt/homebrew/bin/tailscale",
+        "/usr/local/bin/tailscale",
+    ),
+    "win32": (
+        r"C:\Program Files\Tailscale\tailscale.exe",
+        r"C:\Program Files (x86)\Tailscale\tailscale.exe",
+    ),
+    "linux": (
+        "/usr/bin/tailscale",
+        "/usr/local/bin/tailscale",
+    ),
+}
 
 
 @dataclass
@@ -44,8 +71,29 @@ class TailnetIdentity:
         return f"http://{self.dns_name}" if self.dns_name else f"http://{self.ipv4}"
 
 
+def tailscale_binary() -> Optional[str]:
+    """The tailscale CLI, looked up on PATH and then where installers put it.
+
+    Returns the path so callers invoke the binary they found rather than the
+    bare name: a Mac where only the bundled copy exists would otherwise pass
+    the availability check and then fail every command.
+    """
+    override = os.environ.get("NIRA_TAILSCALE_BIN", "").strip()
+    if override:
+        return override if Path(override).exists() else None
+
+    found = shutil.which("tailscale")
+    if found:
+        return found
+
+    for candidate in _FALLBACK_PATHS.get(sys.platform, ()):
+        if Path(candidate).exists():
+            return candidate
+    return None
+
+
 def tailscale_available() -> bool:
-    return shutil.which("tailscale") is not None
+    return tailscale_binary() is not None
 
 
 def get_identity(timeout: float = 5.0) -> Optional[TailnetIdentity]:
@@ -54,11 +102,12 @@ def get_identity(timeout: float = 5.0) -> Optional[TailnetIdentity]:
     None covers every "not on a tailnet" case — not installed, not logged in,
     daemon down — because the caller's decision is the same for all of them.
     """
-    if not tailscale_available():
+    binary = tailscale_binary()
+    if binary is None:
         return None
     try:
         completed = subprocess.run(
-            ["tailscale", "status", "--json"],
+            [binary, "status", "--json"],
             capture_output=True,
             text=True,
             timeout=timeout,
@@ -106,11 +155,12 @@ def https_serve_target(timeout: float = 5.0) -> Optional[str]:
     real certificate for the node's ``*.ts.net`` name, which is what turns the
     address into something a phone will actually install from.
     """
-    if not tailscale_available():
+    binary = tailscale_binary()
+    if binary is None:
         return None
     try:
         completed = subprocess.run(
-            ["tailscale", "serve", "status", "--json"],
+            [binary, "serve", "status", "--json"],
             capture_output=True,
             text=True,
             timeout=timeout,
@@ -141,6 +191,7 @@ def is_tailnet_address(host: str) -> bool:
 
 
 __all__ = [
+    "tailscale_binary",
     "TailnetIdentity",
     "get_identity",
     "https_serve_target",
