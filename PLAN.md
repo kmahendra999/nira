@@ -1473,6 +1473,56 @@ them to whatever network the machine is on. A phone reaches it the way it reache
 - **Nothing rebuilds the apk when the image is built.** Copying a fresh build into `downloads/` is
   a manual step, so a stale apk would be served with an entirely accurate digest of itself.
 
+### Phase 18 — Links that work, and instructions instead of a repository ✅
+
+The trigger was a command from the README returning 404:
+`curl -fsSL https://kmahendra999.github.io/nira/install.sh | bash`. That URL — and sixteen others —
+were dead because the mkdocs site has never been published. The workflow to publish it exists and
+is correct; GitHub Pages simply is not enabled on the repository, which is a setting only its owner
+can change. **Seventeen of the README's thirty-four links were 404s.**
+
+The pages themselves all exist, as Markdown under `docs/`, which GitHub renders. So every doc link
+now points there, and the two installer one-liners at `raw.githubusercontent.com`. Both work today
+and keep working if Pages is ever turned on. The four dead URLs `install.sh` *printed to the user
+mid-install* are fixed too. The "download from the latest release" row was also a dead end — the
+releases page is empty — and now gives the build command. **32 of 32 links resolve.**
+
+One does not: `github.com/openclaw/skills`, the third-party skills catalogue, which is gone (the
+org exists, that repository does not). `src/nira/skills/sources/openclaw.py` still clones it, so
+`nira skill install openclaw:…` fails against the network — and its tests mock the clone, so they
+pass anyway. Guessing at a replacement would have been worse than saying so, which is what the
+README now does.
+
+**The site gives instructions rather than links to a repository.** Section 04 was three cards whose
+buttons said "Get the source". It is now *Install*: each card carries the actual commands, copyable,
+with numbered steps. The server card spans the grid, because it is what everyone needs first.
+
+**The site serves the installer.** `scripts/install/install.sh` is copied into the image at build
+time — the build context moved to the repository root, pared back by a `.dockerignore`, so there is
+one copy rather than a duplicate that drifts. The command on the page is built from
+`location.origin`, so it names whatever host the page was reached on: localhost at your desk, the
+tailnet name under `tailscale serve`. It is served as `text/plain`, and the page links to it,
+because piping a URL into bash runs whatever that URL returns. The page also warns not to use
+`sudo` — the installer refuses root, which is exactly what the failing command would have hit.
+
+Three of my class names collided with the theme's: `.steps` is a horizontal stepper in `glass.css`,
+which laid the install steps out in three cramped columns, and `.badge` and `.icon-btn` leaked
+layout properties my rules never set. All three are namespaced now. The rename regex then hit
+JavaScript identifiers and an `aria-label`, which `node --check` caught.
+
+Mobile overflowed by 53px afterwards. `overflow-wrap: break-word` wraps text visually but does not
+reduce an element's min-content width, so the grid track grew to fit `http://localhost:8080/install.sh`
+and pushed the card off the screen. `anywhere` wraps identically and does shrink min-content;
+`minmax(0, 1fr)` stops the track expanding either way.
+
+### Still open in Phase 18
+
+- **GitHub Pages is still not enabled**, so the docs site does not exist. Everything points at
+  rendered Markdown instead, which works but is not the site the workflow was written to publish.
+- **The OpenClaw skills source is broken in code**, not only in the README.
+- **Nothing checks the links.** This audit was a script run once. A CI job that walks the README
+  and the page would have caught all seventeen the day the fork was renamed.
+
 ### Next
 
 Nothing on the Phase 6 list remains. The largest unbuilt things are the ones each phase recorded as

@@ -5,8 +5,11 @@
 services:
   site:
     build:
-      context: .
-      dockerfile: Dockerfile
+      # The repository root, so the image can copy the installer from
+      # scripts/install/ — see website/.dockerignore, which pares the
+      # context back down to the handful of paths the image needs.
+      context: ..
+      dockerfile: website/Dockerfile
     image: nira-site:local
     container_name: nira-site
     # Loopback by default. This serves installable binaries, and binding

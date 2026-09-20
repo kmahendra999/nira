@@ -1,0 +1,15 @@
+# The build context is the repository root, so that the image can copy the
+# installer from the one place it lives — scripts/install/install.sh —
+# rather than keeping a second copy under website/ that would drift.
+#
+# Everything is excluded and the two directories the image needs are added
+# back, which keeps the context at a few hundred KB instead of the whole
+# repository.
+*
+
+!website/public
+!website/nginx.conf
+!scripts/install/install.sh
+
+# Not needed inside the image even from those paths.
+website/README.md

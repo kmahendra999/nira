@@ -57,7 +57,7 @@ body {
   padding: 9px 16px; border-radius: 999px; font-size: 13.5px; font-weight: 600;
 }
 .pill.lg { padding: 13px 22px; font-size: 15px; }
-.icon-btn {
+.nav-icon {
   width: 38px; height: 38px; border-radius: 12px;
   display: grid; place-items: center; font-size: 15px;
 }
@@ -182,9 +182,15 @@ code {
 .col li:last-child { border-bottom: 0; }
 
 /* ---------- Downloads ---------- */
-.dl-grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+.dl-grid { display: grid; gap: 14px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.dl.wide { grid-column: 1 / -1; }
+/* Inside the wide card, the command and the steps sit side by side rather
+   than making one very long column. */
+.dl.wide .dl-body { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr); gap: 16px; align-items: start; }
+.dl.wide .dl-body > * { margin: 0; }
 .dl {
   position: relative; display: flex; flex-direction: column; gap: 10px;
+  min-width: 0;
   padding: 22px; border-radius: 22px;
   background: var(--tile); border: 1px solid var(--glass-border);
   box-shadow: var(--inner), var(--lift);
@@ -212,6 +218,36 @@ code {
 }
 .dl-size { font-size: 12px; color: var(--muted); font-weight: 600; }
 
+/* ---------- Instructions inside a card ----------
+   The command someone needs is the thing they came for, so it gets a block
+   of its own rather than a link to a repository where it might be found. */
+.cmdbox { position: relative; }
+.cmdbox pre {
+  padding: 12px 58px 12px 13px; border-radius: 13px;
+  background: var(--row); border: 1px solid var(--glass-border);
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 12px; line-height: 1.75; color: var(--text);
+  white-space: pre-wrap; overflow-wrap: anywhere; word-break: normal;
+}
+.mini-copy {
+  position: absolute; top: 8px; right: 8px;
+  padding: 4px 10px; border-radius: 9px; font-size: 11px; font-weight: 700;
+}
+.dl-steps {
+  margin: 2px 0 0; padding-left: 19px;
+  font-size: 12.5px; line-height: 1.65; color: var(--muted); font-weight: 500;
+}
+.dl-steps li { margin-bottom: 5px; }
+.dl-steps li::marker { color: var(--acc); font-weight: 700; }
+.dl-steps a, .dl-note a, .split-copy a, .fineprint a, .sec-lead a {
+  color: var(--acc); font-weight: 600; text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* The install command in the terminal names this host; it is part of the
+   command, so it reads as command text rather than as a highlight. */
+.cmd .host { color: inherit; }
+
 /* The build caveat and the checksum. Small, but on the card rather than
    in a footnote: someone about to install a debug-signed apk should read
    it there, not after scrolling past the button. */
@@ -226,12 +262,12 @@ code {
   font-family: ui-monospace, "SF Mono", Menlo, monospace;
   color: var(--muted); word-break: break-all; opacity: .85;
 }
-.badge {
+.dl-badge {
   padding: 3px 9px; border-radius: 999px; font-size: 10.5px; font-weight: 800;
   letter-spacing: .6px; text-transform: uppercase;
 }
-.badge.ready { color: var(--acc); background: rgba(var(--acc-rgb), .16); }
-.badge.source { color: var(--muted); background: var(--row); }
+.dl-badge.ready { color: var(--acc); background: rgba(var(--acc-rgb), .16); }
+.dl-badge.source { color: var(--muted); background: var(--row); }
 .fineprint { margin-top: 20px; font-size: 12.5px; color: var(--muted); font-weight: 500; }
 
 /* ---------- Cards ---------- */
@@ -262,6 +298,8 @@ a:focus-visible, button:focus-visible {
 
 /* ---------- Narrow screens ---------- */
 @media (max-width: 900px) {
+  .dl-grid { grid-template-columns: 1fr; }
+  .dl.wide .dl-body { grid-template-columns: minmax(0, 1fr); }
   .hero { grid-template-columns: 1fr; gap: 28px; padding: 48px 0 40px; }
   .hero-art { max-width: 320px; }
   .split { grid-template-columns: 1fr; }

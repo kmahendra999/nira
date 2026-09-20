@@ -8,8 +8,15 @@ FROM nginx:1.27-alpine
 # wants to bind 80, which a non-root process may not, hence 8080 below.
 RUN rm /etc/nginx/conf.d/default.conf
 
-COPY nginx.conf /etc/nginx/conf.d/nira.conf
-COPY public/    /usr/share/nginx/html/
+COPY website/nginx.conf /etc/nginx/conf.d/nira.conf
+COPY website/public/    /usr/share/nginx/html/
+
+# The installer, from the one place it lives. The page tells people to pipe
+# this into bash, and the README used to point that command at a GitHub
+# Pages site that was never set up for this fork — so it 404'd. Serving it
+# from the same host as the page means the command on the page works
+# wherever the page is reachable, with no third party involved.
+COPY scripts/install/install.sh /usr/share/nginx/html/install.sh
 
 # Hash whatever was actually copied in, at build time, and write the
 # digests where the page can read them. Doing it here rather than by hand

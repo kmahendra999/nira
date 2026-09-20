@@ -53,10 +53,10 @@
       <a href="#start">Quick start</a>
       <a href="#parts">What it is</a>
       <a href="#stack">Your stack</a>
-      <a href="#download">Download</a>
+      <a href="#download">Install</a>
     </nav>
     <div class="nav-actions">
-      <button class="gbtn icon-btn" id="theme" type="button" aria-label="Switch theme"></button>
+      <button class="gbtn nav-icon" id="theme" type="button" aria-label="Switch theme"></button>
       <a class="gbtn pill" href="https://github.com/kmahendra999/nira" rel="noopener">GitHub</a>
     </div>
   </header>
@@ -73,7 +73,7 @@
       </p>
       <div class="hero-cta">
         <a class="btn-primary" href="#start">Get started</a>
-        <a class="gbtn pill lg" href="#download">Download the app</a>
+        <a class="gbtn pill lg" href="#download">Install it</a>
       </div>
       <p class="hero-note">Open source · Runs offline · Your data stays on your machines</p>
     </div>
@@ -98,8 +98,14 @@
     <div class="split">
       <div class="split-copy">
         <p>
-          One command brings up the server on your own machine. It picks an
-          engine to suit your hardware, and every model it pulls stays local.
+          One command installs it on your own machine. It picks an engine to
+          suit your hardware, pulls a small model to start with, and every
+          model it pulls stays local.
+        </p>
+        <p class="muted">
+          It goes into <code>~/.nira</code> and puts <code>nira</code> on your
+          PATH. Piping a URL into bash runs whatever that URL returns, so read
+          it first: <a href="install.sh" rel="noopener">install.sh</a>.
         </p>
         <p class="muted">
           Already have it running? <code>nira device pair my-phone</code> shows a
@@ -118,9 +124,8 @@
           </div>
         </div>
         <div class="term-body">
-          <pre class="cmd on" data-panel="install"><span class="p">$</span> git clone https://github.com/kmahendra999/nira.git
-<span class="p">$</span> cd nira && uv sync
-<span class="p">$</span> nira init</pre>
+          <pre class="cmd on" data-panel="install"><span class="p">$</span> curl -fsSL <span class="host">http://localhost:8080</span>/install.sh | bash
+<span class="p">$</span> nira init            <span class="c"># no sudo — the installer refuses root</span></pre>
           <pre class="cmd" data-panel="ask"><span class="p">$</span> nira ask "summarise the notes in ~/journal"
 <span class="p">$</span> nira talk            <span class="c"># speak to it instead</span></pre>
           <pre class="cmd" data-panel="serve"><span class="p">$</span> nira serve
@@ -183,20 +188,20 @@
 
   <!-- ------------------------------------------------------------------ -->
   <section class="sec" id="download">
-    <div class="sec-head"><span class="num">04</span><h2>Download</h2></div>
+    <div class="sec-head"><span class="num">04</span><h2>Install</h2></div>
     <p class="sec-lead">
-      The phone app talks to a desktop you have paired with. Install the server
-      first, then pair — the app is not useful on its own, and says so when it
-      has nothing to talk to.
+      Install the server first. The phone app talks to a desktop you have
+      paired with, so it is not useful on its own — and says so when it has
+      nothing to talk to.
     </p>
 
     <div class="dl-grid" id="downloads"></div>
 
     <p class="fineprint">
-      Every download is served from this machine — nothing here calls out to a
-      CDN or an app store. The digests are computed when the container image is
-      built, from the files it is about to serve; check one with
-      <code>sha256sum nira-android.apk</code> after downloading.
+      The installer and the apk are both served from this machine — nothing
+      here calls out to a CDN or an app store. Digests are computed when the
+      container image is built, from the files it is about to serve; check one
+      with <code>sha256sum nira-android.apk</code> after downloading.
     </p>
   </section>
 

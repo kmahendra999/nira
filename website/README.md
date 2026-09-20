@@ -53,6 +53,20 @@ analytics, no app store. That is checkable: the Content-Security-Policy
 nginx sends is `default-src 'self'` with no exceptions for a third party,
 so an off-origin request would fail rather than quietly succeed.
 
+## The installer
+
+`/install.sh` is `scripts/install/install.sh`, copied into the image at build
+time — which is why the build context is the repository root, pared back by
+`.dockerignore` at the root. There is one copy of that script, not two.
+
+It is served as `text/plain` so that opening the URL shows the script. The
+page links to it next to the command, because piping a URL into bash runs
+whatever that URL returns, and the reader should be able to look first.
+
+The command shown on the page is built from `location.origin`, so it names
+whichever host the page was reached on — `localhost:8080` at your desk, the
+tailnet name under `tailscale serve`. Nothing hard-codes a hostname.
+
 ## Adding a download
 
 Drop the file in `public/downloads/`, add an entry to `CATALOG` in

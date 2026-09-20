@@ -2,7 +2,10 @@
 # install.sh — Nira curl-pipe-bash installer.
 #
 # Usage:
-#   curl -fsSL https://kmahendra999.github.io/nira/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/kmahendra999/nira/main/scripts/install/install.sh | bash
+#
+# Or, if you are already running the site container, from your own machine:
+#   curl -fsSL http://localhost:8080/install.sh | bash
 #
 # Flags (only used in tests / power users):
 #   --no-bg-orchestrator   Skip the detached background orchestrator
@@ -49,13 +52,13 @@ Nira runs on Windows via WSL2. Two paths:
 
      Open the Ubuntu shell that gets installed, then re-run:
 
-       curl -fsSL https://kmahendra999.github.io/nira/install.sh | bash
+       curl -fsSL https://raw.githubusercontent.com/kmahendra999/nira/main/scripts/install/install.sh | bash
 
   2. Desktop app — download the .exe from the Releases page:
      https://github.com/kmahendra999/nira/releases
 
-See the WSL2 install guide for the full walkthrough:
-  https://kmahendra999.github.io/nira/getting-started/wsl2/
+WSL2 setup is documented in the repository:
+  https://github.com/kmahendra999/nira#installation
 EOF
         exit 1
         ;;
@@ -148,7 +151,7 @@ Two ways forward:
        Arch:          sudo pacman -S $tool
 
   2. Pre-authenticate sudo before piping (caches credentials for 5 min):
-       sudo -v && curl -fsSL https://kmahendra999.github.io/nira/install.sh | bash
+       sudo -v && curl -fsSL https://raw.githubusercontent.com/kmahendra999/nira/main/scripts/install/install.sh | bash
 EOF
         exit 1
     fi
