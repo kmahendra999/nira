@@ -22,8 +22,8 @@ export default defineConfig({
         name: 'Nira',
         short_name: 'Nira',
         description: 'On-device AI assistant',
-        theme_color: '#161618',
-        background_color: '#161618',
+        theme_color: '#0a0a0b',
+        background_color: '#0a0a0b',
         display: 'standalone',
         icons: [
           { src: 'pwa-192x192.png', sizes: '192x192', type: 'image/png' },
