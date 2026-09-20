@@ -356,3 +356,111 @@ class TestLifecycle:
 
         logs = store.get_run_logs(task.id)
         assert len(logs) >= 1
+
+
+class TestConcurrentDispatch:
+    """One slow task must not hold up every other scheduled task.
+
+    Execution used to happen inline in the poll loop, so a twenty-minute agent
+    run stalled the entire scheduler for twenty minutes.
+    """
+
+    def _scheduler(self, tmp_path, **kwargs):
+        from nira.scheduler.scheduler import TaskScheduler
+        from nira.scheduler.store import SchedulerStore
+
+        store = SchedulerStore(tmp_path / "sched.db")
+        return TaskScheduler(store, system=None, poll_interval=60, **kwargs)
+
+    def _task(self, task_id="t1"):
+        from nira.scheduler.scheduler import ScheduledTask
+
+        return ScheduledTask(
+            id=task_id,
+            prompt="do a thing",
+            schedule_type="interval",
+            schedule_value="60",
+        )
+
+    def test_a_running_task_is_not_started_again(self, tmp_path) -> None:
+        """next_run only advances when a task finishes, so the poll loop keeps
+        re-selecting one that is still going."""
+        import threading
+
+        scheduler = self._scheduler(tmp_path)
+        started = threading.Event()
+        release = threading.Event()
+        calls = []
+
+        def _slow(task):
+            calls.append(task.id)
+            started.set()
+            release.wait(timeout=5)
+
+        scheduler._execute_task = _slow  # type: ignore[method-assign]
+        scheduler.start()
+        try:
+            scheduler._dispatch(self._task())
+            assert started.wait(timeout=5)
+
+            scheduler._dispatch(self._task())  # same task, still running
+            scheduler._dispatch(self._task())
+
+            release.set()
+        finally:
+            scheduler.stop()
+
+        assert calls == ["t1"], "a still-running task was started again"
+
+    def test_a_slow_task_does_not_block_another(self, tmp_path) -> None:
+        import threading
+
+        scheduler = self._scheduler(tmp_path)
+        slow_started = threading.Event()
+        release = threading.Event()
+        finished = []
+
+        def _execute(task):
+            if task.id == "slow":
+                slow_started.set()
+                release.wait(timeout=5)
+            finished.append(task.id)
+
+        scheduler._execute_task = _execute  # type: ignore[method-assign]
+        scheduler.start()
+        try:
+            scheduler._dispatch(self._task("slow"))
+            assert slow_started.wait(timeout=5)
+
+            scheduler._dispatch(self._task("quick"))
+            for _ in range(500):
+                if "quick" in finished:
+                    break
+                threading.Event().wait(0.01)
+
+            assert "quick" in finished, "the quick task waited on the slow one"
+            release.set()
+        finally:
+            scheduler.stop()
+
+    def test_the_id_is_released_when_a_task_raises(self, tmp_path) -> None:
+        """A crash must not leave the task permanently un-runnable."""
+        scheduler = self._scheduler(tmp_path)
+
+        def _boom(task):
+            raise RuntimeError("task exploded")
+
+        scheduler._execute_task = _boom  # type: ignore[method-assign]
+        scheduler._dispatch(self._task())  # no pool: runs inline
+
+        assert scheduler._in_flight == set()
+
+    def test_dispatch_without_start_runs_inline(self, tmp_path) -> None:
+        """Direct callers and tests keep synchronous behaviour."""
+        scheduler = self._scheduler(tmp_path)
+        ran = []
+        scheduler._execute_task = lambda task: ran.append(task.id)  # type: ignore
+
+        scheduler._dispatch(self._task())
+
+        assert ran == ["t1"]

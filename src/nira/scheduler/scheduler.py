@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import threading
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
@@ -87,6 +88,8 @@ class TaskScheduler:
         Seconds between poll cycles (default 60).
     bus:
         Optional event bus for publishing scheduler events.
+    max_workers:
+        How many tasks may run at once (default 4).
     """
 
     def __init__(
@@ -96,14 +99,23 @@ class TaskScheduler:
         *,
         poll_interval: int = 60,
         bus: Any = None,
+        max_workers: int = 4,
     ) -> None:
         self._store = store
         self._system = system
         self._poll_interval = poll_interval
         self._bus = bus
+        self._max_workers = max_workers
         self._stop_event = threading.Event()
         self._thread: Optional[threading.Thread] = None
         self._lock = threading.Lock()
+        self._pool: Optional[ThreadPoolExecutor] = None
+        # Ids of tasks currently executing. A task's next_run is only advanced
+        # once it finishes, so without this the poll loop re-selects a
+        # still-running task on every cycle and starts it again — harmless
+        # while execution was inline and blocking, and a pile-up now that it
+        # is not.
+        self._in_flight: set[str] = set()
 
     # -- Public API ----------------------------------------------------------
 
@@ -112,6 +124,9 @@ class TaskScheduler:
         if self._thread is not None and self._thread.is_alive():
             return
         self._stop_event.clear()
+        self._pool = ThreadPoolExecutor(
+            max_workers=self._max_workers, thread_name_prefix="nira-task"
+        )
         self._thread = threading.Thread(
             target=self._poll_loop, daemon=True, name="nira-scheduler"
         )
@@ -124,6 +139,12 @@ class TaskScheduler:
         if self._thread is not None:
             self._thread.join(timeout=self._poll_interval + 5)
             self._thread = None
+        if self._pool is not None:
+            # Let in-flight tasks finish: killing one mid-run would leave no
+            # run log and a next_run still in the past, so it would look due
+            # again on the next start.
+            self._pool.shutdown(wait=True)
+            self._pool = None
         logger.info("Scheduler stopped")
 
     def create_task(
@@ -197,10 +218,40 @@ class TaskScheduler:
                     due = self._store.get_due_tasks(now)
                 for task_dict in due:
                     task = ScheduledTask.from_dict(task_dict)
-                    self._execute_task(task)
+                    self._dispatch(task)
             except Exception:
                 logger.exception("Scheduler poll error")
             self._stop_event.wait(timeout=self._poll_interval)
+
+    def _dispatch(self, task: ScheduledTask) -> None:
+        """Run *task* on the worker pool, at most once at a time.
+
+        Execution used to happen inline in the poll loop, so a task that took
+        twenty minutes held up every other scheduled task for twenty minutes —
+        a single slow agent run stalled the whole scheduler.
+        """
+        with self._lock:
+            if task.id in self._in_flight:
+                logger.debug("Task %s still running; not starting again", task.id)
+                return
+            self._in_flight.add(task.id)
+
+        if self._pool is None:
+            # Not started via start() — run inline so direct callers and tests
+            # still get synchronous behaviour.
+            self._run_and_release(task)
+            return
+
+        self._pool.submit(self._run_and_release, task)
+
+    def _run_and_release(self, task: ScheduledTask) -> None:
+        try:
+            self._execute_task(task)
+        except Exception:
+            logger.exception("Task %s raised", task.id)
+        finally:
+            with self._lock:
+                self._in_flight.discard(task.id)
 
     def _execute_task(self, task: ScheduledTask) -> None:
         """Execute a single due task and log the result."""

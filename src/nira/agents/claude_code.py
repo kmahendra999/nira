@@ -79,6 +79,8 @@ class ClaudeCodeAgent(BaseAgent):
         allowed_tools: Optional[List[str]] = None,
         system_prompt: str = "",
         timeout: int = 300,
+        max_turns: int = 30,
+        permission_mode: str = "",
         capability_policy: Optional[Any] = None,
         rate_limiter: Optional[Any] = None,
         agent_id: Optional[str] = None,
@@ -99,6 +101,13 @@ class ClaudeCodeAgent(BaseAgent):
         self._allowed_tools = allowed_tools
         self._system_prompt = system_prompt
         self._timeout = timeout
+        # Both were previously fixed inside the runner and unreachable from
+        # here: 30 turns is low for "work on this project until it is done",
+        # and no permission mode was set at all, so the posture for an agent
+        # with file and shell access was whatever the SDK happened to default
+        # to rather than something Nira chose.
+        self._max_turns = max_turns
+        self._permission_mode = permission_mode
         self._node_executable = "node"
 
     # ------------------------------------------------------------------
@@ -192,6 +201,8 @@ class ClaudeCodeAgent(BaseAgent):
             "allowed_tools": self._allowed_tools or [],
             "system_prompt": self._system_prompt,
             "session_id": self._session_id,
+            "max_turns": self._max_turns,
+            "permission_mode": self._permission_mode,
         }
 
         try:
