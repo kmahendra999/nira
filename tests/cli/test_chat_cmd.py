@@ -172,7 +172,11 @@ class TestVoiceInput:
             assert record_voice(console) is VOICE_EXIT
 
         record.assert_not_called()
-        assert "Nira[speech]" in str(console.print.call_args)
+        # Must name the extra that actually yields a working voice loop.
+        # It used to say Nira[speech], which installs an STT backend but not
+        # the default TTS one, so following the advice produced a voice mode
+        # that could listen and then could not answer.
+        assert "Nira[voice]" in str(console.print.call_args)
 
     def test_stt_backend_is_cached_for_the_chat_session(self) -> None:
         backend = MagicMock()
