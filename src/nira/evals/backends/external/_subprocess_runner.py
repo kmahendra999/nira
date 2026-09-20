@@ -267,7 +267,15 @@ def _try_start_rocm_smi() -> Optional[_Sampler]:
 
 def _try_start_rapl() -> Optional[_Sampler]:
     rapl_path = Path("/sys/class/powercap/intel-rapl:0/energy_uj")
-    if not rapl_path.exists():
+
+    # Probe by reading, not by exists(). Since the PLATYPUS disclosure
+    # (CVE-2020-8694) mainstream distributions ship energy_uj as root-only 0400
+    # because per-microsecond energy readings leak enough to reconstruct AES
+    # keys. The file is therefore present but unreadable for an ordinary user,
+    # so exists() reports True and the read then raises PermissionError.
+    try:
+        initial_uj = int(rapl_path.read_text().strip())
+    except (OSError, ValueError):
         return None
 
     class _RaplSampler(_Sampler):
@@ -275,7 +283,7 @@ def _try_start_rapl() -> Optional[_Sampler]:
 
         def __init__(self) -> None:
             super().__init__()
-            self._last_uj = int(rapl_path.read_text().strip())
+            self._last_uj = initial_uj
             self._last_t = time.monotonic()
 
         def _read_watts(self) -> float:
@@ -293,14 +301,25 @@ def _try_start_rapl() -> Optional[_Sampler]:
 
 
 def _start_sampler() -> _Sampler:
-    """Return a started sampler from the fallback chain, or the null sampler."""
+    """Return a started sampler from the fallback chain, or the null sampler.
+
+    Each probe is isolated. The sampling loop already refuses to let a read
+    error end a run (see ``_Sampler._loop``); this extends the same rule to
+    construction, so a machine whose energy interface is present but
+    unusable degrades to ``_NullSampler`` rather than failing the eval it was
+    only supposed to be measuring.
+    """
     for try_fn in (
         _try_start_nvml,
         _try_start_powermetrics,
         _try_start_rocm_smi,
         _try_start_rapl,
     ):
-        s = try_fn()
+        try:
+            s = try_fn()
+        except Exception as e:  # never let metering break the measured run
+            LOGGER.debug("sampler_start_failed: %s: %s", try_fn.__name__, e)
+            continue
         if s is not None:
             return s
     return _NullSampler()

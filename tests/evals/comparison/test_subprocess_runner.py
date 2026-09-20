@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -165,3 +166,76 @@ class TestEnergySampler:
         sampler = m._start_sampler()
         assert sampler.method == "unavailable"
         assert sampler.stop() == []
+
+    @pytest.mark.skipif(
+        hasattr(os, "geteuid") and os.geteuid() == 0,
+        reason="root bypasses file permissions, so 0400 stays readable",
+    )
+    def test_rapl_declines_when_file_exists_but_is_unreadable(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A present-but-unreadable energy_uj must not raise.
+
+        Since CVE-2020-8694 (PLATYPUS) mainstream distributions ship
+        energy_uj as root-only 0400, so it exists while being unreadable to
+        an ordinary user. Probing with exists() rather than a read let a
+        PermissionError escape _start_sampler and abort every external eval
+        on such a host.
+        """
+        from nira.evals.backends.external import _subprocess_runner as m
+
+        energy_uj = tmp_path / "energy_uj"
+        energy_uj.write_text("123456", encoding="utf-8")
+        energy_uj.chmod(0o000)
+
+        monkeypatch.setattr(m, "Path", lambda _p: energy_uj)
+        try:
+            assert m._try_start_rapl() is None
+        finally:
+            energy_uj.chmod(0o600)
+
+    def test_rapl_declines_on_non_integer_contents(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from nira.evals.backends.external import _subprocess_runner as m
+
+        energy_uj = tmp_path / "energy_uj"
+        energy_uj.write_text("not-a-number", encoding="utf-8")
+        monkeypatch.setattr(m, "Path", lambda _p: energy_uj)
+
+        assert m._try_start_rapl() is None
+
+    def test_a_raising_probe_does_not_break_the_chain(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Metering must never fail the run it is only measuring."""
+        from nira.evals.backends.external import _subprocess_runner as m
+
+        def _explode() -> None:
+            raise PermissionError("energy interface present but unusable")
+
+        monkeypatch.setattr(m, "_try_start_nvml", _explode)
+        monkeypatch.setattr(m, "_try_start_powermetrics", lambda: None)
+        monkeypatch.setattr(m, "_try_start_rocm_smi", lambda: None)
+        monkeypatch.setattr(m, "_try_start_rapl", lambda: None)
+
+        sampler = m._start_sampler()
+        assert sampler.method == "unavailable"
+
+    def test_a_raising_probe_still_allows_a_later_one_to_win(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from nira.evals.backends.external import _subprocess_runner as m
+
+        def _explode() -> None:
+            raise OSError("nvml broken")
+
+        working = m._NullSampler()
+        working.method = "rapl"
+
+        monkeypatch.setattr(m, "_try_start_nvml", _explode)
+        monkeypatch.setattr(m, "_try_start_powermetrics", lambda: None)
+        monkeypatch.setattr(m, "_try_start_rocm_smi", lambda: None)
+        monkeypatch.setattr(m, "_try_start_rapl", lambda: working)
+
+        assert m._start_sampler() is working
