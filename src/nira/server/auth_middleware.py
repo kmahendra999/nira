@@ -16,6 +16,15 @@ logger = logging.getLogger(__name__)
 _WS_AUTH_PROTOCOL = "nira.auth.v1"
 _WS_KEY_PROTOCOL_PREFIX = "nira.key.b64url."
 
+# Endpoints under /v1 that a caller must be able to reach *before* it holds a
+# key. Exactly one: a device redeeming a pairing invitation has nothing to
+# present yet, and the invitation itself is the credential — single-use, ten
+# minutes, and issued only by someone at the machine running `nira device pair`.
+#
+# An exact-path set rather than a prefix, so no route added under it later
+# inherits the exemption by accident.
+_UNAUTHENTICATED_PATHS = frozenset({"/v1/devices/enroll"})
+
 
 def _api_keys_match(presented: str, expected: str) -> bool:
     """Compare API keys as bytes so non-ASCII values do not raise ``TypeError``."""
@@ -112,6 +121,8 @@ class AuthMiddleware(BaseHTTPMiddleware):
         by unauthenticated clients, so it is gated alongside ``/v1`` and
         ``/api``. ``/health`` stays open for liveness probes.
         """
+        if path.rstrip("/") in _UNAUTHENTICATED_PATHS:
+            return False
         return (
             path.startswith("/v1/")
             or path.startswith("/api/")

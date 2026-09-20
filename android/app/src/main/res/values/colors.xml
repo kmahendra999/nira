@@ -1,0 +1,5 @@
+<resources>
+    <!-- Mirrors the web app's dark palette: color-bg and color-accent. -->
+    <color name="nira_background">#0A0A0B</color>
+    <color name="nira_accent">#FB923C</color>
+</resources>

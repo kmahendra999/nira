@@ -1199,6 +1199,13 @@ def include_all_routes(app) -> None:
     except Exception:
         logger.debug("WebSocket bridge not available", exc_info=True)
 
+    try:
+        from nira.server.device_routes import devices_router
+
+        app.include_router(devices_router)
+    except Exception:
+        logger.debug("Device routes not available", exc_info=True)
+
 
 __all__ = [
     "include_all_routes",

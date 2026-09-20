@@ -1,0 +1,9 @@
+<resources>
+    <!-- Compose draws everything; this only needs to avoid a white flash
+         before the first frame and let the app draw its own bars. -->
+    <style name="Theme.Nira" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/nira_background</item>
+        <item name="android:statusBarColor">@color/nira_background</item>
+        <item name="android:navigationBarColor">@color/nira_background</item>
+    </style>
+</resources>
