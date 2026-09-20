@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import io
 import json
 import subprocess
+import time
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -35,17 +37,75 @@ def _wrap_output(payload: dict) -> str:
     )
 
 
+class _FakePopen:
+    """Stands in for the streaming sidecar process.
+
+    The agent moved from subprocess.run to Popen so progress events can be
+    republished as they arrive rather than after the process exits, which is
+    what makes a long agentic run visible while it is happening. These tests
+    therefore drive a fake process object instead of a CompletedProcess.
+    """
+
+    def __init__(
+        self,
+        stdout: str = "",
+        stderr: str = "",
+        returncode: int = 0,
+        *,
+        hang: bool = False,
+    ) -> None:
+        self.stdout = _HangingLines() if hang else io.StringIO(stdout)
+        self.stderr = io.StringIO(stderr)
+        self.stdin = _CapturingStdin()
+        self._returncode = returncode
+        self.killed = False
+
+    @property
+    def returncode(self) -> int:
+        return self._returncode
+
+    def wait(self, timeout: float | None = None) -> int:
+        return self._returncode
+
+    def kill(self) -> None:
+        self.killed = True
+        self._returncode = -9
+
+
+class _CapturingStdin:
+    """Keeps what was written after close(), which StringIO does not."""
+
+    def __init__(self) -> None:
+        self.written = ""
+
+    def write(self, data: str) -> int:
+        self.written += data
+        return len(data)
+
+    def close(self) -> None:
+        pass
+
+
+class _HangingLines:
+    """A stdout that never yields a line, standing in for a wedged agent."""
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        time.sleep(0.05)
+        return self.__next__()
+
+    def close(self) -> None:
+        pass
+
+
 def _mock_proc(
     stdout: str = "",
     stderr: str = "",
     returncode: int = 0,
-) -> subprocess.CompletedProcess:
-    return subprocess.CompletedProcess(
-        args=["node", "index.mjs"],
-        returncode=returncode,
-        stdout=stdout,
-        stderr=stderr,
-    )
+) -> _FakePopen:
+    return _FakePopen(stdout=stdout, stderr=stderr, returncode=returncode)
 
 
 # ---------------------------------------------------------------------------
@@ -211,7 +271,7 @@ class TestClaudeCodeRun:
                 "_ensure_runner",
                 return_value="/fake/runner",
             ),
-            patch("subprocess.run", return_value=proc) as mock_run,
+            patch("subprocess.Popen", return_value=proc) as mock_run,
         ):
             result = agent.run("Say hello")
 
@@ -245,7 +305,7 @@ class TestClaudeCodeRun:
                 "_ensure_runner",
                 return_value="/fake/runner",
             ),
-            patch("subprocess.run", return_value=proc),
+            patch("subprocess.Popen", return_value=proc),
         ):
             result = agent.run("Read main.py")
 
@@ -278,14 +338,16 @@ class TestClaudeCodeRun:
                 return_value="/fake/runner",
             ),
             patch(
-                "subprocess.run",
+                "subprocess.Popen",
                 return_value=proc,
             ) as mock_run,
         ):
             agent.run("Do something")
 
-        call_kwargs = mock_run.call_args
-        stdin_json = json.loads(call_kwargs.kwargs["input"])
+        # Popen takes a pipe, not an `input=` kwarg: the request is written
+        # to stdin so the process can start working before we stop talking.
+        assert mock_run.call_args.kwargs["stdin"] is subprocess.PIPE
+        stdin_json = json.loads(proc.stdin.written)
         assert stdin_json["prompt"] == "Do something"
         assert stdin_json["api_key"] == "sk-test"
         assert stdin_json["workspace"] == "/projects/myapp"
@@ -294,11 +356,14 @@ class TestClaudeCodeRun:
         assert stdin_json["system_prompt"] == "Be helpful."
 
     def test_timeout_handling(self):
-        agent = self._make_agent(timeout=5)
-        exc = subprocess.TimeoutExpired(
-            cmd="node",
-            timeout=5,
-        )
+        """The deadline is now the agent's, not Popen's.
+
+        Streaming means there is no single blocking call to hand a timeout to;
+        the agent watches the clock while reading lines, so a wedged sidecar
+        has to be represented by a process that never produces one.
+        """
+        agent = self._make_agent(timeout=1)
+        proc = _FakePopen(hang=True)
 
         with (
             patch.object(
@@ -306,13 +371,14 @@ class TestClaudeCodeRun:
                 "_ensure_runner",
                 return_value="/fake/runner",
             ),
-            patch("subprocess.run", side_effect=exc),
+            patch("subprocess.Popen", return_value=proc),
         ):
             result = agent.run("Slow task")
 
         assert "timed out" in result.content
         assert result.metadata["error"] is True
         assert result.metadata["error_type"] == "timeout"
+        assert proc.killed, "a wedged sidecar must be killed, not orphaned"
 
     def test_nonzero_exit_code(self):
         agent = self._make_agent()
@@ -327,7 +393,7 @@ class TestClaudeCodeRun:
                 "_ensure_runner",
                 return_value="/fake/runner",
             ),
-            patch("subprocess.run", return_value=proc),
+            patch("subprocess.Popen", return_value=proc),
         ):
             result = agent.run("Failing task")
 
@@ -347,7 +413,7 @@ class TestClaudeCodeRun:
                 "_ensure_runner",
                 return_value="/fake/runner",
             ),
-            patch("subprocess.run", return_value=proc),
+            patch("subprocess.Popen", return_value=proc),
         ):
             result = agent.run("Query")
 
@@ -366,7 +432,7 @@ class TestClaudeCodeRun:
                 "_ensure_runner",
                 return_value="/fake/runner",
             ),
-            patch("subprocess.run", return_value=proc),
+            patch("subprocess.Popen", return_value=proc),
         ):
             result = agent.run("Query")
 
@@ -404,7 +470,7 @@ class TestClaudeCodeEvents:
                 "_ensure_runner",
                 return_value="/fake/runner",
             ),
-            patch("subprocess.run", return_value=proc),
+            patch("subprocess.Popen", return_value=proc),
         ):
             agent.run("Hello")
 
@@ -437,7 +503,7 @@ class TestClaudeCodeEvents:
                 "_ensure_runner",
                 return_value="/fake/runner",
             ),
-            patch("subprocess.run", return_value=proc),
+            patch("subprocess.Popen", return_value=proc),
         ):
             agent.run("test input")
 
@@ -466,7 +532,7 @@ class TestClaudeCodeEvents:
                 "_ensure_runner",
                 return_value="/fake/runner",
             ),
-            patch("subprocess.run", return_value=proc),
+            patch("subprocess.Popen", return_value=proc),
         ):
             agent.run("Fail")
 
@@ -613,8 +679,173 @@ class TestClaudeCodeDefaults:
                 "_ensure_runner",
                 return_value="/fake/runner",
             ),
-            patch("subprocess.run", return_value=proc),
+            patch("subprocess.Popen", return_value=proc),
         ):
             result = agent.run("Hello")
 
         assert result.content == "ok"
+
+
+class TestStreamsProgress:
+    """Events must reach the bus while the agent works, not after it finishes.
+
+    The sidecar already emitted a line per SDK message and Nira already had an
+    event bus feeding an authenticated WebSocket and a live trace UI. The gap
+    was subprocess.run(capture_output=True), which buffers until exit: during
+    a five-minute run the user saw nothing, then everything at once.
+    """
+
+    def _agent_with_bus(self):
+        from nira.core.events import EventBus
+
+        bus = EventBus(record_history=True)
+        engine = MagicMock()
+        engine.engine_id = "mock"
+        agent = ClaudeCodeAgent(engine, "m", api_key="k", workspace="/tmp", bus=bus)
+        return agent, bus
+
+    def _run_with(self, agent, lines: str, result: dict | None = None):
+        payload = _wrap_output(
+            result or {"content": "done", "tool_results": [], "metadata": {}}
+        )
+        proc = _FakePopen(stdout=lines + payload)
+        with (
+            patch.object(agent, "_ensure_runner", return_value="/fake/runner"),
+            patch("subprocess.Popen", return_value=proc),
+        ):
+            return agent.run("go")
+
+    def _events(self, bus, event_type, tool: str | None = None):
+        """Events of *event_type*, optionally only those for one tool.
+
+        The security wrapper publishes its own TOOL_CALL_* pair around the
+        whole agent run, so filtering by tool keeps these focused on what the
+        sidecar streamed.
+        """
+        found = [e for e in bus.history if e.event_type == event_type]
+        if tool is not None:
+            found = [e for e in found if e.data.get("tool") == tool]
+        return found
+
+    def test_tool_start_is_republished(self) -> None:
+        from nira.core.events import EventType
+
+        agent, bus = self._agent_with_bus()
+        line = (
+            '---NIRA_EVENT---{"type":"tool_start","id":"t1",'
+            '"tool":"Read","input":{"path":"/x"}}\n'
+        )
+
+        self._run_with(agent, line)
+
+        started = self._events(bus, EventType.TOOL_CALL_START, tool="Read")
+        assert len(started) == 1
+        assert started[0].data["arguments"] == {"path": "/x"}
+        # The WebSocket filters on this to build a per-agent trace.
+        assert started[0].data["agent"] == agent.agent_id
+
+    def test_tool_end_carries_success_and_result(self) -> None:
+        from nira.core.events import EventType
+
+        agent, bus = self._agent_with_bus()
+        line = (
+            '---NIRA_EVENT---{"type":"tool_end","id":"t1","tool":"Read",'
+            '"success":false,"result":"ENOENT"}\n'
+        )
+
+        self._run_with(agent, line)
+
+        ended = self._events(bus, EventType.TOOL_CALL_END, tool="Read")
+        assert len(ended) == 1
+        assert ended[0].data["success"] is False
+        assert ended[0].data["result"] == "ENOENT"
+
+    def test_event_lines_are_not_mistaken_for_the_result(self) -> None:
+        """Progress lines must not leak into the parsed reply."""
+        agent, _ = self._agent_with_bus()
+        line = '---NIRA_EVENT---{"type":"text","text":"thinking"}\n'
+
+        result = self._run_with(
+            agent, line, {"content": "final answer", "tool_results": [], "metadata": {}}
+        )
+
+        assert result.content == "final answer"
+
+    def test_a_malformed_event_line_does_not_break_the_run(self) -> None:
+        """Telemetry must not take down the run it is reporting on."""
+        agent, _ = self._agent_with_bus()
+
+        result = self._run_with(agent, "---NIRA_EVENT---{not json at all\n")
+
+        assert result.content == "done"
+
+    def test_an_agent_without_a_bus_still_runs(self) -> None:
+        engine = MagicMock()
+        engine.engine_id = "mock"
+        agent = ClaudeCodeAgent(engine, "m", api_key="k", workspace="/tmp")
+
+        result = self._run_with(
+            agent, '---NIRA_EVENT---{"type":"tool_start","tool":"Read"}\n'
+        )
+
+        assert result.content == "done"
+
+
+class TestSessionResumption:
+    """`sessionId` assigns an id; `resume` continues a conversation.
+
+    The runner set the former, so every follow-up was a cold start that had
+    forgotten the session it was supposedly part of — and the real id was
+    never read back, so a caller could not resume one it had not invented.
+    """
+
+    def test_the_sdk_session_id_is_remembered_for_the_next_run(self) -> None:
+        engine = MagicMock()
+        engine.engine_id = "mock"
+        agent = ClaudeCodeAgent(engine, "m", api_key="k", workspace="/tmp")
+        payload = _wrap_output(
+            {
+                "content": "ok",
+                "tool_results": [],
+                "metadata": {"session_id": "sdk-abc123"},
+            }
+        )
+        proc = _FakePopen(stdout=payload)
+
+        with (
+            patch.object(agent, "_ensure_runner", return_value="/fake/runner"),
+            patch("subprocess.Popen", return_value=proc),
+        ):
+            agent.run("first")
+
+        assert agent._session_id == "sdk-abc123"
+
+        # The next run must send it back so the SDK resumes rather than
+        # starting over.
+        proc2 = _FakePopen(stdout=payload)
+        with (
+            patch.object(agent, "_ensure_runner", return_value="/fake/runner"),
+            patch("subprocess.Popen", return_value=proc2),
+        ):
+            agent.run("second")
+
+        assert json.loads(proc2.stdin.written)["session_id"] == "sdk-abc123"
+
+    def test_reported_turns_come_from_the_sdk(self) -> None:
+        """turns was hardcoded to 1 regardless of what the agent did."""
+        engine = MagicMock()
+        engine.engine_id = "mock"
+        agent = ClaudeCodeAgent(engine, "m", api_key="k", workspace="/tmp")
+        proc = _FakePopen(
+            stdout=_wrap_output(
+                {"content": "ok", "tool_results": [], "metadata": {"turns": 7}}
+            )
+        )
+
+        with (
+            patch.object(agent, "_ensure_runner", return_value="/fake/runner"),
+            patch("subprocess.Popen", return_value=proc),
+        ):
+            result = agent.run("go")
+
+        assert result.turns == 7

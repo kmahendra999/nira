@@ -542,6 +542,21 @@ class AgentExecutor:
         # before construction instead.
         if sys_prompt is not None and _accepts("system_prompt"):
             agent_kwargs["system_prompt"] = sys_prompt
+
+        # The project a coding agent should work in. Without this, "work on
+        # project X" could not be expressed at all: workspace was only ever a
+        # constructor argument, never part of the allowlist built here, so a
+        # managed claude_code agent silently ran in the *server's* cwd no
+        # matter what its config said.
+        workspace = config.get("workspace")
+        if workspace and _accepts("workspace"):
+            agent_kwargs["workspace"] = str(workspace)
+
+        # Continue the agent's own conversation across ticks rather than
+        # starting a fresh one each time.
+        session_id = config.get("session_id")
+        if session_id and _accepts("session_id"):
+            agent_kwargs["session_id"] = str(session_id)
         agent_kwargs = {
             name: value for name, value in agent_kwargs.items() if _accepts(name)
         }

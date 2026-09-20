@@ -28,6 +28,11 @@ _AGENT_EVENTS = {
     EventType.TOOL_CALL_END,
     EventType.INFERENCE_START,
     EventType.INFERENCE_END,
+    # Scheduled runs were invisible here: a task could start, work and finish
+    # while a client watching this socket saw nothing, because only the
+    # managed-agent tick events were forwarded.
+    EventType.SCHEDULER_TASK_START,
+    EventType.SCHEDULER_TASK_END,
 }
 
 

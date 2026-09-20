@@ -13,13 +13,16 @@ from __future__ import annotations
 import json
 import logging
 import os
+import queue
 import shutil
 import subprocess
+import threading
+import time
 from pathlib import Path
 from typing import Any, List, Optional
 
 from nira.agents._stubs import AgentContext, AgentResult, BaseAgent
-from nira.core.events import EventBus
+from nira.core.events import EventBus, EventType
 from nira.core.paths import get_config_dir
 from nira.core.registry import AgentRegistry
 from nira.core.types import ToolResult
@@ -30,6 +33,9 @@ logger = logging.getLogger(__name__)
 # Sentinel markers for parsing subprocess output
 _OUTPUT_START = "---NIRA_OUTPUT_START---"
 _OUTPUT_END = "---NIRA_OUTPUT_END---"
+
+# Prefix on each streamed progress line. Must match EVENT_PREFIX in index.mjs.
+_EVENT_PREFIX = "---NIRA_EVENT---"
 
 # Path to the bundled runner source (relative to this module).
 # In editable installs this lives next to this file; in wheel installs
@@ -189,14 +195,7 @@ class ClaudeCodeAgent(BaseAgent):
         }
 
         try:
-            proc = subprocess.run(
-                [self._node_executable, "index.mjs"],
-                cwd=str(runner_dir),
-                input=json.dumps(request),
-                capture_output=True,
-                text=True,
-                timeout=self._timeout,
-            )
+            stdout, stderr, returncode = self._run_streaming(runner_dir, request)
         except subprocess.TimeoutExpired:
             self._emit_turn_end(turns=1, error=True)
             return AgentResult(
@@ -205,30 +204,166 @@ class ClaudeCodeAgent(BaseAgent):
                 metadata={"error": True, "error_type": "timeout"},
             )
 
-        if proc.returncode != 0:
-            stderr = proc.stderr.strip() if proc.stderr else "Unknown error"
+        if returncode != 0:
+            stderr = stderr.strip() if stderr else "Unknown error"
             logger.error(
                 "claude_code_runner exited with code %d: %s",
-                proc.returncode,
+                returncode,
                 stderr,
             )
             self._emit_turn_end(turns=1, error=True)
             return AgentResult(
                 content=f"Claude Code agent failed: {stderr}",
                 turns=1,
-                metadata={"error": True, "returncode": proc.returncode},
+                metadata={"error": True, "returncode": returncode},
             )
 
         # Parse sentinel-delimited output
-        content, tool_results, metadata = self._parse_output(proc.stdout)
+        content, tool_results, metadata = self._parse_output(stdout)
 
-        self._emit_turn_end(turns=1)
+        # Remember the SDK's own session id so the next run can resume it.
+        session_id = metadata.get("session_id")
+        if session_id:
+            self._session_id = session_id
+
+        turns = int(metadata.get("turns") or 1)
+        self._emit_turn_end(turns=turns)
         return AgentResult(
             content=content,
             tool_results=tool_results,
-            turns=1,
+            turns=turns,
             metadata=metadata,
         )
+
+    # ------------------------------------------------------------------
+    # Streaming subprocess
+    # ------------------------------------------------------------------
+
+    def _run_streaming(
+        self,
+        runner_dir: Any,
+        request: dict[str, Any],
+    ) -> tuple[str, str, int]:
+        """Run the sidecar, republishing its events as they arrive.
+
+        ``subprocess.run(capture_output=True)`` buffers until the process
+        exits, so a long agentic run produced total silence and then one blob.
+        The sidecar already streams a line per SDK message and Nira already has
+        an event bus wired to an authenticated WebSocket and a live trace UI;
+        this is the missing link between them.
+
+        stdout is read on a worker thread and handed over a queue so the
+        timeout stays enforceable — a blocking readline gives no way to notice
+        a deadline passing.
+        """
+        proc = subprocess.Popen(
+            [self._node_executable, "index.mjs"],
+            cwd=str(runner_dir),
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            bufsize=1,  # line buffered, or events arrive in 8 KB clumps
+        )
+
+        lines: "queue.Queue[str | None]" = queue.Queue()
+
+        def _pump() -> None:
+            try:
+                assert proc.stdout is not None
+                for line in proc.stdout:
+                    lines.put(line)
+            finally:
+                lines.put(None)
+
+        reader = threading.Thread(target=_pump, name="nira-claude-stdout", daemon=True)
+        reader.start()
+
+        try:
+            assert proc.stdin is not None
+            proc.stdin.write(json.dumps(request))
+            proc.stdin.close()
+        except BrokenPipeError:
+            pass  # the process died early; the exit code below reports it
+
+        collected: list[str] = []
+        deadline = time.monotonic() + self._timeout
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                proc.kill()
+                raise subprocess.TimeoutExpired(
+                    cmd=self._node_executable, timeout=self._timeout
+                )
+            try:
+                line = lines.get(timeout=min(remaining, 1.0))
+            except queue.Empty:
+                continue
+            if line is None:
+                break
+            if line.startswith(_EVENT_PREFIX):
+                self._publish_runner_event(line[len(_EVENT_PREFIX) :])
+            else:
+                collected.append(line)
+
+        try:
+            proc.wait(timeout=max(0.0, deadline - time.monotonic()))
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            raise
+
+        stderr = ""
+        if proc.stderr is not None:
+            try:
+                stderr = proc.stderr.read()
+            finally:
+                proc.stderr.close()
+
+        return "".join(collected), stderr, proc.returncode or 0
+
+    def _publish_runner_event(self, payload: str) -> None:
+        """Republish one sidecar event on the shared event bus.
+
+        Mapped onto the event types the WebSocket bridge already forwards and
+        the trace UI already renders, so live progress needs no UI change at
+        all. A malformed line is dropped: telemetry must not take down the run
+        it is reporting on.
+        """
+        if not self._bus:
+            return
+        try:
+            event = json.loads(payload)
+        except (ValueError, TypeError):
+            logger.debug("unparseable runner event: %r", payload[:200])
+            return
+
+        kind = event.get("type")
+        if kind == "tool_start":
+            self._bus.publish(
+                EventType.TOOL_CALL_START,
+                {
+                    "tool": event.get("tool", ""),
+                    "arguments": event.get("input", {}),
+                    "agent": self.agent_id,
+                },
+            )
+        elif kind == "tool_end":
+            self._bus.publish(
+                EventType.TOOL_CALL_END,
+                {
+                    "tool": event.get("tool", ""),
+                    "success": bool(event.get("success", True)),
+                    "result": event.get("result", ""),
+                    "latency": 0.0,
+                    "metadata": {},
+                    "agent": self.agent_id,
+                },
+            )
+        elif kind == "text":
+            self._bus.publish(
+                EventType.INFERENCE_END,
+                {"agent": self.agent_id, "content": event.get("text", "")},
+            )
 
     # ------------------------------------------------------------------
     # Output parsing
