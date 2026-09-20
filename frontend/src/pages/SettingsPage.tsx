@@ -422,7 +422,7 @@ export function SettingsPage() {
               <select
                 value={settings.fontSize}
                 onChange={(e) => { updateSettings({ fontSize: e.target.value as any }); showSaved(); }}
-                className="text-sm px-3 py-1.5 rounded-lg outline-none cursor-pointer"
+                className="text-sm px-3 py-1.5 rounded-lg cursor-pointer"
                 style={{
                   background: 'var(--color-bg-secondary)',
                   color: 'var(--color-text)',
@@ -455,7 +455,7 @@ export function SettingsPage() {
                 value={settings.apiUrl}
                 onChange={(e) => { updateSettings({ apiUrl: e.target.value }); showSaved(); }}
                 placeholder="http://localhost:8000"
-                className="text-sm px-3 py-1.5 rounded-lg outline-none w-56"
+                className="text-sm px-3 py-1.5 rounded-lg w-56"
                 style={{
                   background: 'var(--color-bg-secondary)',
                   color: 'var(--color-text)',
@@ -470,7 +470,7 @@ export function SettingsPage() {
                 onChange={(e) => { updateSettings({ apiKey: e.target.value }); showSaved(); }}
                 placeholder="NIRA_API_KEY"
                 autoComplete="off"
-                className="text-sm px-3 py-1.5 rounded-lg outline-none w-56"
+                className="text-sm px-3 py-1.5 rounded-lg w-56"
                 style={{
                   background: 'var(--color-bg-secondary)',
                   color: 'var(--color-text)',
@@ -486,7 +486,7 @@ export function SettingsPage() {
               <select
                 value={srcKind}
                 onChange={(e) => { setSrcKind(e.target.value as InferenceSource['kind']); setSrcMsg(''); }}
-                className="text-sm px-3 py-1.5 rounded-lg outline-none w-56"
+                className="text-sm px-3 py-1.5 rounded-lg w-56"
                 style={{ background: 'var(--color-bg-secondary)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }}
               >
                 <option value="ollama">Bundled Ollama (default)</option>
@@ -497,17 +497,17 @@ export function SettingsPage() {
               <>
                 <SettingRow label="Server URL" description="e.g. LM Studio: http://localhost:1234/v1">
                   <input type="text" value={customHost} onChange={(e) => { setCustomHost(e.target.value); setSrcMsg(''); }} placeholder="http://localhost:1234/v1"
-                    className="text-sm px-3 py-1.5 rounded-lg outline-none w-56"
+                    className="text-sm px-3 py-1.5 rounded-lg w-56"
                     style={{ background: 'var(--color-bg-secondary)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }} />
                 </SettingRow>
                 <SettingRow label="Model" description="Model id served by your endpoint">
                   <input type="text" value={customModel} onChange={(e) => { setCustomModel(e.target.value); setSrcMsg(''); }} placeholder="qwen2.5-7b-instruct"
-                    className="text-sm px-3 py-1.5 rounded-lg outline-none w-56"
+                    className="text-sm px-3 py-1.5 rounded-lg w-56"
                     style={{ background: 'var(--color-bg-secondary)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }} />
                 </SettingRow>
                 <SettingRow label="Server type" description="OpenAI-compatible engine">
                   <select value={customEngine} onChange={(e) => { setCustomEngine(e.target.value); setSrcMsg(''); }}
-                    className="text-sm px-3 py-1.5 rounded-lg outline-none w-56"
+                    className="text-sm px-3 py-1.5 rounded-lg w-56"
                     style={{ background: 'var(--color-bg-secondary)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }}>
                     <option value="lmstudio">LM Studio</option>
                     <option value="vllm">vLLM</option>
@@ -518,14 +518,14 @@ export function SettingsPage() {
                 </SettingRow>
                 <SettingRow label="API key (optional)" description="Only if your server requires one">
                   <input type="password" value={customKey} onChange={(e) => { setCustomKey(e.target.value); setSrcMsg(''); }} placeholder="leave blank if none"
-                    className="text-sm px-3 py-1.5 rounded-lg outline-none w-56"
+                    className="text-sm px-3 py-1.5 rounded-lg w-56"
                     style={{ background: 'var(--color-bg-secondary)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }} />
                 </SettingRow>
               </>
             )}
             <SettingRow label="" description={srcMsg}>
               <button onClick={saveSource}
-                className="text-sm px-3 py-1.5 rounded-lg outline-none cursor-pointer"
+                className="text-sm px-3 py-1.5 rounded-lg cursor-pointer"
                 style={{ background: 'var(--color-accent, var(--color-bg-tertiary))', color: 'var(--color-text)', border: '1px solid var(--color-border)' }}>
                 Save inference source
               </button>
@@ -613,7 +613,7 @@ export function SettingsPage() {
                   try { localStorage.setItem('nira-memory-backend', e.target.value); } catch {}
                   showSaved();
                 }}
-                className="text-sm px-3 py-1.5 rounded-lg outline-none cursor-pointer"
+                className="text-sm px-3 py-1.5 rounded-lg cursor-pointer"
                 style={{
                   background: 'var(--color-bg-secondary)',
                   color: 'var(--color-text)',
@@ -753,19 +753,19 @@ export function SettingsPage() {
               <div className="flex gap-2">
                 <button
                   onClick={handleExport}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer"
-                  style={{ background: 'var(--color-bg-secondary)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--color-bg-tertiary)')}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--color-bg-secondary)')}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs
+                    font-medium transition-colors cursor-pointer border border-border
+                    bg-bg-secondary text-text-secondary hover:bg-bg-tertiary"
+
                 >
                   <Download size={12} /> Export
                 </button>
                 <button
                   onClick={handleImport}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer"
-                  style={{ background: 'var(--color-bg-secondary)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--color-bg-tertiary)')}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--color-bg-secondary)')}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs
+                    font-medium transition-colors cursor-pointer border border-border
+                    bg-bg-secondary text-text-secondary hover:bg-bg-tertiary"
+
                 >
                   <Upload size={12} /> Import
                 </button>
@@ -774,14 +774,15 @@ export function SettingsPage() {
             <SettingRow label="Clear all data" description="Permanently delete all conversations">
               <button
                 onClick={handleClear}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer"
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs
+                  font-medium transition-colors cursor-pointer ${
+                    confirmClear ? '' : 'hover:bg-error-subtle'
+                  }`}
                 style={{
                   color: confirmClear ? 'white' : 'var(--color-error)',
                   background: confirmClear ? 'var(--color-error)' : 'transparent',
                   border: '1px solid var(--color-error)',
                 }}
-                onMouseEnter={(e) => { if (!confirmClear) e.currentTarget.style.background = 'rgba(220,38,38,0.1)'; }}
-                onMouseLeave={(e) => { if (!confirmClear) e.currentTarget.style.background = 'transparent'; }}
               >
                 <Trash2 size={12} /> {confirmClear ? 'Click again to confirm' : 'Clear'}
               </button>

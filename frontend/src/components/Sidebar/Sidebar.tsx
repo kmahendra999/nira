@@ -68,10 +68,9 @@ export function Sidebar() {
       {!sidebarOpen && (
         <button
           onClick={toggleSidebar}
-          className="fixed top-3 left-3 z-30 p-2 rounded-lg transition-colors cursor-pointer"
-          style={{ color: 'var(--color-text-secondary)', background: 'var(--color-bg-secondary)' }}
-          onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--color-bg-tertiary)')}
-          onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--color-bg-secondary)')}
+          className="fixed top-3 left-3 z-30 p-2 rounded-lg transition-colors cursor-pointer
+            text-text-secondary bg-bg-secondary hover:bg-bg-tertiary"
+
         >
           <PanelLeft size={18} />
         </button>
@@ -95,30 +94,27 @@ export function Sidebar() {
           <div className="flex items-center justify-between px-3 pt-3 pb-2">
             <button
               onClick={toggleSidebar}
-              className="p-2 rounded-lg transition-colors cursor-pointer"
-              style={{ color: 'var(--color-text-secondary)' }}
-              onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--color-bg-tertiary)')}
-              onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+              className="p-2 rounded-lg transition-colors cursor-pointer
+                text-text-secondary hover:bg-bg-tertiary"
+
             >
               <PanelLeftClose size={18} />
             </button>
             <div className="flex items-center gap-1">
               <button
                 onClick={() => updateSettings({ theme: nextTheme })}
-                className="p-2 rounded-lg transition-colors cursor-pointer"
-                style={{ color: 'var(--color-text-secondary)' }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--color-bg-tertiary)')}
-                onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                className="p-2 rounded-lg transition-colors cursor-pointer
+                  text-text-secondary hover:bg-bg-tertiary"
+
                 title={`Theme: ${settings.theme} (click for ${nextTheme})`}
               >
                 <ThemeIcon size={16} />
               </button>
               <button
                 onClick={handleNewChat}
-                className="p-2 rounded-lg transition-colors cursor-pointer"
-                style={{ color: 'var(--color-text-secondary)' }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--color-bg-tertiary)')}
-                onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                className="p-2 rounded-lg transition-colors cursor-pointer
+                  text-text-secondary hover:bg-bg-tertiary"
+
                 title="New chat"
               >
                 <Plus size={18} />
@@ -129,14 +125,10 @@ export function Sidebar() {
           {/* Model badge */}
           <button
             onClick={() => setCommandPaletteOpen(true)}
-            className="mx-3 mb-2 flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-colors cursor-pointer"
-            style={{
-              background: 'var(--color-bg-secondary)',
-              color: 'var(--color-text-secondary)',
-              border: '1px solid var(--color-border)',
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--color-bg-tertiary)')}
-            onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--color-bg-secondary)')}
+            className="mx-3 mb-2 flex items-center gap-2 px-3 py-2 rounded-lg text-xs
+              transition-colors cursor-pointer border border-border
+              bg-bg-secondary text-text-secondary hover:bg-bg-tertiary"
+
           >
             {modelLoading ? (
               <Loader2 size={14} className="animate-spin" style={{ color: 'var(--color-accent)' }} />
@@ -171,8 +163,10 @@ export function Sidebar() {
           {/* Search */}
           <div className="px-3 mb-2">
             <div
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm"
-              style={{ background: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)' }}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm
+                border border-border bg-bg-secondary transition-colors
+                focus-within:border-accent"
+
             >
               <Search size={14} style={{ color: 'var(--color-text-tertiary)' }} />
               <input
@@ -199,18 +193,16 @@ export function Sidebar() {
                 <button
                   key={item.path}
                   onClick={() => navigate(item.path)}
-                  className="relative flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors w-full text-left cursor-pointer"
-                  style={{
-                    background: isActive ? 'var(--color-accent-subtle)' : 'transparent',
-                    color: isActive ? 'var(--color-text)' : 'var(--color-text-secondary)',
-                    fontWeight: isActive ? 500 : 400,
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!isActive) e.currentTarget.style.background = 'var(--color-bg-secondary)';
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!isActive) e.currentTarget.style.background = 'transparent';
-                  }}
+                  // aria-current is the part a screen reader can act on.
+                  // Which item is selected was encoded only as a background
+                  // colour, so it was invisible to anyone not looking at it.
+                  aria-current={isActive ? 'page' : undefined}
+                  className={`relative flex items-center gap-3 px-3 py-2 rounded-lg text-sm
+                    transition-colors w-full text-left cursor-pointer ${
+                      isActive
+                        ? 'bg-accent-subtle text-text font-medium'
+                        : 'text-text-secondary hover:bg-bg-secondary'
+                    }`}
                 >
                   {isActive && (
                     <span

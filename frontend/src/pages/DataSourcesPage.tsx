@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { motion } from 'motion/react';
+import { nextTabIndex, panelProps, tabIds, tabProps } from '../lib/tablist';
 import { useAppStore } from '../lib/store';
 import {
   fetchManagedAgents,
@@ -1167,6 +1168,15 @@ function DataSourcesSection() {
                 }}
               >
                 <div
+                  role="button"
+                  tabIndex={0}
+                  aria-expanded={isExpanded}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      setExpandedId(isExpanded ? null : c.connector_id);
+                    }
+                  }}
                   style={{
                     padding: '12px 14px', display: 'flex',
                     alignItems: 'center', gap: 12,
@@ -1613,6 +1623,15 @@ function SendBlueSection({
       overflow: 'hidden',
     }}>
       <div
+        role="button"
+        tabIndex={0}
+        aria-expanded={step >= 0}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            setStep(step === 0 && !apiKey ? -1 : 0);
+          }
+        }}
         style={{
           display: 'flex', alignItems: 'center',
           padding: '12px 14px', cursor: 'pointer',
@@ -2089,7 +2108,7 @@ function MemorySection() {
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }}
               placeholder="What are you looking for?"
-              className="w-full text-sm px-3 py-2 rounded-lg outline-none transition-colors"
+              className="w-full text-sm px-3 py-2 rounded-lg transition-colors"
               style={{
                 background: 'var(--color-bg)',
                 border: '1px solid var(--color-border)',
@@ -2179,7 +2198,7 @@ function MemorySection() {
               value={indexPath}
               onChange={(e) => setIndexPath(e.target.value)}
               placeholder="~/Documents/notes"
-              className="flex-1 text-sm px-3 py-2 rounded-lg outline-none"
+              className="flex-1 text-sm px-3 py-2 rounded-lg"
               style={{
                 background: 'var(--color-bg)',
                 border: '1px solid var(--color-border)',
@@ -2239,7 +2258,7 @@ function MemorySection() {
             onChange={(e) => setStoreContent(e.target.value)}
             placeholder="Paste or type content here..."
             rows={4}
-            className="w-full text-sm px-3 py-2 rounded-lg outline-none resize-y"
+            className="w-full text-sm px-3 py-2 rounded-lg resize-y"
             style={{
               background: 'var(--color-bg)',
               border: '1px solid var(--color-border)',
@@ -2336,14 +2355,25 @@ export function DataSourcesPage() {
       </header>
 
       <div
+        role="tablist"
+        aria-label="Data sources sections"
         className="flex gap-1 mb-6"
         style={{ borderBottom: '1px solid var(--color-border)' }}
+        onKeyDown={(e) => {
+          const at = tabs.findIndex((t) => t.id === activeTab);
+          const next = nextTabIndex(e.key, at, tabs.length);
+          if (next === null) return;
+          e.preventDefault();
+          setActiveTab(tabs[next].id);
+          document.getElementById(tabIds('data-sources', tabs[next].id).tab)?.focus();
+        }}
       >
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
           return (
             <button
               key={tab.id}
+              {...tabProps('data-sources', tab.id, isActive)}
               onClick={() => setActiveTab(tab.id)}
               className="relative px-4 py-2.5 text-sm transition-colors cursor-pointer"
               style={{
@@ -2365,7 +2395,7 @@ export function DataSourcesPage() {
         })}
       </div>
 
-      <div>
+      <div {...panelProps('data-sources', activeTab)}>
         {activeTab === 'sources' && <DataSourcesSection />}
         {activeTab === 'messaging' && (
           firstAgent ? (

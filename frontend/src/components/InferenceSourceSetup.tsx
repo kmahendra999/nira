@@ -280,7 +280,7 @@ export function CustomEndpointSetup({
             required
             value={host}
             onChange={(event) => setHost(event.target.value)}
-            className="block w-full mt-1.5 px-3 py-2 rounded-lg text-sm outline-none"
+            className="block w-full mt-1.5 px-3 py-2 rounded-lg text-sm"
             style={fieldStyle}
           />
         </label>
@@ -293,7 +293,7 @@ export function CustomEndpointSetup({
             value={model}
             onChange={(event) => setModel(event.target.value)}
             placeholder="qwen2.5-7b-instruct"
-            className="block w-full mt-1.5 px-3 py-2 rounded-lg text-sm outline-none"
+            className="block w-full mt-1.5 px-3 py-2 rounded-lg text-sm"
             style={fieldStyle}
           />
         </label>
@@ -303,7 +303,7 @@ export function CustomEndpointSetup({
             aria-label="Server type"
             value={engine}
             onChange={(event) => setEngine(event.target.value)}
-            className="block w-full mt-1.5 px-3 py-2 rounded-lg text-sm outline-none"
+            className="block w-full mt-1.5 px-3 py-2 rounded-lg text-sm"
             style={fieldStyle}
           >
             <option value="lmstudio">LM Studio</option>
@@ -321,7 +321,7 @@ export function CustomEndpointSetup({
             value={apiKey}
             onChange={(event) => setApiKey(event.target.value)}
             autoComplete="off"
-            className="block w-full mt-1.5 px-3 py-2 rounded-lg text-sm outline-none"
+            className="block w-full mt-1.5 px-3 py-2 rounded-lg text-sm"
             style={fieldStyle}
           />
         </label>

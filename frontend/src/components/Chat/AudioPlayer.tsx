@@ -59,6 +59,27 @@ export function AudioPlayer({ src }: AudioPlayerProps) {
     el.currentTime = pct * duration;
   };
 
+  /** Arrow keys scrub; Home and End jump to the ends. */
+  const nudge = (e: React.KeyboardEvent) => {
+    const el = audioRef.current;
+    if (!el || !duration) return;
+    // Five seconds a press, a second with Shift for fine positioning — the
+    // step every media player uses, so it needs no explaining.
+    const step = e.shiftKey ? 1 : 5;
+    const moves: Record<string, number | undefined> = {
+      ArrowRight: el.currentTime + step,
+      ArrowUp: el.currentTime + step,
+      ArrowLeft: el.currentTime - step,
+      ArrowDown: el.currentTime - step,
+      Home: 0,
+      End: duration,
+    };
+    const target = moves[e.key];
+    if (target === undefined) return;
+    e.preventDefault();
+    el.currentTime = Math.min(duration, Math.max(0, target));
+  };
+
   return (
     <div
       className="flex items-center gap-3 px-4 py-3 rounded-xl mb-3"
@@ -92,10 +113,23 @@ export function AudioPlayer({ src }: AudioPlayerProps) {
           </span>
         </div>
 
+        {/* A seek bar is a real control, and this one answered only to a
+            click at an x-coordinate — there is no keyboard equivalent of
+            "click 40% of the way along". role="slider" plus the arrow keys
+            gives one, and the aria-value* attributes are what a screen
+            reader reads out as the position changes. */}
         <div
+          role="slider"
+          tabIndex={0}
+          aria-label="Seek"
+          aria-valuemin={0}
+          aria-valuemax={Math.round(duration) || 0}
+          aria-valuenow={Math.round(currentTime)}
+          aria-valuetext={`${formatTime(currentTime)} of ${formatTime(duration)}`}
           className="h-1.5 rounded-full cursor-pointer"
           style={{ background: 'var(--color-bg-tertiary)' }}
           onClick={seek}
+          onKeyDown={nudge}
         >
           <div
             className="h-full rounded-full transition-all"

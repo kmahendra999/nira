@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Search, Cpu, X, Download, Loader2, Trash2, Check, Cloud, Key, Eye, EyeOff } from 'lucide-react';
+import { nextTabIndex, tabIds, tabProps } from '../lib/tablist';
 import { useAppStore } from '../lib/store';
 import {
   pullModel,
@@ -74,6 +75,9 @@ const CLOUD_PROVIDERS: CloudProvider[] = [
 ];
 
 type Tab = 'installed' | 'catalogue' | 'cloud';
+
+/** One source of truth for the order, now that the arrow keys walk it. */
+const TABS: readonly Tab[] = ['installed', 'catalogue', 'cloud'];
 
 export function CommandPalette() {
   const [query, setQuery] = useState('');
@@ -283,10 +287,23 @@ export function CommandPalette() {
         onClick={(e) => e.stopPropagation()}
       >
         {/* Tabs */}
-        <div className="flex" style={{ borderBottom: '1px solid var(--color-border)' }}>
-          {(['installed', 'catalogue', 'cloud'] as Tab[]).map((t) => (
+        <div
+          role="tablist"
+          aria-label="Model sources"
+          className="flex"
+          style={{ borderBottom: '1px solid var(--color-border)' }}
+          onKeyDown={(e) => {
+            const next = nextTabIndex(e.key, TABS.indexOf(tab), TABS.length);
+            if (next === null) return;
+            e.preventDefault();
+            setTab(TABS[next]);
+            document.getElementById(tabIds('models', TABS[next]).tab)?.focus();
+          }}
+        >
+          {TABS.map((t) => (
             <button
               key={t}
+              {...tabProps('models', t, tab === t)}
               onClick={() => setTab(t)}
               className="flex-1 px-3 py-2.5 text-xs font-medium transition-colors cursor-pointer"
               style={{
@@ -303,8 +320,8 @@ export function CommandPalette() {
         {/* Search (not for cloud tab) */}
         {tab !== 'cloud' && (
           <div
-            className="flex items-center gap-3 px-4 py-3"
-            style={{ borderBottom: '1px solid var(--color-border)' }}
+            className="flex items-center gap-3 px-4 py-3 border-b border-border
+              transition-colors focus-within:border-accent"
           >
             <Search size={18} style={{ color: 'var(--color-text-tertiary)' }} />
             <input
@@ -390,11 +407,11 @@ export function CommandPalette() {
                       <button
                         onClick={() => handleDelete(model.id)}
                         disabled={isDeleting}
-                        className="p-1 rounded transition-colors cursor-pointer"
-                        style={{ color: 'var(--color-text-tertiary)', opacity: 0 }}
+                        className="p-1 rounded transition-colors cursor-pointer
+                          opacity-0 hover:opacity-100 focus-visible:opacity-100
+                          group-hover:opacity-100 text-text-tertiary hover:text-error"
                         title="Delete model"
-                        onMouseEnter={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.color = 'var(--color-error)'; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.opacity = '0'; e.currentTarget.style.color = 'var(--color-text-tertiary)'; }}
+
                       >
                         {isDeleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
                       </button>
@@ -440,7 +457,7 @@ export function CommandPalette() {
                     onChange={(e) => setCustomModel(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleCustomPull(); } }}
                     placeholder="e.g. codellama:7b"
-                    className="flex-1 text-sm px-3 py-1.5 rounded-lg outline-none"
+                    className="flex-1 text-sm px-3 py-1.5 rounded-lg"
                     style={{ background: 'var(--color-bg-secondary)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }}
                   />
                   <button
@@ -483,7 +500,8 @@ export function CommandPalette() {
 
                     {/* API key input */}
                     <div className="flex gap-1.5 mb-2">
-                      <div className="flex-1 flex items-center rounded-lg" style={{ background: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)' }}>
+                      <div className="flex-1 flex items-center rounded-lg border border-border
+                        bg-bg-secondary transition-colors focus-within:border-accent">
                         <Key size={12} className="ml-2.5 shrink-0" style={{ color: 'var(--color-text-tertiary)' }} />
                         <input
                           type={isVisible ? 'text' : 'password'}
@@ -523,10 +541,10 @@ export function CommandPalette() {
                             <button
                               key={model.id}
                               onClick={() => handleSelect(model.id)}
-                              className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left cursor-pointer transition-colors"
-                              style={{ background: isActive ? 'var(--color-accent-subtle)' : 'transparent' }}
-                              onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.background = 'var(--color-bg-secondary)'; }}
-                              onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}
+                              className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg
+                                text-left cursor-pointer transition-colors ${
+                                  isActive ? 'bg-accent-subtle' : 'hover:bg-bg-secondary'
+                                }`}
                             >
                               <Cloud size={12} style={{ color: isActive ? 'var(--color-accent)' : 'var(--color-text-tertiary)' }} />
                               <div className="flex-1 min-w-0">

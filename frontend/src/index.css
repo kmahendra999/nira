@@ -3,6 +3,81 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
+ * The bridge from design tokens to Tailwind utilities.
+ *
+ * Without this, `bg-surface` and `text-text-secondary` are not classes and
+ * there is no way to write a colour in markup — which is why this codebase
+ * accumulated 975 `style={{ }}` objects and 68 `onMouseEnter` handlers that
+ * assign to `e.currentTarget.style`. An inline style cannot express `:hover`,
+ * `:focus-visible` or `:active`, so every interaction state had to be
+ * simulated in JavaScript, and simulated hover reaches neither the keyboard
+ * nor a touchscreen.
+ *
+ * `inline` is what makes this work: it emits `background-color:
+ * var(--color-surface)` rather than baking in today's value, so a utility
+ * keeps following `.dark` exactly as the raw token does. Tailwind also wraps
+ * `hover:` in `@media (hover: hover)`, which the JavaScript never did — on a
+ * phone those handlers fired on tap and left the hover state stuck on.
+ *
+ * Each key here must be backed by a real `:root` token below. A key without
+ * one resolves to `var(--x)` where `--x` is only ever defined as itself,
+ * which is circular, and the utility then silently does nothing.
+ * `theme-tokens.test.ts` fails the build rather than let that ship.
+ */
+@theme inline {
+  /* Colours */
+  --color-bg: var(--color-bg);
+  --color-bg-secondary: var(--color-bg-secondary);
+  --color-bg-tertiary: var(--color-bg-tertiary);
+  --color-surface: var(--color-surface);
+  --color-sidebar: var(--color-sidebar);
+  --color-border: var(--color-border);
+  --color-border-subtle: var(--color-border-subtle);
+  --color-text: var(--color-text);
+  --color-text-secondary: var(--color-text-secondary);
+  --color-text-tertiary: var(--color-text-tertiary);
+  --color-text-inverse: var(--color-text-inverse);
+  --color-accent: var(--color-accent);
+  --color-accent-hover: var(--color-accent-hover);
+  --color-accent-subtle: var(--color-accent-subtle);
+  --color-accent-glow: var(--color-accent-glow);
+  --color-accent-amber: var(--color-accent-amber);
+  --color-accent-amber-hover: var(--color-accent-amber-hover);
+  --color-accent-amber-subtle: var(--color-accent-amber-subtle);
+  --color-accent-purple: var(--color-accent-purple);
+  --color-accent-purple-hover: var(--color-accent-purple-hover);
+  --color-accent-purple-subtle: var(--color-accent-purple-subtle);
+  --color-accent-blue-subtle: var(--color-accent-blue-subtle);
+  --color-success: var(--color-success);
+  --color-warning: var(--color-warning);
+  --color-error: var(--color-error);
+  --color-error-subtle: var(--color-error-subtle);
+  --color-code-bg: var(--color-code-bg);
+  --color-input-bg: var(--color-input-bg);
+  --color-input-border: var(--color-input-border);
+  --color-user-bubble: var(--color-user-bubble);
+  --color-user-bubble-text: var(--color-user-bubble-text);
+  --color-on-accent: var(--color-on-accent);
+  --color-disabled-bg: var(--color-disabled-bg);
+
+  /* Radii */
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+  --radius-full: var(--radius-full);
+
+  /* Shadows */
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+
+  /* Typefaces */
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+}
+
+/*
  * Nira design tokens.
  * Zinc/slate neutrals, blue accent. Light default, dark via class or system pref.
  */
@@ -18,8 +93,20 @@
     --color-border-subtle: rgba(0, 0, 0, 0.04);
 
     --color-text: #09090b;
-    --color-text-secondary: #71717a;
-    --color-text-tertiary: #a1a1aa;
+    /* Muted text, at a contrast a person can actually read.
+     *
+     * --color-text-tertiary was #a1a1aa on a near-white page: 2.43:1, against
+     * the 4.5:1 that WCAG AA asks for normal text, and it carries timestamps,
+     * hints and field descriptions — the small text that most needs to be
+     * legible. Dark was no better at 2.98:1.
+     *
+     * Secondary had to move with it. It was already only just over the line
+     * at 4.59:1, so a compliant tertiary would have been the same colour and
+     * the hierarchy between the two would have collapsed. These values are
+     * the dimmest that clear 4.5:1 on every surface each one lands on,
+     * including the tertiary background used for chips and hover states. */
+    --color-text-secondary: #52525b;
+    --color-text-tertiary: #65656d;
     --color-text-inverse: #fafafa;
 
     --color-accent: #ea580c;
@@ -38,6 +125,10 @@
     --color-success: #16a34a;
     --color-warning: #ca8a04;
     --color-error: #b91c1c;
+    /* The hover tint on destructive controls. Was a hard-coded
+     * rgba(220,38,38,0.1) in SettingsPage that ignored the palette and
+     * did not change between light and dark. */
+    --color-error-subtle: rgba(185, 28, 28, 0.1);
 
     --color-code-bg: #f4f4f5;
     --color-input-bg: #ffffff;
@@ -88,8 +179,8 @@
     --color-border-subtle: rgba(255, 255, 255, 0.05);
 
     --color-text: #ededef;
-    --color-text-secondary: #8d8d93;
-    --color-text-tertiary: #5c5c63;
+    --color-text-secondary: #a3a3ad;
+    --color-text-tertiary: #808088;
     --color-text-inverse: #0a0a0b;
 
     --color-accent: #fb923c;
@@ -108,6 +199,7 @@
     --color-success: #3ddc97;
     --color-warning: #facc15;
     --color-error: #f87171;
+    --color-error-subtle: rgba(248, 113, 113, 0.14);
 
     --color-code-bg: #0c121a;
     --color-input-bg: #0c121a;
@@ -151,6 +243,33 @@
   ::selection {
     background-color: var(--color-accent);
     color: white;
+  }
+
+  /* Keyboard focus.
+   *
+   * There was none — not one `:focus-visible` rule in the whole frontend, so
+   * tabbing through the app moved an invisible cursor. Anyone not using a
+   * mouse had to guess where they were.
+   *
+   * `:focus-visible` rather than `:focus`, so the ring appears for keyboard
+   * and assistive navigation and not on every mouse click. The offset keeps
+   * it clear of the control's own border on the dense rows in the sidebar and
+   * the agent list, where a flush ring reads as a selection highlight. */
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+  }
+
+  /* An element scripted to be focusable to receive an announcement — a live
+   * region, a routed heading — should not also flash a ring at the user.
+   *
+   * Excluding anything with a role, because a roving tabindex gives the
+   * unselected tabs in a tablist tabIndex="-1" and then focuses them with the
+   * arrow keys: suppressing the ring there would hide focus on precisely the
+   * element the user just moved to. */
+  [tabindex="-1"]:not([role]):focus-visible {
+    outline: none;
   }
 
   ::-webkit-scrollbar {

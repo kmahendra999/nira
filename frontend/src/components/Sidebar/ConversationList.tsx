@@ -50,16 +50,9 @@ export function ConversationList({ searchQuery }: Props) {
         return (
           <div
             key={conv.id}
-            className="group flex items-center rounded-lg cursor-pointer transition-colors"
-            style={{
-              background: isActive ? 'var(--color-bg-tertiary)' : 'transparent',
-            }}
-            onMouseEnter={(e) => {
-              if (!isActive) e.currentTarget.style.background = 'var(--color-bg-secondary)';
-            }}
-            onMouseLeave={(e) => {
-              if (!isActive) e.currentTarget.style.background = 'transparent';
-            }}
+            className={`group flex items-center rounded-lg cursor-pointer transition-colors ${
+              isActive ? 'bg-bg-tertiary' : 'hover:bg-bg-secondary'
+            }`}
           >
             <button
               onClick={() => {
@@ -87,12 +80,12 @@ export function ConversationList({ searchQuery }: Props) {
                 deleteConversation(conv.id);
               }}
               disabled={isStreaming}
-              className="p-1.5 mr-1 rounded opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer disabled:cursor-not-allowed disabled:opacity-30"
-              style={{ color: 'var(--color-text-tertiary)' }}
-              onMouseEnter={(e) => {
-                if (!isStreaming) e.currentTarget.style.color = 'var(--color-error)';
-              }}
-              onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--color-text-tertiary)')}
+              className="p-1.5 mr-1 rounded opacity-0 group-hover:opacity-100
+                focus-visible:opacity-100 group-focus-within:opacity-100
+                transition-opacity cursor-pointer text-text-tertiary
+                enabled:hover:text-error
+                disabled:cursor-not-allowed disabled:opacity-30"
+
               title={
                 isStreaming
                   ? 'Stop generating before deleting this conversation'

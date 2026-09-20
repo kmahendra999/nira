@@ -596,10 +596,10 @@ export function InputArea() {
         )}
       </div>
       <div
-        className="flex items-center gap-2 rounded-2xl px-4 py-3 transition-shadow"
+        className="flex items-center gap-2 rounded-2xl px-4 py-3 transition-shadow
+          border border-input-border focus-within:border-accent"
         style={{
           background: 'var(--color-input-bg)',
-          border: '1px solid var(--color-input-border)',
           boxShadow: 'var(--shadow-sm)',
         }}
       >

@@ -50,13 +50,11 @@ function TraceCard({ trace, isActive, onClick }: { trace: TraceSummary; isActive
   return (
     <button
       onClick={onClick}
-      className="w-full text-left p-3 rounded-lg transition-colors cursor-pointer"
-      style={{
-        background: isActive ? 'var(--color-bg-tertiary)' : 'transparent',
-        border: isActive ? '1px solid var(--color-border)' : '1px solid transparent',
-      }}
-      onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.background = 'var(--color-bg-secondary)'; }}
-      onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}
+      className={`w-full text-left p-3 rounded-lg transition-colors cursor-pointer border ${
+        isActive
+          ? 'bg-bg-tertiary border-border'
+          : 'border-transparent hover:bg-bg-secondary'
+      }`}
     >
       <div className="text-sm truncate mb-1" style={{ color: 'var(--color-text)' }}>
         {trace.query || 'Untitled query'}
@@ -83,10 +81,9 @@ function StepDetail({ step, index }: { step: TraceStep; index: number }) {
     >
       <button
         onClick={() => setExpanded(!expanded)}
-        className="flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors cursor-pointer"
-        style={{ background: 'var(--color-bg-secondary)' }}
-        onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--color-bg-tertiary)')}
-        onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--color-bg-secondary)')}
+        className="flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors
+          cursor-pointer bg-bg-secondary hover:bg-bg-tertiary"
+
       >
         {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
         <span className="text-xs font-mono" style={{ color: 'var(--color-text-tertiary)' }}>

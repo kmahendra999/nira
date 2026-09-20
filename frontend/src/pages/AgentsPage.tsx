@@ -429,12 +429,11 @@ function ToolsPicker({
             type="button"
             onClick={() => onChange(allSelected ? [] : configurable)}
             disabled={tools.length === 0}
-            className="transition-colors"
+            className="transition-colors text-text-tertiary enabled:hover:text-text"
             style={{
               fontFamily:
                 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace',
               fontSize: 10,
-              color: 'var(--color-text-tertiary)',
               background: 'none',
               border: 'none',
               padding: 0,
@@ -442,12 +441,6 @@ function ToolsPicker({
               textDecoration: 'underline',
               textUnderlineOffset: 2,
             }}
-            onMouseEnter={(e) =>
-              (e.currentTarget.style.color = 'var(--color-text)')
-            }
-            onMouseLeave={(e) =>
-              (e.currentTarget.style.color = 'var(--color-text-tertiary)')
-            }
           >
             {allSelected ? 'none' : 'all'}
           </button>
@@ -550,12 +543,7 @@ function ToolsPicker({
                           transition:
                             'background 120ms, color 120ms, border-color 120ms, transform 80ms',
                         }}
-                        onMouseDown={(e) =>
-                          !disabled && (e.currentTarget.style.transform = 'scale(0.97)')
-                        }
-                        onMouseUp={(e) =>
-                          (e.currentTarget.style.transform = 'scale(1)')
-                        }
+
                       >
                         <span
                           style={{
@@ -793,10 +781,10 @@ function LaunchWizard({
               <button
                 key={tpl.id}
                 onClick={() => selectTemplate(tpl)}
-                className="text-left p-4 rounded-lg transition-all items-start"
-                style={{ border: '1px solid var(--color-border)', background: 'var(--color-bg-secondary)' }}
-                onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--color-accent)'; e.currentTarget.style.background = 'color-mix(in srgb, var(--color-accent-purple) 6%, transparent)'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)'; e.currentTarget.style.background = 'var(--color-bg-secondary)'; }}
+                className="text-left p-4 rounded-lg transition-all items-start
+                  border border-border bg-bg-secondary
+                  hover:border-accent hover:bg-accent-purple-subtle"
+
               >
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-lg">{(tpl as any).icon || '🤖'}</span>
@@ -817,10 +805,10 @@ function LaunchWizard({
             ))}
             <button
               onClick={() => selectTemplate(null)}
-              className="text-left p-4 rounded-lg transition-all items-start"
-              style={{ border: '1px solid var(--color-border)', background: 'var(--color-bg-secondary)' }}
-              onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--color-accent)'; e.currentTarget.style.background = 'color-mix(in srgb, var(--color-accent-purple) 6%, transparent)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)'; e.currentTarget.style.background = 'var(--color-bg-secondary)'; }}
+              className="text-left p-4 rounded-lg transition-all items-start
+                border border-border bg-bg-secondary
+                hover:border-accent hover:bg-accent-purple-subtle"
+
             >
               <div className="flex items-center gap-2 mb-1">
                 <span className="text-lg">⚙️</span>
@@ -1205,12 +1193,23 @@ function AgentCard({
   const canRecover = agent.status === 'error' || agent.status === 'stalled' || agent.status === 'needs_attention';
 
   return (
+    // A div with onClick and nothing else is invisible to the keyboard: no
+    // focus, no Enter, no announcement that it does anything. It cannot simply
+    // become a <button> because it contains its own pause/edit buttons and
+    // nesting those is invalid, so it takes the ARIA equivalent instead.
     <div
+      role="button"
+      tabIndex={0}
       onClick={onClick}
-      className="p-4 rounded-lg cursor-pointer transition-colors"
-      style={{ background: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)' }}
-      onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--color-accent)')}
-      onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--color-border)')}
+      onKeyDown={(e) => {
+        // Space scrolls the page by default, which is wrong for a control.
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onClick();
+        }
+      }}
+      className="p-4 rounded-lg cursor-pointer transition-colors bg-bg-secondary
+        border border-border hover:border-accent"
     >
       {/* Row 1: Name + status dot */}
       <div className="flex items-center justify-between mb-2">
@@ -1933,7 +1932,7 @@ function InteractTab({ agentId, agentStatus, onRunStateChange }: { agentId: stri
           }}
           placeholder={isBusy ? 'Agent is running…' : "Ask a follow-up about this agent's work…"}
           disabled={isBusy}
-          className="w-full px-3 py-2 rounded-lg text-sm bg-transparent outline-none resize-none"
+          className="w-full px-3 py-2 rounded-lg text-sm bg-transparent resize-none"
           style={{
             border: '1px solid var(--color-border)',
             color: 'var(--color-text)',
@@ -2178,6 +2177,15 @@ function ChannelsTab({ agentId }: { agentId: string }) {
                 }}
               >
                 <div
+                  role="button"
+                  tabIndex={0}
+                  aria-expanded={isExpanded}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      setExpandedId(isExpanded ? null : c.connector_id);
+                    }
+                  }}
                   style={{
                     padding: '12px 14px', display: 'flex',
                     alignItems: 'center', gap: 8,
@@ -2716,6 +2724,15 @@ function SendBlueWizard({
     <div style={cardStyle}>
       {/* Header */}
       <div
+        role="button"
+        tabIndex={0}
+        aria-expanded={step !== 'idle'}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            setStep(step === 'idle' ? 'creds' : 'idle');
+          }
+        }}
         style={{ display: 'flex', alignItems: 'center', padding: '12px 14px', cursor: 'pointer' }}
         onClick={() => setStep(step === 'idle' ? 'creds' : 'idle')}
       >
@@ -3353,7 +3370,19 @@ function LogsTab({ agentId }: { agentId: string }) {
             return (
               <div
                 key={`trace-${t.id}`}
-                className="rounded-lg p-3 text-sm cursor-pointer"
+                role={isError && errorDetail ? 'button' : undefined}
+                tabIndex={isError && errorDetail ? 0 : undefined}
+                aria-expanded={isError && errorDetail ? isExpanded : undefined}
+                onKeyDown={(e) => {
+                  if (!(isError && errorDetail)) return;
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setExpandedTrace(isExpanded ? null : t.id);
+                  }
+                }}
+                className={`rounded-lg p-3 text-sm ${
+                  isError && errorDetail ? 'cursor-pointer' : ''
+                }`}
                 style={{ background: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)' }}
                 onClick={() => isError && errorDetail && setExpandedTrace(isExpanded ? null : t.id)}
               >

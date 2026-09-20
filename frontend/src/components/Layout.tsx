@@ -22,6 +22,18 @@ export function Layout() {
     };
   }, []);
 
+  // Escape closes the mobile sidebar. It overlays the whole page when open,
+  // and until now the only way past it was tapping the dimmed area — no way
+  // out at all from a keyboard.
+  useEffect(() => {
+    if (!sidebarOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') useAppStore.getState().setSidebarOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [sidebarOpen]);
+
   const navigate = useNavigate();
 
   return (
@@ -58,7 +70,12 @@ export function Layout() {
       <div className="flex flex-1 min-h-0 relative z-10">
         <Sidebar />
         {sidebarOpen && (
+          // The overlay is scenery, not a control: it dims the page and
+          // swallows a stray tap. Escape is what closes the sidebar from the
+          // keyboard, so the overlay is hidden from assistive technology
+          // rather than presented as a button that does the same thing.
           <div
+            aria-hidden="true"
             className="fixed inset-0 z-20 bg-black/40 md:hidden"
             onClick={() => useAppStore.getState().setSidebarOpen(false)}
           />

@@ -260,10 +260,9 @@ export function SystemPanel() {
             href="https://kmahendra999.github.io/nira/leaderboard"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-1.5 mt-1.5 px-3 py-1.5 text-[11px] rounded-lg transition-colors"
-            style={{ color: 'var(--color-text-tertiary)' }}
-            onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--color-accent)')}
-            onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--color-text-tertiary)')}
+            className="flex items-center gap-1.5 mt-1.5 px-3 py-1.5 text-[11px]
+              rounded-lg transition-colors text-text-tertiary hover:text-accent"
+
           >
             <ExternalLink size={10} />
             View Leaderboard

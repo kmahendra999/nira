@@ -933,10 +933,86 @@ settles. That is deliberate — a device without the `watch` scope has no socket
 still be able to learn how the work it started turned out — but a terminal event carrying the
 result would be better, and would also let the run history survive being read by a second device.
 
+### Phase 8 — Interaction and accessibility ✅
+
+**Python: 9,065 passing. Frontend: 102 passing.** Phase 6 item 2 (the blocker), and item 9 (the
+accessibility pass) that depended on it.
+
+**The tokens now reach the markup.** There was no `@theme` block, so `bg-surface` and
+`text-text-secondary` were not classes — there was no way to write a colour in markup at all. That
+is why the codebase had 975 `style={{}}` objects and 68 handlers assigning to
+`e.currentTarget.style`. `@theme inline` maps all 43 tokens to utilities; `inline` is what makes it
+work, emitting `background-color: var(--color-surface)` rather than today's value, so a utility
+keeps following `.dark` exactly as the raw token does.
+
+**All 68 JavaScript hover handlers are gone**, replaced by `hover:` / `focus-visible:` / `active:`.
+Each one had three failure modes invisible to whoever wrote it: a keyboard user got no state at
+all, a touch user got one that stuck after the tap because nothing fires `mouseleave`, and the
+handler silently beat any stylesheet rule for the same property. Tailwind wraps `hover:` in
+`@media (hover: hover)`, so it simply does not apply on a touchscreen.
+
+| Was | Now |
+|---|---|
+| 68 `currentTarget.style` assignments | 0 |
+| `:focus-visible` rules in the whole app | a global ring, plus 4 scoped rules |
+| Muted text contrast | 2.43:1 light, 2.98:1 dark → **4.55:1 and 4.52:1** |
+| Tab strips with `role="tablist"` | 0 → 2, with arrow keys and roving tabindex |
+| Live region for streaming replies | none → one, announcing state not tokens |
+
+**There was no focus styling anywhere** — not one `:focus-visible` rule — so tabbing through the
+app moved an invisible cursor. Adding a global ring was not enough on its own: 25 form fields
+carried `outline-none`, and a Tailwind utility sits in a later layer than `@layer base`, so each
+one silently reinstated the problem on exactly the controls where it matters most. Twenty of them
+lost the class; the five transparent fields inside styled boxes kept it and their containers gained
+`focus-within`.
+
+**Contrast needed both levels moved.** `--color-text-tertiary` carries timestamps, hints and field
+descriptions and sat at 2.43:1 against the 4.5:1 WCAG AA asks for. Secondary was itself only just
+over the line at 4.59:1, so a compliant tertiary would have been the same colour and the hierarchy
+would have collapsed. The new values are the dimmest that clear 4.5:1 on every surface each one
+lands on. The test computes the ratios rather than pinning hex values, so a later recolour cannot
+quietly drop back under.
+
+**Streaming now says something.** Marking the transcript itself as a live region would be worse
+than the silence — every token interrupts and restarts the announcement, and the listener hears a
+stutter rather than a sentence. The announcer reports state instead: thinking, each tool as it
+runs, replying, complete. Its own test caught a real bug: when React batches the streaming flag and
+the first token into one render, the original reducer never noticed the content and announced a
+real answer as "finished without a reply".
+
+**Keyboard reachability.** Twelve clickable `<div>`s took no focus, ignored Enter and were
+announced as nothing. The agent card and five disclosure rows took the ARIA pattern; the audio
+seek bar became a real `role="slider"` with arrow keys, because there is no keyboard equivalent of
+"click 40% of the way along"; `OptInModal` and the mobile sidebar gained Escape, having been
+dismissable only by mouse.
+
+Nine guards in `tests/deployment/test_frontend_theme.py` keep all of it from coming back. They live
+in pytest rather than vitest because these are facts about files: vitest stubs CSS imports to the
+empty string, and reading the file with `node:fs` needs Node types this browser tsconfig lacks —
+adding them means an npm install, which is what silently rewrote `package-lock.json` once already.
+Writing that guard also caught a bug in itself: a naive `[^<>]*` attribute match stops at the `>`
+of `=>`, so it skipped every element carrying a handler — exactly the ones it existed to find.
+
+Verified in the running app, not only in tests: Escape closes the dialog, the ring is
+`2px solid rgb(251, 146, 60)` on a Settings control that previously suppressed it, the composer's
+border lights on `focus-within`, hover works on the nav rows, and two ArrowRight presses walk the
+Data Sources tabs with focus following selection and the right panel showing.
+
+### Still open
+
+947 `style={{}}` objects remain. Most are legitimate — a computed width, a conditional colour — and
+the ones that are not are concentrated in the two files that need splitting anyway. The point of
+this phase was the interaction states, which is a different problem from where a static colour is
+written.
+
+- **Splitting `AgentsPage.tsx` (4,007 lines) and `DataSourcesPage.tsx` (2,385)** (Phase 6 item 8).
+  The six disclosure rows given `role="button"` should become real `<button>` elements in that
+  pass; restructuring JSX inside files that size is a job for the split, not for this one.
+- **The logo** (Phase 6 item 4) — colour is settled, the arc-reactor mark still needs replacing.
+
 ### Next
 
-The remaining UI refactors in Phase 6 above — the inline-style pattern first, since the
-accessibility pass and any interaction polish depend on it. Then, carried forward from Phase 5:
-wiring `canUseTool` to `ApprovalStore` so a risky step can be approved from the phone (the
-`approve` scope exists and is now enforced, but nothing asks for it yet), multi-desktop task
+Carried forward from Phase 5: wiring `canUseTool` to `ApprovalStore` so a risky step can be
+approved from the phone — the `approve` scope exists and is now enforced end to end, but nothing
+asks for it yet, which makes it the last missing piece of the phone story. Then multi-desktop task
 routing, and a research-session retrieval endpoint so `nira://research/<id>` renders.

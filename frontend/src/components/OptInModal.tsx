@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Lock, Zap, DollarSign, Cpu, Trophy, X } from 'lucide-react';
 import { useAppStore } from '../lib/store';
 import { isProfane } from '../lib/profanity';
@@ -49,6 +49,17 @@ export function OptInModal({ onClose }: OptInModalProps) {
     onClose();
   };
 
+  // Escape closes it. Without this the only way out was clicking the
+  // backdrop or the X, so a keyboard user who opened the dialog was stuck in
+  // it — the one shortcut every dialog is expected to honour.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
   const features = [
     { icon: Lock, label: 'Private — no IP or hardware info shared publicly' },
     { icon: Zap, label: 'Track energy savings from local inference' },
@@ -65,6 +76,9 @@ export function OptInModal({ onClose }: OptInModalProps) {
       }}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Join the leaderboard"
         className="relative w-full max-w-md mx-4 overflow-hidden"
         style={{
           background: 'var(--color-bg)',
@@ -76,10 +90,9 @@ export function OptInModal({ onClose }: OptInModalProps) {
         {/* Close button */}
         <button
           onClick={onClose}
-          className="absolute top-3 right-3 p-1.5 rounded-lg transition-colors cursor-pointer"
-          style={{ color: 'var(--color-text-tertiary)' }}
-          onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--color-bg-secondary)')}
-          onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+          className="absolute top-3 right-3 p-1.5 rounded-lg transition-colors
+            cursor-pointer text-text-tertiary hover:bg-bg-secondary"
+
         >
           <X size={16} />
         </button>
@@ -187,7 +200,7 @@ export function OptInModal({ onClose }: OptInModalProps) {
                   }}
                   placeholder="Choose a name for the leaderboard"
                   maxLength={30}
-                  className="w-full px-3 py-2.5 rounded-xl text-sm outline-none transition-colors"
+                  className="w-full px-3 py-2.5 rounded-xl text-sm transition-colors"
                   style={{
                     background: 'var(--color-bg-secondary)',
                     border: '1.5px solid var(--color-border)',
@@ -217,7 +230,7 @@ export function OptInModal({ onClose }: OptInModalProps) {
                     if (e.key === 'Enter') handleJoin();
                   }}
                   placeholder="your@email.com"
-                  className="w-full px-3 py-2.5 rounded-xl text-sm outline-none transition-colors"
+                  className="w-full px-3 py-2.5 rounded-xl text-sm transition-colors"
                   style={{
                     background: 'var(--color-bg-secondary)',
                     border: '1.5px solid var(--color-border)',
@@ -237,13 +250,9 @@ export function OptInModal({ onClose }: OptInModalProps) {
               {/* Buttons */}
               <button
                 onClick={handleJoin}
-                className="w-full py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer"
-                style={{
-                  background: 'var(--color-accent)',
-                  color: 'var(--color-on-accent)',
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.9')}
-                onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
+                className="w-full py-2.5 rounded-xl text-sm font-medium transition-all
+                  cursor-pointer bg-accent text-on-accent hover:opacity-90"
+
               >
                 Join Leaderboard
               </button>

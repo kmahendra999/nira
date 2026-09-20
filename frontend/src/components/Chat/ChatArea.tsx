@@ -2,6 +2,7 @@ import { useRef, useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router';
 import { MessageBubble } from './MessageBubble';
 import { InputArea } from './InputArea';
+import { ChatAnnouncer } from './ChatAnnouncer';
 import { StreamingDots } from './StreamingDots';
 import { useAppStore } from '../../lib/store';
 import { Sparkles, PanelRightOpen, PanelRightClose, Database, MessageSquare, X } from 'lucide-react';
@@ -140,28 +141,20 @@ export function ChatArea() {
             <div className="flex gap-3">
               <button
                 onClick={() => navigate('/data-sources')}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs cursor-pointer transition-colors"
-                style={{
-                  background: 'var(--color-bg-secondary)',
-                  border: '1px solid var(--color-border)',
-                  color: 'var(--color-text-secondary)',
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--color-accent)')}
-                onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--color-border)')}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs
+                  cursor-pointer transition-colors bg-bg-secondary text-text-secondary
+                  border border-border hover:border-accent"
+
               >
                 <Database size={14} style={{ color: 'var(--color-accent)' }} />
                 Connect Data Sources
               </button>
               <button
                 onClick={() => { navigate('/data-sources'); setTimeout(() => window.dispatchEvent(new CustomEvent('switch-tab', { detail: 'messaging' })), 100); }}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs cursor-pointer transition-colors"
-                style={{
-                  background: 'var(--color-bg-secondary)',
-                  border: '1px solid var(--color-border)',
-                  color: 'var(--color-text-secondary)',
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--color-accent)')}
-                onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--color-border)')}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs
+                  cursor-pointer transition-colors bg-bg-secondary text-text-secondary
+                  border border-border hover:border-accent"
+
               >
                 <MessageSquare size={14} style={{ color: 'var(--color-accent)' }} />
                 Set Up Messaging Channels
@@ -197,6 +190,11 @@ export function ChatArea() {
         )}
       </div>
       <InputArea />
+      <ChatAnnouncer
+        streaming={isCurrentChatStreaming}
+        phase={streamState.phase}
+        content={currentStreamContent}
+      />
     </div>
   );
 }

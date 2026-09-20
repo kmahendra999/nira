@@ -63,10 +63,9 @@ function CodeBlockPre({ children, ...props }: any) {
         <span className="font-mono">{lang || 'code'}</span>
         <button
           onClick={handleCopy}
-          className="flex items-center gap-1 px-2 py-0.5 rounded transition-colors cursor-pointer"
-          style={{ color: 'var(--color-text-tertiary)' }}
-          onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--color-text-secondary)')}
-          onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--color-text-tertiary)')}
+          className="flex items-center gap-1 px-2 py-0.5 rounded transition-colors
+            cursor-pointer text-text-tertiary hover:text-text-secondary"
+
         >
           {copied ? <Check size={12} /> : <Copy size={12} />}
           {copied ? 'Copied' : 'Copy'}

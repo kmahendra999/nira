@@ -150,14 +150,8 @@ function Section({
     >
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-3 w-full px-5 py-4 text-left cursor-pointer transition-colors"
-        style={{ background: open ? 'var(--color-bg-secondary)' : 'var(--color-surface)' }}
-        onMouseEnter={(e) => {
-          if (!open) e.currentTarget.style.background = 'var(--color-bg-secondary)';
-        }}
-        onMouseLeave={(e) => {
-          if (!open) e.currentTarget.style.background = 'var(--color-surface)';
-        }}
+        className={`flex items-center gap-3 w-full px-5 py-4 text-left cursor-pointer
+          transition-colors ${open ? 'bg-bg-secondary' : 'bg-surface hover:bg-bg-secondary'}`}
       >
         <div
           className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
@@ -217,10 +211,9 @@ function HostedView() {
           </div>
           <button
             onClick={() => navigate('/')}
-            className="inline-flex items-center gap-2.5 px-6 py-3 rounded-xl text-sm font-medium transition-opacity cursor-pointer"
+            className="inline-flex items-center gap-2.5 px-6 py-3 rounded-xl text-sm
+              font-medium transition-opacity cursor-pointer hover:opacity-90"
             style={{ background: 'var(--color-accent)', color: 'var(--color-on-accent)' }}
-            onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.9')}
-            onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
           >
             <MessageSquare size={18} />
             Start Chatting
@@ -293,10 +286,9 @@ function DesktopView() {
         </p>
         <button
           onClick={() => navigate('/')}
-          className="inline-flex items-center gap-2.5 px-6 py-3 rounded-xl text-sm font-medium transition-opacity cursor-pointer"
+          className="inline-flex items-center gap-2.5 px-6 py-3 rounded-xl text-sm
+              font-medium transition-opacity cursor-pointer hover:opacity-90"
           style={{ background: 'var(--color-accent)', color: 'var(--color-on-accent)' }}
-          onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.9')}
-          onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
         >
           <MessageSquare size={18} />
           Start Chatting
@@ -371,10 +363,9 @@ function SelfHostedView() {
 
           <a
             href={`${GITHUB_BASE}/${primary.file}`}
-            className="inline-flex items-center gap-2.5 px-6 py-3 rounded-xl text-sm font-medium transition-opacity cursor-pointer"
+            className="inline-flex items-center gap-2.5 px-6 py-3 rounded-xl text-sm
+              font-medium transition-opacity cursor-pointer hover:opacity-90"
             style={{ background: 'var(--color-accent)', color: 'var(--color-on-accent)' }}
-            onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.9')}
-            onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
           >
             <Download size={18} />
             Download for {primary.label}
@@ -388,10 +379,9 @@ function SelfHostedView() {
               <a
                 key={p.id}
                 href={`${GITHUB_BASE}/${p.file}`}
-                className="text-[11px] underline underline-offset-2 transition-colors"
-                style={{ color: 'var(--color-text-secondary)' }}
-                onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--color-accent)')}
-                onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--color-text-secondary)')}
+                className="text-[11px] underline underline-offset-2 transition-colors
+                  text-text-secondary hover:text-accent"
+
               >
                 {p.shortLabel}
               </a>
