@@ -1,0 +1,5 @@
+# Keep the build context to what is served.
+Dockerfile
+.dockerignore
+docker-compose.yml
+README.md

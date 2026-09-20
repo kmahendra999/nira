@@ -1,0 +1,35 @@
+# Bring the site up on http://localhost:8080
+#
+#   docker compose -f website/docker-compose.yml up -d --build
+#
+services:
+  site:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: nira-site:local
+    container_name: nira-site
+    # Loopback by default. This serves installable binaries, and binding
+    # every interface would publish them to whatever network the machine
+    # happens to be on — a cafe, a hotel, a conference.
+    #
+    # To reach it from your phone, the answer this project already uses
+    # everywhere else is Tailscale:
+    #
+    #     tailscale serve --bg 8080
+    #
+    # which publishes it to your tailnet and nothing else. If you would
+    # rather put it on the LAN, that is one variable and your decision:
+    #
+    #     NIRA_SITE_BIND=0.0.0.0 docker compose up -d
+    #
+    ports:
+      - "${NIRA_SITE_BIND:-127.0.0.1}:${NIRA_SITE_PORT:-8080}:8080"
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/cache/nginx
+      - /var/run
+    security_opt:
+      - no-new-privileges:true

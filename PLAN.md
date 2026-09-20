@@ -1426,6 +1426,53 @@ fine; the blocked face was KaTeX's.
   pane's own restriction rather than a product fault, and I could not prove it either way without
   a real Chrome.
 
+### Phase 17 — A front page, and somewhere to download from ✅
+
+Modelled on openjarvis.stanford.edu's structure — numbered sections, a terminal for the quick
+start, a download grid — and dressed in the glass theme: a copy of `glass.css` with the accent
+retuned from its gold to Nira's orange, and page layout written fresh against its tokens. The
+theme's 885-line runtime is an app shell (nav trees, charts, a palette engine) and is not loaded;
+the one thing it did that this page needs is the `#goo` SVG filter, which `glass.css` references by
+id. Without it `.liquid` points at a filter that does not exist, which browsers have historically
+treated as "do not render this element", taking the whole animated background with it. Those
+`<defs>` are now in the document.
+
+Served by nginx in a container on `127.0.0.1:8080`, read-only, unprivileged, no runtime that can
+execute a request.
+
+**The downloads are described in the page and measured by the server.** Sizes come from a `HEAD`
+request, digests from a `checksums.json` the Dockerfile writes at build time by hashing whatever
+was copied in. A hard-coded size is wrong the first time the file is rebuilt; a hard-coded digest
+is worse, because it keeps matching in the reader's eye long after it stopped matching the file.
+A card for a file that is not on the server says "Not built" and prints the command that produces
+it — which is the state a fresh clone is in, since the 42 MB apk is gitignored, and is therefore a
+state that was tested rather than assumed. Testing it found the card rendering the 404 page's
+`Content-Length` as the download size.
+
+**The Android build is debug-signed, and the card says so.** `CN=Android Debug` — the key in every
+copy of the SDK, which authenticates nobody — and `application-debuggable`, so anything with adb
+access can read what it stores, including the key that pairs it to a desktop. A download page
+whose product's pitch is that your data stays on your machines does not get to leave that out.
+
+**No font CDN.** The theme's pages fetch Inter from Google; this one self-hosts Geist, the same
+face the app uses, which is both the brand-consistent choice and the only one compatible with the
+claim the page makes three lines above the fold. The CSP is `default-src 'self'` with no
+exceptions, so an off-origin request would fail rather than quietly succeed.
+
+**It binds to loopback.** It serves installable binaries, and binding every interface would publish
+them to whatever network the machine is on. A phone reaches it the way it reaches the rest of Nira
+— `tailscale serve --bg 8080` — or by setting `NIRA_SITE_BIND=0.0.0.0` deliberately.
+
+### Still open in Phase 17
+
+- **Only the Android build is real.** There is no desktop bundle to download, and macOS and Windows
+  bundles cannot be cross-compiled from here. Those two cards link to source and say so.
+- **The page has no tests.** Its behaviour was verified in the browser — both themes, mobile width,
+  the tab panels, the copy button's output, the present and missing download states — but nothing
+  re-checks it automatically.
+- **Nothing rebuilds the apk when the image is built.** Copying a fresh build into `downloads/` is
+  a manual step, so a stale apk would be served with an entirely accurate digest of itself.
+
 ### Next
 
 Nothing on the Phase 6 list remains. The largest unbuilt things are the ones each phase recorded as
