@@ -1334,9 +1334,60 @@ the one that lets the terminal fold the line while emitting the string intact.
 - **Nothing verifies at install time.** `nira skill install` does not check a signature before
   writing a skill to disk; verification happens when skills are loaded.
 
+### Phase 15 — Splitting the two big pages ✅
+
+**Python: 9,219 passing. Frontend: 120 (was 102).**
+
+Phase 6 listed this and I deferred it twice, for a reason worth stating: a large React refactor on
+files with no tests is exactly how something breaks quietly. So the order mattered more than the
+speed.
+
+| File | Before | After |
+|---|---|---|
+| `AgentsPage.tsx` | 4,036 | **638** |
+| `DataSourcesPage.tsx` | 2,415 | **130** |
+
+**The formatting helpers went first, and came with tests.** `lib/agent-format.ts` holds the code
+that turns an agent's raw fields into words — none of it needs React, all of it has branches, and
+none of it could be reached from a test while it lived among four thousand lines of JSX. Eighteen
+tests now cover it, including the cases a 12-hour clock gets wrong: `0 0 * * *` is "Daily at 12:00
+AM", not "Daily at 0:00 AM". **They passed on the first run**, which is the evidence that the move
+was a move rather than a rewrite.
+
+Then the self-contained clusters, one at a time, typechecked between each: SendBlueWizard, LogsTab,
+LearningTab, ToolsPicker, LaunchWizard, MessagingTab, InteractTab, AgentCard; then MemorySection,
+MessagingSection, UploadForm, ConnectPanels, DataSourcesSection and a shared `catalog`. The
+extractor copied whole import statements whenever one name matched, so 495 unused imports were
+pruned back afterwards.
+
+**One step had to be thrown away.** Moving two category tables with a multiline regex matched from
+one declaration to a closing brace nearly two thousand lines later — AgentsPage came out at 1,078
+lines and ToolsPicker at 2,118. `tsc` caught it. Reverted, and redone using line spans only, which
+is the one approach that cannot run away across a file this size. Worth recording as the concrete
+form of the risk I had been deferring.
+
+**The accessibility payoff the split was blocking.** Two disclosure rows that had to settle for
+`role="button"` in Phase 8 — because restructuring JSX inside a four-thousand-line file was a job
+for this pass — are now real `<button>` elements, with Enter and Space handled by the browser
+rather than by hand.
+
+Verified in the running app, not only in the compiler: the agent list and card; the Overview, Logs,
+Learning and Messaging Channels tabs; all three Data Sources sections; `$0.0000` still coming from
+the extracted `formatCost`; and the arrow-key tab navigation from Phase 8 still working.
+
+### Still open in Phase 15
+
+- **Three files are still over 600 lines** — `MessagingTab` (722), `InteractTab` (660) and
+  `LaunchWizard` (600). Each is one coherent flow rather than several, so splitting further would
+  be cutting for the sake of a number.
+- **The pages themselves have no tests.** Only the helpers do. What protects the rest is the
+  compiler and a look at the running app, which caught everything here but is not a suite.
+- **KaTeX fonts are blocked by the CSP.** Noticed while verifying: `default-src 'self'` has no
+  `font-src`, so KaTeX's data-URI fonts are refused and maths in a markdown reply falls back to
+  system glyphs. The app's own typeface loads fine — I checked, having assumed otherwise.
+
 ### Next
 
-The two Phase 6 refactors still outstanding: splitting `AgentsPage.tsx` (4,007 lines) and
-`DataSourcesPage.tsx` (2,385), which is also where the six disclosure rows given `role="button"`
-should become real `<button>` elements. Then the logo mark — a redesign rather than a recolour, and
-the one item here that wants a designer more than an engineer.
+The logo mark — the arc reactor is Iron Man's, and meaningless once the name is not Jarvis. It is a
+redesign rather than a recolour, and the one item on this list that wants a designer more than an
+engineer.

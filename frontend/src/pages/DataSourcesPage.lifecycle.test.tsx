@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('../lib/store', () => ({ useAppStore: vi.fn() }));
 
-import { SyncStatusDisplay } from './DataSourcesPage';
+import { SyncStatusDisplay } from './data-sources/UploadForm';
 import type { SyncStatus } from '../types/connectors';
 
 const baseStatus: SyncStatus = {

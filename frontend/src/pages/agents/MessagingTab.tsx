@@ -345,20 +345,19 @@ export function ChannelsTab({ agentId }: { agentId: string }) {
                   gridColumn: isExpanded ? '1 / -1' : undefined,
                 }}
               >
-                <div
-                  role="button"
-                  tabIndex={0}
+                {/* A real button, now that this file is small enough to
+                    restructure. role="button" was the stand-in while these
+                    rows lived in a four-thousand-line page: it announces the
+                    same thing, but Enter and Space had to be hand-written. */}
+                <button
+                  type="button"
                   aria-expanded={isExpanded}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      setExpandedId(isExpanded ? null : c.connector_id);
-                    }
-                  }}
                   style={{
                     padding: '12px 14px', display: 'flex',
                     alignItems: 'center', gap: 8,
-                    cursor: 'pointer',
+                    cursor: 'pointer', width: '100%', textAlign: 'left',
+                    background: 'none', border: 'none', font: 'inherit',
+                    color: 'inherit',
                   }}
                   onClick={() =>
                     setExpandedId(isExpanded ? null : c.connector_id)
@@ -380,7 +379,7 @@ export function ChannelsTab({ agentId }: { agentId: string }) {
                   }}>
                     {isExpanded ? '\u2715 Close' : '+ Add'}
                   </span>
-                </div>
+                </button>
 
                 {/* Inline setup panel */}
                 {isExpanded && meta?.steps && (
