@@ -575,6 +575,23 @@ An unsigned skill is refused rather than waved through. The check used to also
 require the manifest to *have* a signature, which meant anyone wanting to
 bypass it could delete the line being checked.
 
+To make signatures of your own:
+
+```sh
+nira skill keygen                     # writes skill-signing.{key,pub}
+nira skill sign ~/.nira/skills/greet  # signs one skill in place
+```
+
+`keygen` refuses to overwrite an existing pair without `--force`, because
+every skill signed with the old key stops verifying and there is no way back
+to it. The private key is written `0600` and never printed.
+
+`sign` edits the manifest surgically, leaving its comments and formatting
+alone, and replaces any signature already there. Signing covers the manifest
+*without* its signature, so signing twice produces the same result rather than
+signing the previous signature — and editing a skill invalidates it, which is
+the point.
+
 Leave it empty — the default — and skills load unverified, as before. There is
 nothing to check a signature against without a key, and refusing every skill
 because no key was configured would break a working install to enforce a

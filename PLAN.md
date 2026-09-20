@@ -1291,6 +1291,49 @@ bytes and proved nothing.
   but gated on a CLI flag rather than the setting. Documented behaviour and actual behaviour agree;
   the setting is simply not the thing controlling it.
 
+### Phase 14 — Signing, not only verifying ✅
+
+**Python: 9,219 passing.**
+
+Phase 13 made skill signature verification reachable and shipped no way to produce a signature for
+it to check. That left the feature usable only by someone who already had Ed25519 tooling of their
+own — which is not finishing something, it is describing it.
+
+`nira skill keygen` writes a key pair; `nira skill sign <skill>` signs a manifest in place.
+
+**The manifest is edited surgically rather than re-serialised.** A `skill.toml` is written by hand:
+it has comments, ordering and formatting its author chose, and a round-trip through a TOML writer
+would discard all of that to change one line. The signature is placed inside the `[skill]` table
+and replaces any already there — a signature written after the first `[[skill.steps]]` would not
+be read at all, so it would look like it had worked and do nothing.
+
+Signing covers the manifest *without* its signature, so signing twice produces the same result
+rather than signing the previous signature, and editing a skill invalidates it, which is the point.
+
+Two details that matter more than they look. The private key is written `0600` before anything else
+can read it and is never printed — it signs skills an agent executes, and default permissions on a
+shared machine leave it readable by every other account. And `keygen` refuses to overwrite an
+existing pair without `--force`, because every skill signed with the old key stops verifying and
+there is no way back to it.
+
+Driven end to end on a real skill: keygen, sign, verify, then tamper with the step the agent would
+run — the tampered skill is refused and logged, the signed one loads, and an install without a key
+is unaffected.
+
+**Two output bugs found by looking at it.** Rich read `[security]` in the "add this to your config"
+snippet as markup and printed nothing, leaving a config block with no table header for the user to
+copy. Fixing that with `no_wrap` then truncated a long path instead of wrapping it; `soft_wrap` is
+the one that lets the terminal fold the line while emitting the string intact.
+
+### Still open in Phase 14
+
+- **One skill at a time.** There is no `nira skill sign --all`, which is what someone maintaining a
+  skill index would actually want.
+- **Signing still needs the `security-signing` extra.** Without `cryptography` both commands exit
+  with instructions, and the 23 tests skip.
+- **Nothing verifies at install time.** `nira skill install` does not check a signature before
+  writing a skill to disk; verification happens when skills are loaded.
+
 ### Next
 
 The two Phase 6 refactors still outstanding: splitting `AgentsPage.tsx` (4,007 lines) and

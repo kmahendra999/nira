@@ -731,3 +731,126 @@ def show_overlay(skill_name: str) -> None:
 
 
 __all__ = ["skill"]
+
+
+@skill.command("keygen")
+@click.option(
+    "--out",
+    "out_dir",
+    default="",
+    help="Where to write the key pair (default: ~/.nira/).",
+)
+@click.option("--force", is_flag=True, default=False, help="Overwrite existing keys.")
+def keygen(out_dir: str, force: bool):
+    """Generate an Ed25519 key pair for signing skills.
+
+    Writes ``skill-signing.key`` (private) and ``skill-signing.pub`` (public).
+    Point ``security.signing_key_path`` at the public one; keep the private
+    one to sign with.
+    """
+    console = Console()
+    try:
+        from nira.security.signing import generate_keypair
+    except ImportError:
+        console.print(
+            "[red]Signing requires the 'cryptography' package.[/red]\n"
+            "Install it with: uv sync --extra security-signing"
+        )
+        raise SystemExit(1)
+
+    target = Path(out_dir).expanduser() if out_dir else get_config_dir()
+    target.mkdir(parents=True, exist_ok=True)
+    private_path = target / "skill-signing.key"
+    public_path = target / "skill-signing.pub"
+
+    if not force and (private_path.exists() or public_path.exists()):
+        # Overwriting is unrecoverable: every skill signed with the old key
+        # stops verifying, and there is no way back to it.
+        console.print(
+            f"[red]Keys already exist at {target}.[/red]\n"
+            "Re-run with --force to replace them — every skill signed with "
+            "the current key will stop verifying."
+        )
+        raise SystemExit(1)
+
+    try:
+        pair = generate_keypair()
+    except ImportError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise SystemExit(1)
+
+    private_path.write_bytes(pair.private_key)
+    # Before anyone else can read it, not after.
+    private_path.chmod(0o600)
+    public_path.write_bytes(pair.public_key)
+
+    console.print(f"[green]Private key:[/green] {private_path} [dim](keep this)[/dim]")
+    console.print(f"[green]Public key: [/green] {public_path}")
+    # escape(), because Rich reads "[security]" as markup and prints nothing
+    # at all — leaving the user to copy a config snippet with no table header.
+    console.print(
+        "\n[bold]To verify skills against it, add to your config.toml:[/bold]"
+    )
+    console.print(escape("  [security]"))
+    # soft_wrap so the terminal folds a long path visually without Rich
+    # inserting a break into the string itself — the line is meant to be
+    # copied, and a hard-wrapped path pastes as a broken value.
+    console.print(escape(f'  signing_key_path = "{public_path}"'), soft_wrap=True)
+    console.print(
+        "\n[dim]Once set, skills without a valid signature will not load.[/dim]"
+    )
+
+
+@skill.command("sign")
+@click.argument("target", type=click.Path(exists=True))
+@click.option(
+    "--key",
+    "key_path",
+    default="",
+    help="Private key to sign with (default: ~/.nira/skill-signing.key).",
+)
+def sign(target: str, key_path: str):
+    """Sign a skill manifest so a verifying install will load it.
+
+    TARGET is a skill directory or a ``skill.toml``. The signature is written
+    into the manifest's ``[skill]`` table, replacing any existing one.
+    """
+    console = Console()
+    from nira.skills.signing import manifest_path_for, sign_manifest_file
+
+    manifest_path = manifest_path_for(Path(target))
+    if manifest_path is None:
+        console.print(
+            f"[red]No skill.toml found at {target}.[/red]\n"
+            "[dim]A SKILL.md has no field to carry a signature.[/dim]"
+        )
+        raise SystemExit(1)
+
+    private_path = (
+        Path(key_path).expanduser()
+        if key_path
+        else get_config_dir() / "skill-signing.key"
+    )
+    if not private_path.exists():
+        console.print(
+            f"[red]No signing key at {private_path}.[/red]\n"
+            "Create one with: nira skill keygen"
+        )
+        raise SystemExit(1)
+
+    try:
+        signature = sign_manifest_file(manifest_path, private_path.read_bytes())
+    except ImportError:
+        console.print(
+            "[red]Signing requires the 'cryptography' package.[/red]\n"
+            "Install it with: uv sync --extra security-signing"
+        )
+        raise SystemExit(1)
+    except (ValueError, OSError) as exc:
+        console.print(f"[red]Could not sign: {exc}[/red]")
+        raise SystemExit(1)
+
+    console.print(f"[green]Signed:[/green] {manifest_path}")
+    # The first 16 characters are enough to tell two signatures apart at a
+    # glance, and the whole thing is in the file anyway.
+    console.print(f"[dim]{signature[:16]}…[/dim]")
