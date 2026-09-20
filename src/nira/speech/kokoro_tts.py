@@ -16,10 +16,13 @@ from __future__ import annotations
 import io
 import threading
 from collections import OrderedDict
-from typing import Any, Dict, List
+from typing import Any, Dict, Iterator, List
 
 from nira.core.registry import TTSRegistry
 from nira.speech.tts import TTSBackend, TTSResult
+
+# Kokoro v1.x always renders at 24 kHz.
+_SAMPLE_RATE = 24000
 
 # Kokoro's voice-prefix → ``lang_code`` mapping. Keep this in sync with
 # ``kokoro.pipeline.LANG_CODES``: Kokoro 0.9.x does not expose a Korean
@@ -209,17 +212,56 @@ class KokoroTTSBackend(TTSBackend):
 
         combined = np.concatenate(samples)
         buf = io.BytesIO()
-        sf.write(buf, combined, 24000, format=output_format.upper())
+        sf.write(buf, combined, _SAMPLE_RATE, format=output_format.upper())
         buf.seek(0)
 
         return TTSResult(
             audio=buf.read(),
             format=output_format,
             voice_id=voice_id,
-            sample_rate=24000,
-            duration_seconds=len(combined) / 24000,
+            sample_rate=_SAMPLE_RATE,
+            duration_seconds=len(combined) / _SAMPLE_RATE,
             metadata={"backend": "kokoro", "lang_code": lang_code},
         )
+
+    def synthesize_stream(
+        self,
+        text: str,
+        *,
+        voice_id: str = _DEFAULT_VOICE_ID,
+        speed: float = 1.0,
+        output_format: str = "wav",
+    ) -> Iterator[TTSResult]:
+        """Yield each segment Kokoro produces instead of concatenating them.
+
+        ``synthesize`` above drives exactly this generator and then joins
+        everything into one buffer, so the incrementality the model already
+        provides was being discarded. Yielding it lets playback start on the
+        first segment of a long utterance rather than after the last.
+
+        The pipeline lock is held for the whole generator: KPipeline is not
+        re-entrant, and releasing between segments would let a second caller
+        interleave into the same pipeline.
+        """
+        import soundfile as sf
+
+        lang_code = self._lang_for_voice(voice_id)
+        with self._pipeline_lock:
+            pipeline = self._ensure_pipeline(lang_code)
+            for _, _, audio in pipeline(text, voice=voice_id, speed=speed):
+                if audio is None or len(audio) == 0:
+                    continue
+                buf = io.BytesIO()
+                sf.write(buf, audio, _SAMPLE_RATE, format=output_format.upper())
+                buf.seek(0)
+                yield TTSResult(
+                    audio=buf.read(),
+                    format=output_format,
+                    voice_id=voice_id,
+                    sample_rate=_SAMPLE_RATE,
+                    duration_seconds=len(audio) / _SAMPLE_RATE,
+                    metadata={"backend": "kokoro", "lang_code": lang_code},
+                )
 
     def available_voices(self) -> List[str]:
         # Curated subset of Kokoro v1.x voices. The full catalog is larger;

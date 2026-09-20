@@ -5,7 +5,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, Iterator, List
 
 
 @dataclass
@@ -40,6 +40,31 @@ class TTSBackend(ABC):
         output_format: str = "mp3",
     ) -> TTSResult:
         """Synthesize text to audio."""
+
+    def synthesize_stream(
+        self,
+        text: str,
+        *,
+        voice_id: str = "",
+        speed: float = 1.0,
+        output_format: str = "mp3",
+    ) -> Iterator[TTSResult]:
+        """Yield audio for *text* in pieces, as they become available.
+
+        Not abstract: the default synthesises the whole utterance and yields
+        one piece, so every existing backend keeps working unchanged. Backends
+        whose engine produces audio incrementally should override this — until
+        one does, nothing in the stack *can* stream, because the only entry
+        point returned a finished blob.
+
+        A caller must treat the pieces as a sequence to play in order; each one
+        carries its own sample rate.
+        """
+        result = self.synthesize(
+            text, voice_id=voice_id, speed=speed, output_format=output_format
+        )
+        if result.audio:
+            yield result
 
     @abstractmethod
     def available_voices(self) -> List[str]:

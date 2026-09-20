@@ -296,9 +296,10 @@ class TestVoiceInput:
 
         backend = MagicMock()
         backend.health.return_value = True
-        backend.synthesize.return_value = SimpleNamespace(
-            audio=b"wav",
-            sample_rate=24000,
+        # speak() drives the streaming entry point so playback can start on the
+        # first segment of a long utterance rather than after the last.
+        backend.synthesize_stream.return_value = iter(
+            [SimpleNamespace(audio=b"wav", sample_rate=24000)]
         )
         factory = MagicMock(return_value=backend)
         session = VoiceSession(NiraConfig())
@@ -309,11 +310,15 @@ class TestVoiceInput:
             patch("nira.speech.voice_io.play_wav") as play,
         ):
             speak("first", MagicMock(), session)
+            backend.synthesize_stream.return_value = iter(
+                [SimpleNamespace(audio=b"wav", sample_rate=24000)]
+            )
             speak("second", MagicMock(), session)
 
+        # Resolved once, reused for the second utterance — the point of caching.
         factory.assert_called_once()
         backend.health.assert_called_once()
-        assert backend.synthesize.call_count == 2
+        assert backend.synthesize_stream.call_count == 2
         assert play.call_count == 2
 
 

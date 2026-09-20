@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any, Iterable, Optional
 
 from rich.markup import escape
+
+from nira.speech.text_prep import (
+    has_speakable_content,
+    strip_markdown_for_speech,
+)
 
 VOICE_EXIT = object()
 _TTS_BACKEND_ORDER = ("kokoro", "openai_tts", "cartesia")
@@ -207,15 +212,35 @@ def speak(text: str, console: Any, session: VoiceSession | None = None) -> None:
         console.print(f"[red]Invalid speech config: {_terminal_safe_text(exc)}[/red]")
         return
 
+    spoken = strip_markdown_for_speech(text)
+    if not has_speakable_content(spoken):
+        # Markdown that reduces to nothing — a bare code fence, a rule. There
+        # is no audio to produce, and handing it to a backend just produces an
+        # error the user cannot act on.
+        return
+
     while (backend := active_session.get_tts_backend()) is not None:
+        played_any = False
         try:
             voice_id, speed = active_session.voice_for_backend(backend, console)
             synth_kwargs: dict[str, Any] = {"output_format": "wav", "speed": speed}
             if voice_id:
                 synth_kwargs["voice_id"] = voice_id
-            result = backend.synthesize(text, **synth_kwargs)
-            if result.audio:
-                play_wav(result.audio, sample_rate=result.sample_rate)
+            # TTSBackend supplies a default synthesize_stream, but the registry
+            # holds whatever was registered — a duck-typed object implementing
+            # only synthesize is legitimate, and an interface addition must not
+            # break it.
+            stream = getattr(backend, "synthesize_stream", None)
+            if callable(stream):
+                pieces = stream(spoken, **synth_kwargs)
+            else:
+                pieces = [backend.synthesize(spoken, **synth_kwargs)]
+
+            for piece in pieces:
+                if not piece.audio:
+                    continue
+                play_wav(piece.audio, sample_rate=piece.sample_rate)
+                played_any = True
             return
         except Exception as exc:
             console.print(
@@ -223,6 +248,11 @@ def speak(text: str, console: Any, session: VoiceSession | None = None) -> None:
                 f"{getattr(backend, 'backend_id', '?')!r} failed: "
                 f"{_terminal_safe_text(exc)}[/dim yellow]"
             )
+            if played_any:
+                # Part of this utterance is already audible. Falling back now
+                # would synthesise the same text on another backend and repeat
+                # what the user just heard, in a different voice.
+                return
             active_session.discard_tts_backend()
 
     console.print(
@@ -232,4 +262,54 @@ def speak(text: str, console: Any, session: VoiceSession | None = None) -> None:
     )
 
 
-__all__ = ["VOICE_EXIT", "VoiceSession", "read_voice_input", "record_voice", "speak"]
+def speak_token_stream(
+    tokens: "Iterable[str]",
+    console: Any,
+    session: VoiceSession | None = None,
+    *,
+    echo: bool = True,
+) -> str:
+    """Speak a reply as it generates, and return the full text.
+
+    This is the whole point of the voice pipeline. Previously a turn ran
+    strictly in series — record, transcribe, generate the *entire* completion,
+    synthesise all of it, then play — so time-to-first-audio was the cost of
+    the whole reply and a long answer meant a long silence.
+
+    Here each sentence is spoken as soon as it is complete. Because playback
+    blocks while the producer thread keeps pulling tokens (see
+    ``speech.pipeline``), generation of the next sentence overlaps with speech
+    of the current one, and the user hears the first words after roughly one
+    sentence rather than after the last token.
+
+    With ``echo`` the text is also printed as it arrives, so the terminal is no
+    longer silent until the reply completes.
+    """
+    from nira.speech.segmentation import SentenceAccumulator
+
+    accumulator = SentenceAccumulator()
+    full: list[str] = []
+
+    for token in tokens:
+        full.append(token)
+        if echo:
+            console.print(_terminal_safe_text(token), end="", markup=False)
+        for sentence in accumulator.push(token):
+            speak(sentence, console, session)
+
+    for sentence in accumulator.flush():
+        speak(sentence, console, session)
+
+    if echo:
+        console.print()
+    return "".join(full)
+
+
+__all__ = [
+    "VOICE_EXIT",
+    "VoiceSession",
+    "read_voice_input",
+    "record_voice",
+    "speak",
+    "speak_token_stream",
+]

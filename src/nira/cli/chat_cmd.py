@@ -13,7 +13,13 @@ from rich.markup import escape
 
 from nira.cli._runtime_panel import runtime_cli_options
 from nira.cli._tool_names import resolve_tool_names
-from nira.cli._voice_chat import VOICE_EXIT, VoiceSession, read_voice_input, speak
+from nira.cli._voice_chat import (
+    VOICE_EXIT,
+    VoiceSession,
+    read_voice_input,
+    speak,
+    speak_token_stream,
+)
 from nira.core.config import load_config
 from nira.core.events import EventBus
 from nira.core.types import Message, Role
@@ -478,6 +484,29 @@ def chat(
                 content = (
                     response.content if hasattr(response, "content") else str(response)
                 )
+                _rendered = False
+            elif voice_mode:
+                # Speak the reply as it generates rather than after it. The
+                # turn used to run strictly in series — generate the entire
+                # completion, synthesise all of it, then play — so silence
+                # lasted as long as the whole answer. Streaming the tokens into
+                # sentence-sized utterances overlaps generation with playback
+                # and gets first audio out after roughly one sentence.
+                from nira.speech.pipeline import iter_engine_tokens
+
+                assert voice_session is not None
+                console.print()
+                content = speak_token_stream(
+                    iter_engine_tokens(
+                        engine,
+                        generation_history,
+                        model=model,
+                        **engine_kwargs,
+                    ),
+                    console,
+                    voice_session,
+                )
+                _rendered = True
             else:
                 result = engine.generate(
                     generation_history,
@@ -489,14 +518,16 @@ def chat(
                     if isinstance(result, dict)
                     else str(result)
                 )
+                _rendered = False
 
             history.append(Message(role=Role.ASSISTANT, content=content))
-            console.print()
-            console.print(Markdown(content))
-            console.print()
-            if voice_mode:
-                assert voice_session is not None
-                speak(content, console, voice_session)
+            if not _rendered:
+                console.print()
+                console.print(Markdown(content))
+                console.print()
+                if voice_mode:
+                    assert voice_session is not None
+                    speak(content, console, voice_session)
 
             publish_completed_exchange(
                 bus,
