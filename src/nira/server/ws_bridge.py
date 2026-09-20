@@ -7,6 +7,7 @@ import logging
 from typing import Any
 
 from nira.core.events import Event, EventBus, EventType
+from nira.server.event_log import EventLog
 
 try:
     from fastapi import APIRouter, WebSocket, WebSocketDisconnect
@@ -36,19 +37,24 @@ _AGENT_EVENTS = {
 }
 
 
-def create_ws_router(event_bus: EventBus) -> Any:
+def create_ws_router(event_bus: EventBus, event_log: EventLog | None = None) -> Any:
     """Create a FastAPI router with a WebSocket endpoint for agent events."""
     router = APIRouter()
     # Each connected client gets a queue + loop ref for thread-safe event delivery
     clients: dict[WebSocket, tuple[asyncio.Queue, asyncio.AbstractEventLoop]] = {}
+    # Recent history, so a client that drops off can ask for what it missed
+    # rather than silently resuming with a hole in its trace.
+    log = event_log if event_log is not None else EventLog()
 
     def _on_event(event: Event) -> None:
         """Forward event to all connected WebSocket client queues (thread-safe)."""
-        payload = {
-            "type": event.event_type.value,
-            "timestamp": event.timestamp,
-            "data": event.data or {},
-        }
+        payload = log.append(
+            {
+                "type": event.event_type.value,
+                "timestamp": event.timestamp,
+                "data": event.data or {},
+            }
+        )
         for ws, (queue, loop) in list(clients.items()):
             agent_filter = getattr(ws, "_agent_filter", None)
             # Tick events carry "agent_id"; tool-call events carry "agent".
@@ -85,6 +91,13 @@ def create_ws_router(event_bus: EventBus) -> Any:
         queue: asyncio.Queue = asyncio.Queue(maxsize=100)
         loop = asyncio.get_running_loop()
         clients[websocket] = (queue, loop)
+
+        # Replay before going live. Registering the client first means events
+        # raised during the replay are queued rather than lost, so the two
+        # cannot race past each other.
+        if not await _replay(websocket, agent_id):
+            clients.pop(websocket, None)
+            return
         recv: asyncio.Task | None = None
         payload: asyncio.Task | None = None
         disconnected = False
@@ -120,6 +133,40 @@ def create_ws_router(event_bus: EventBus) -> Any:
             except asyncio.CancelledError:
                 if not disconnected:
                     raise
+
+    async def _replay(websocket: WebSocket, agent_filter: str | None) -> bool:
+        """Send anything the client missed. False if it disconnected doing so."""
+        raw_cursor = websocket.query_params.get("since")
+        if raw_cursor is None:
+            # A fresh subscriber wants what happens next, not the backlog.
+            return True
+        try:
+            cursor = int(raw_cursor)
+        except ValueError:
+            cursor = 0
+
+        missed, gap = log.since(cursor)
+        try:
+            # Say up front whether the backlog is complete. A client handed a
+            # partial history with no signal would render it as a full one.
+            await websocket.send_json(
+                {
+                    "type": "replay_start",
+                    "count": len(missed),
+                    "gap": gap,
+                    "latest_seq": log.latest_seq,
+                }
+            )
+            for payload in missed:
+                data = payload.get("data") or {}
+                event_agent = data.get("agent_id") or data.get("agent")
+                if agent_filter and event_agent != agent_filter:
+                    continue
+                await websocket.send_json(payload)
+            await websocket.send_json({"type": "replay_end"})
+        except (WebSocketDisconnect, RuntimeError):
+            return False
+        return True
 
     return router
 

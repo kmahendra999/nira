@@ -251,3 +251,113 @@ class TestIncludeAllRoutesBusWiring:
         assert data["type"] == "agent_tick_start"
         assert data["data"]["agent_id"] == "test-123"
         make_system.assert_called_once()
+
+
+class TestReplayOnReconnect:
+    """A phone drops this socket constantly — cell handover, screen lock,
+    walking out of Wi-Fi range. Live-only delivery meant every reconnect
+    silently lost whatever happened in the gap, so progress appeared to stall
+    mid-task with nothing to say it had.
+    """
+
+    def _app(self, event_bus, capacity=None):
+        from nira.server.event_log import EventLog
+        from nira.server.ws_bridge import create_ws_router
+
+        log = EventLog(capacity=capacity) if capacity else EventLog()
+        app = FastAPI()
+        app.include_router(create_ws_router(event_bus, log))
+        return app, log
+
+    def _publish(self, event_bus, tool):
+        event_bus.publish(EventType.TOOL_CALL_START, {"tool": tool, "agent": "a1"})
+
+    def test_a_reconnecting_client_receives_what_it_missed(self, event_bus):
+        app, _ = self._app(event_bus)
+        client = TestClient(app)
+
+        # First session: see one event, note its cursor, then "lose signal".
+        with client.websocket_connect("/v1/agents/events") as ws:
+            self._publish(event_bus, "Read")
+            first = ws.receive_json()
+            cursor = first["seq"]
+
+        # Work continues while the phone is offline.
+        self._publish(event_bus, "Edit")
+        self._publish(event_bus, "Write")
+
+        with client.websocket_connect(f"/v1/agents/events?since={cursor}") as ws:
+            start = ws.receive_json()
+            assert start["type"] == "replay_start"
+            assert start["count"] == 2
+            assert start["gap"] is False
+
+            replayed = [ws.receive_json(), ws.receive_json()]
+            assert [e["data"]["tool"] for e in replayed] == ["Edit", "Write"]
+            assert ws.receive_json()["type"] == "replay_end"
+
+    def test_events_carry_a_cursor(self, event_bus):
+        app, _ = self._app(event_bus)
+
+        with TestClient(app).websocket_connect("/v1/agents/events") as ws:
+            self._publish(event_bus, "Read")
+
+            assert ws.receive_json()["seq"] == 1
+
+    def test_a_fresh_subscriber_gets_no_backlog(self, event_bus):
+        """Without `since`, a client wants what happens next."""
+        app, _ = self._app(event_bus)
+        self._publish(event_bus, "Old")
+        client = TestClient(app)
+
+        with client.websocket_connect("/v1/agents/events") as ws:
+            self._publish(event_bus, "New")
+
+            assert ws.receive_json()["data"]["tool"] == "New"
+
+    def test_an_evicted_cursor_is_flagged_as_a_gap(self, event_bus):
+        """A partial history handed over silently would render as a full one."""
+        app, _ = self._app(event_bus, capacity=2)
+        for tool in ("A", "B", "C", "D"):
+            self._publish(event_bus, tool)
+
+        with TestClient(app).websocket_connect("/v1/agents/events?since=1") as ws:
+            assert ws.receive_json()["gap"] is True
+
+    def test_replay_respects_the_agent_filter(self, event_bus):
+        app, _ = self._app(event_bus)
+        event_bus.publish(EventType.TOOL_CALL_START, {"tool": "Mine", "agent": "a1"})
+        event_bus.publish(EventType.TOOL_CALL_START, {"tool": "Theirs", "agent": "a2"})
+
+        with TestClient(app).websocket_connect(
+            "/v1/agents/events?agent_id=a1&since=0"
+        ) as ws:
+            assert ws.receive_json()["type"] == "replay_start"
+            first = ws.receive_json()
+
+            assert first["data"]["tool"] == "Mine"
+            assert first["type"] != "replay_end"
+
+    def test_a_malformed_cursor_is_treated_as_the_beginning(self, event_bus):
+        """A client must not be disconnected over a bad query param."""
+        app, _ = self._app(event_bus)
+        self._publish(event_bus, "Read")
+
+        with TestClient(app).websocket_connect(
+            "/v1/agents/events?since=not-a-number"
+        ) as ws:
+            assert ws.receive_json()["type"] == "replay_start"
+
+    def test_live_events_still_arrive_after_a_replay(self, event_bus):
+        """Registering before replaying means events raised mid-replay are
+        queued rather than lost, so the two cannot race past each other."""
+        app, _ = self._app(event_bus)
+        self._publish(event_bus, "Before")
+
+        with TestClient(app).websocket_connect("/v1/agents/events?since=0") as ws:
+            assert ws.receive_json()["type"] == "replay_start"
+            assert ws.receive_json()["data"]["tool"] == "Before"
+            assert ws.receive_json()["type"] == "replay_end"
+
+            self._publish(event_bus, "After")
+            assert ws.receive_json()["data"]["tool"] == "After"
