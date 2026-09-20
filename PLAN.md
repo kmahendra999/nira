@@ -796,10 +796,55 @@ Deferred to the client work, where they can actually be exercised end to end:
 - **Wiring `canUseTool` to `ApprovalStore`** so a risky step can be approved from a phone
   (carried from Phase 4 — it needs the phone).
 
+### Phase 6 — UI foundation ✅ (overhaul partially done)
+
+**8,957 passing, 0 failing.** Frontend: 81 tests, clean build from an empty cache.
+
+| Item | Change | Commit |
+|---|---|---|
+| 1, 3, 5 | Deleted 6,401 unreachable lines; removed the second colour system; shipped the typeface | `a4565d0` |
+| 6 | Replay cursor wired into the client; activity bar driven by events | `66af9ae` |
+| — | Pairing prefers https, and explains why http will not install | `deb6f9f` |
+
+A reachability analysis from `main.tsx` found **21 files, 6,401 lines — 27% of `src/`** that
+nothing could reach. Deleted before any visual work, because several shadowed live components by
+name (`Desktop/EnergyDashboard` against `Dashboard/EnergyDashboard`) and restyling the wrong file
+was only a matter of time.
+
+Three things that turned out to be more than cleanup:
+
+- **The duplicated dark palette was load-bearing.** Removing the `prefers-color-scheme` copy would
+  have broken system theming outright, because `system` added no class at all and leaned entirely
+  on that media query. The theme is now resolved in JS for all three modes, with a `matchMedia`
+  listener so `system` still follows the OS live.
+- **A committed `tsconfig.tsbuildinfo` was hiding a type error.** Sharing tsc's incremental state
+  between checkouts silently skips re-checking files; a real error in a test added in Phase 2
+  surfaced only when these deletions invalidated the cache. Untracked and fixed.
+- **`tailscale serve` is a prerequisite for the phone, not a refinement.** Phase 5 recorded it as
+  being about certificate-validating clients. It is not: a plain-http MagicDNS origin is an
+  insecure context, service workers cannot register there, and the PWA therefore cannot install or
+  work offline however reachable the port is. Pairing now prefers the https origin and prints the
+  one command that provides it. I did not enable serve here — it publishes a port to a tailnet
+  shared with another account, which is a deliberate choice to make, not one to switch on quietly.
+
+### Still open in Phase 6
+
+The large refactors, deliberately not rushed:
+
+- **The inline-style pattern** (item 2) — 1,238 `style={{}}` objects, and the `onMouseEnter`
+  handlers they force, which break keyboard focus and touch. This is the prerequisite for any real
+  interaction polish and deserves its own focused pass.
+- **Splitting `AgentsPage.tsx` (4,007 lines) and `DataSourcesPage.tsx` (2,385)** (item 8).
+- **The accessibility pass** (item 9) — focus-visible tokens, ARIA live regions for streaming,
+  real tablist semantics, and the `--color-text-tertiary` contrast fix.
+- **The logo** (item 4) — colour is settled, the arc-reactor mark still needs replacing. One
+  1024×1024 master regenerates all 11 icon files.
+
+Item 10 needed nothing: the rename already corrected all 16 connector setup strings.
+
 ### Next
 
-**Phase 6 — PWA on your phone, then the UI overhaul.** The PWA already builds and is served, so it
-validates the whole transport, auth and progress story over Tailscale before any Kotlin is
-written. Then the frontend work: delete the ~4,700 lines of dead code, migrate the 1,238 inline
-style objects to Tailwind tokens, and replace five polling timers with the WebSocket that now
-supports replay.
+**Phase 7 — the Android client**, or the remaining UI refactors above. The server side is ready
+for a phone: per-device keys, scoped pairing over a QR, replay-on-reconnect, and an https path
+that makes the PWA installable. Installing the PWA over `tailscale serve` is the cheapest way to
+validate the whole transport, auth and progress story before any Kotlin is written.
