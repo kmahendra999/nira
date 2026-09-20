@@ -62,6 +62,12 @@ async function main() {
     options.sessionId = request.session_id;
   }
 
+  // Every text block the assistant emits, in order. Accumulated rather than
+  // overwritten: a turn can carry several text blocks, and an agentic run emits
+  // text across many turns ("Let me check X" ... tool call ... "That shows Y").
+  // Assigning instead of appending kept only the final block, so the fallback
+  // below could silently drop the entire body of a reply.
+  const textParts = [];
   let content = "";
   let messageCount = 0;
   const toolResults = [];
@@ -77,7 +83,9 @@ async function main() {
           : [];
         for (const block of blocks) {
           if (block.type === "text") {
-            content = block.text;
+            if (block.text) {
+              textParts.push(block.text);
+            }
           } else if (block.type === "tool_use") {
             toolUseIndexes.set(block.id, toolResults.length);
             toolResults.push({
@@ -109,12 +117,14 @@ async function main() {
               : message.errors?.join("\n");
           throw new Error(errorMessage || "Claude query failed");
         }
-        content = message.result || content;
+        content = message.result || textParts.join("\n\n");
       }
     }
 
     emitResult({
-      content,
+      // A run can end without a result message (the stream simply finishes);
+      // fall back to everything the assistant actually said.
+      content: content || textParts.join("\n\n"),
       tool_results: toolResults,
       metadata: {
         message_count: messageCount,
