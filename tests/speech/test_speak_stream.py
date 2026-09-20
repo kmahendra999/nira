@@ -107,3 +107,71 @@ class TestEcho:
             speak_token_stream(_tokens("Hi there."), console, MagicMock(), echo=False)
 
         console.print.assert_not_called()
+
+
+class TestWarmUp:
+    """The first spoken turn should not pay the model load.
+
+    Backend resolution is lazy, so without warm-up the first utterance loads
+    Whisper and Kokoro on top of its own latency — several seconds, exactly
+    once, at the worst possible moment.
+    """
+
+    def test_loads_both_backends_off_the_critical_path(self) -> None:
+        from nira.cli._voice_chat import VoiceSession
+
+        stt = MagicMock()
+        session = VoiceSession(MagicMock())
+
+        with (
+            patch.object(VoiceSession, "get_stt_backend", return_value=stt) as get_stt,
+            patch.object(VoiceSession, "get_tts_backend") as get_tts,
+        ):
+            session.warm_up().join(timeout=5)
+
+        get_stt.assert_called_once()
+        get_tts.assert_called_once()
+        # Resolving the backend is not enough; the weights have to be loaded.
+        stt._ensure_model.assert_called_once()
+
+    def test_runs_on_a_background_thread(self) -> None:
+        """It must not block the banner, let alone the first prompt."""
+        import threading
+
+        from nira.cli._voice_chat import VoiceSession
+
+        observed = {}
+
+        def _slow():
+            observed["thread"] = threading.current_thread().name
+            return MagicMock()
+
+        session = VoiceSession(MagicMock())
+        with (
+            patch.object(VoiceSession, "get_stt_backend", side_effect=_slow),
+            patch.object(VoiceSession, "get_tts_backend"),
+        ):
+            thread = session.warm_up()
+            thread.join(timeout=5)
+
+        assert observed["thread"] != threading.main_thread().name
+        assert thread.daemon, "a wedged model load must not keep the CLI alive"
+
+    def test_a_failure_is_swallowed(self) -> None:
+        """A head start, not a health check.
+
+        Both resolvers run again on the real turn, where their errors are
+        reported to the user with something actionable.
+        """
+        from nira.cli._voice_chat import VoiceSession
+
+        session = VoiceSession(MagicMock())
+        with (
+            patch.object(
+                VoiceSession, "get_stt_backend", side_effect=RuntimeError("no mic")
+            ),
+            patch.object(
+                VoiceSession, "get_tts_backend", side_effect=RuntimeError("no kokoro")
+            ),
+        ):
+            session.warm_up().join(timeout=5)  # must not raise

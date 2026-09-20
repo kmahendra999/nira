@@ -23,6 +23,41 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
+# Decode settings tuned for conversation rather than transcription accuracy.
+#
+# transcribe() previously forwarded only `language`, inheriting faster-whisper's
+# defaults: beam_size=5, best_of=5, a six-step temperature fallback ladder, and
+# condition_on_previous_text=True. Those are the right defaults for batch
+# transcribing a recording, and the wrong ones for a turn in a conversation,
+# where the user is waiting and the utterance is a few seconds long.
+#
+#   beam_size=1      greedy. Beam search buys accuracy on hard audio and costs
+#                    a multiple of the decode; a short, close-mic utterance is
+#                    not hard audio.
+#   temperature=0.0  a single pass. The default ladder silently re-decodes up
+#                    to six times when a heuristic says the output looks wrong,
+#                    which is exactly the tail latency a conversation cannot
+#                    absorb.
+#   condition_on_previous_text=False
+#                    each utterance is independent here, and conditioning is
+#                    the mechanism behind Whisper's well-known repetition
+#                    loops, where one bad transcript poisons the rest.
+#   vad_filter=True  faster-whisper ships Silero and it was switched off.
+#                    Trimming non-speech before the decode removes work and
+#                    suppresses the hallucinated stock phrases Whisper emits
+#                    when handed silence.
+#   without_timestamps=True
+#                    segment timings are not used by any caller here.
+_CONVERSATIONAL_DECODE: dict = {
+    "beam_size": 1,
+    "best_of": 1,
+    "temperature": 0.0,
+    "condition_on_previous_text": False,
+    "vad_filter": True,
+    "without_timestamps": True,
+}
+
+
 @SpeechRegistry.register("faster-whisper")
 class FasterWhisperBackend(SpeechBackend):
     """Local speech-to-text using Faster-Whisper (CTranslate2)."""
@@ -95,6 +130,36 @@ class FasterWhisperBackend(SpeechBackend):
         self._last_error = None
         return self._model
 
+    @staticmethod
+    def _decode_pcm(audio: bytes):
+        """Return float32 samples for WAV bytes, or None if unparseable.
+
+        faster-whisper accepts a numpy array directly, so a WAV produced by our
+        own recorder never needs to touch the disk. It used to be written to a
+        temp file and reopened through PyAV on every single utterance — a
+        write, an fsync-less flush, a reopen and a container parse, all to hand
+        back samples we already had in memory.
+        """
+        import io
+        import wave
+
+        try:
+            with wave.open(io.BytesIO(audio), "rb") as wf:
+                if wf.getsampwidth() != 2:
+                    return None
+                channels = wf.getnchannels()
+                frames = wf.readframes(wf.getnframes())
+        except (wave.Error, EOFError, OSError):
+            return None
+
+        import numpy as np
+
+        samples = np.frombuffer(frames, dtype="<i2").astype("float32") / 32768.0
+        if channels > 1:
+            # Whisper wants mono; average the channels rather than dropping one.
+            samples = samples.reshape(-1, channels).mean(axis=1)
+        return np.ascontiguousarray(samples)
+
     def transcribe(
         self,
         audio: bytes,
@@ -106,31 +171,37 @@ class FasterWhisperBackend(SpeechBackend):
         try:
             model = self._ensure_model()
 
-            # Write audio to a temp file (faster-whisper needs a file path).
-            # delete=False + manual unlink: on Windows an open
-            # NamedTemporaryFile holds an exclusive handle, so PyAV's reopen
-            # of tmp.name inside model.transcribe() fails with EACCES.
-            suffix = f".{format}" if not format.startswith(".") else format
-            tmp = tempfile.NamedTemporaryFile(suffix=suffix, delete=False)
-            try:
-                with tmp:
-                    tmp.write(audio)
+            kwargs = dict(_CONVERSATIONAL_DECODE)
+            if language:
+                kwargs["language"] = language
 
-                kwargs = {}
-                if language:
-                    kwargs["language"] = language
-
-                segments_iter, info = model.transcribe(tmp.name, **kwargs)
+            source = self._decode_pcm(audio) if format in ("wav", ".wav") else None
+            if source is not None:
+                segments_iter, info = model.transcribe(source, **kwargs)
                 segments_list = list(segments_iter)
-            finally:
+            else:
+                # A container we cannot parse ourselves (mp3, m4a, …): hand it
+                # to PyAV through a file, as before.
+                #
+                # delete=False + manual unlink: on Windows an open
+                # NamedTemporaryFile holds an exclusive handle, so PyAV's
+                # reopen of tmp.name inside model.transcribe() fails EACCES.
+                suffix = f".{format}" if not format.startswith(".") else format
+                tmp = tempfile.NamedTemporaryFile(suffix=suffix, delete=False)
                 try:
-                    os.unlink(tmp.name)
-                except OSError as unlink_exc:
-                    logger.debug(
-                        "Could not remove temp audio file %s: %s",
-                        tmp.name,
-                        unlink_exc,
-                    )
+                    with tmp:
+                        tmp.write(audio)
+                    segments_iter, info = model.transcribe(tmp.name, **kwargs)
+                    segments_list = list(segments_iter)
+                finally:
+                    try:
+                        os.unlink(tmp.name)
+                    except OSError as unlink_exc:
+                        logger.debug(
+                            "Could not remove temp audio file %s: %s",
+                            tmp.name,
+                            unlink_exc,
+                        )
         except Exception as exc:
             self._last_error = str(exc)
             raise

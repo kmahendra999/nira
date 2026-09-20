@@ -296,6 +296,10 @@ def chat(
     # Keep voice state outside the core chat path so picker/runtime changes can
     # be layered independently. Loaded speech models live for this session.
     voice_session = VoiceSession(config) if voice_mode else None
+    if voice_session is not None:
+        # Load the speech models while the banner prints, so the first spoken
+        # turn is not the one that pays for them.
+        voice_session.warm_up()
 
     # Print banner
     voice_hint = (

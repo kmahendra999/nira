@@ -183,3 +183,123 @@ def test_faster_whisper_supported_formats():
         assert "wav" in formats
         assert "mp3" in formats
         assert "webm" in formats
+
+
+def _wav_bytes(samples: list[int], *, rate: int = 16000, channels: int = 1) -> bytes:
+    import io
+    import struct
+    import wave
+
+    buf = io.BytesIO()
+    with wave.open(buf, "wb") as wf:
+        wf.setnchannels(channels)
+        wf.setsampwidth(2)
+        wf.setframerate(rate)
+        wf.writeframes(struct.pack(f"<{len(samples)}h", *samples))
+    return buf.getvalue()
+
+
+def _transcribing_backend():
+    model = MagicMock()
+    segment = MagicMock()
+    segment.text = " hi"
+    segment.start = 0.0
+    segment.end = 1.0
+    model.transcribe.return_value = ([segment], MagicMock(language="en"))
+    backend = FasterWhisperBackend()
+    backend._model = model
+    return backend, model
+
+
+class TestInMemoryDecoding:
+    """A WAV from our own recorder should never touch the disk.
+
+    Every utterance used to be written to a temp file and reopened through
+    PyAV — a write, a reopen and a container parse, to recover samples that
+    were already in memory.
+    """
+
+    def test_wav_is_passed_as_samples_not_a_path(self) -> None:
+        backend, model = _transcribing_backend()
+
+        backend.transcribe(_wav_bytes([100, -100] * 800), format="wav")
+
+        source = model.transcribe.call_args.args[0]
+        assert not isinstance(source, str), "audio was written to a file"
+        assert hasattr(source, "dtype"), "expected a numpy array of samples"
+
+    def test_no_temp_file_is_created_for_wav(self, tmp_path, monkeypatch) -> None:
+        backend, _ = _transcribing_backend()
+        monkeypatch.setattr("tempfile.tempdir", str(tmp_path))
+
+        backend.transcribe(_wav_bytes([1, 2, 3, 4]), format="wav")
+
+        assert list(tmp_path.iterdir()) == []
+
+    def test_samples_are_normalised_to_float(self) -> None:
+        samples = FasterWhisperBackend._decode_pcm(_wav_bytes([32767, -32768]))
+
+        assert samples is not None
+        assert samples.dtype.kind == "f"
+        assert -1.001 <= float(samples.min()) <= 1.001
+        assert -1.001 <= float(samples.max()) <= 1.001
+
+    def test_stereo_is_mixed_down_to_mono(self) -> None:
+        """Whisper wants mono; averaging beats dropping a channel."""
+        stereo = _wav_bytes([1000, 3000] * 4, channels=2)
+
+        samples = FasterWhisperBackend._decode_pcm(stereo)
+
+        assert samples is not None
+        assert len(samples) == 4
+
+    def test_unparseable_bytes_fall_back_to_the_file_path(self) -> None:
+        assert FasterWhisperBackend._decode_pcm(b"not a wav at all") is None
+
+    def test_non_wav_format_still_uses_a_file(self) -> None:
+        """mp3/m4a need PyAV, which wants a path."""
+        backend, model = _transcribing_backend()
+
+        backend.transcribe(b"\xff\xfb fake mp3", format="mp3")
+
+        assert isinstance(model.transcribe.call_args.args[0], str)
+
+
+class TestConversationalDecodeOptions:
+    """transcribe() forwarded only `language`, inheriting batch defaults.
+
+    beam_size=5 with a six-step temperature fallback is right for
+    transcribing a recording and wrong for a turn someone is waiting on.
+    """
+
+    def _options(self) -> dict:
+        backend, model = _transcribing_backend()
+        backend.transcribe(_wav_bytes([1, 2, 3, 4]), format="wav")
+        return model.transcribe.call_args.kwargs
+
+    def test_greedy_decoding(self) -> None:
+        options = self._options()
+        assert options["beam_size"] == 1
+        assert options["best_of"] == 1
+
+    def test_no_temperature_fallback_ladder(self) -> None:
+        """The ladder silently re-decodes up to six times — pure tail latency."""
+        assert self._options()["temperature"] == 0.0
+
+    def test_utterances_are_decoded_independently(self) -> None:
+        """Conditioning is the mechanism behind Whisper's repetition loops."""
+        assert self._options()["condition_on_previous_text"] is False
+
+    def test_bundled_vad_is_enabled(self) -> None:
+        """faster-whisper ships Silero and it was switched off."""
+        assert self._options()["vad_filter"] is True
+
+    def test_language_is_still_forwarded(self) -> None:
+        backend, model = _transcribing_backend()
+
+        backend.transcribe(_wav_bytes([1, 2]), format="wav", language="de")
+
+        assert model.transcribe.call_args.kwargs["language"] == "de"
+
+    def test_no_language_means_auto_detect(self) -> None:
+        assert "language" not in self._options()

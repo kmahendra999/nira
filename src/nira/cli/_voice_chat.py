@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+import threading
 from typing import Any, Iterable, Optional
 
 from rich.markup import escape
@@ -10,6 +12,8 @@ from nira.speech.text_prep import (
     has_speakable_content,
     strip_markdown_for_speech,
 )
+
+logger = logging.getLogger(__name__)
 
 VOICE_EXIT = object()
 _TTS_BACKEND_ORDER = ("kokoro", "openai_tts", "cartesia")
@@ -135,6 +139,37 @@ class VoiceSession:
                 f"({substitute or 'backend default'}).[/dim yellow]"
             )
         return substitute, speed
+
+    def warm_up(self) -> threading.Thread:
+        """Resolve and load both backends in the background.
+
+        Everything here is lazy, so without this the *first* spoken turn pays
+        the full Whisper and Kokoro model load on top of its own latency —
+        several seconds, exactly once, at the worst possible moment. The user
+        has already told us they want voice by passing --voice, so the load can
+        start while they are still reading the banner.
+
+        Failures are swallowed: this is a head start, not a health check. Both
+        resolvers are called again on the real turn, where their errors are
+        reported to the user with something actionable.
+        """
+
+        def _load() -> None:
+            try:
+                backend = self.get_stt_backend()
+                ensure = getattr(backend, "_ensure_model", None)
+                if callable(ensure):
+                    ensure()
+            except Exception:
+                logger.debug("STT warm-up failed", exc_info=True)
+            try:
+                self.get_tts_backend()
+            except Exception:
+                logger.debug("TTS warm-up failed", exc_info=True)
+
+        thread = threading.Thread(target=_load, name="nira-voice-warmup", daemon=True)
+        thread.start()
+        return thread
 
     def discard_tts_backend(self) -> None:
         """Forget a backend that failed synthesis and allow the next fallback."""
