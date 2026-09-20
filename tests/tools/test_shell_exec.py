@@ -185,6 +185,7 @@ class TestShellExecTool:
         assert result.success is False
         assert result.metadata["returncode"] == 7
 
+
 class TestSanitizedEnvWindowsKeys:
     """Regression for #789: the Python fallback's env allowlist was
     POSIX-focused ("PATH", "HOME", "USER", "LANG", "TERM") and omitted

@@ -50,8 +50,17 @@ def start(install: bool) -> None:
                 check=False,
             )
     else:
-        click.echo("Starting Nira gateway (foreground)...")
-        click.echo("Gateway started. Press Ctrl+C to stop.")
+        from nira.daemon.gateway import GatewayDaemon
+
+        click.echo("Starting Nira gateway (foreground)... Press Ctrl+C to stop.")
+        daemon = GatewayDaemon()
+        try:
+            # Blocks. This used to print "Gateway started" and return
+            # immediately without starting anything.
+            daemon.run_forever()
+        except KeyboardInterrupt:
+            daemon.stop()
+            click.echo("\nGateway stopped.")
 
 
 @gateway.command()

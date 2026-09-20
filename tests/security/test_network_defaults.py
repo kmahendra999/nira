@@ -238,5 +238,5 @@ class TestDocumentedBindDefaultMatchesCode:
                     # Describing a container command that passes 0.0.0.0 is
                     # fine; asserting it is the *config* default is not.
                     assert "config default is" in lowered or "image" in lowered, (
-                        f"{rel} appears to document 0.0.0.0 as a default: {line.strip()!r}"
+                        f"{rel} documents 0.0.0.0 as a default: {line.strip()!r}"
                     )
