@@ -55,9 +55,26 @@ export default function App() {
   // Apply theme class to <html>
   useEffect(() => {
     const root = document.documentElement;
-    root.classList.remove('dark', 'light');
-    if (settings.theme === 'dark') root.classList.add('dark');
-    else if (settings.theme === 'light') root.classList.add('light');
+    const media =
+      typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+        ? window.matchMedia('(prefers-color-scheme: dark)')
+        : null;
+
+    const apply = () => {
+      const dark =
+        settings.theme === 'dark' ||
+        (settings.theme === 'system' && !!media?.matches);
+      root.classList.toggle('dark', dark);
+      root.classList.toggle('light', !dark);
+    };
+    apply();
+
+    // On `system`, follow the OS while the app is open. The CSS media query
+    // this replaces did that for free; resolving the theme in one place costs
+    // us an explicit listener.
+    if (settings.theme !== 'system' || !media) return;
+    media.addEventListener('change', apply);
+    return () => media.removeEventListener('change', apply);
   }, [settings.theme]);
 
   // Sync overlay conversations into the main app

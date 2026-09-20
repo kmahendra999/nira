@@ -5,21 +5,44 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import App from './App';
 import { initApiBase } from './lib/api';
 import { initAnalytics } from './lib/analytics';
+// Geist has been a dependency with no importer, so the app rendered in
+// whatever the platform's default sans happened to be. Self-hosted rather
+// than fetched from a CDN: a local-first assistant should not need the
+// network to draw its own text.
+import '@fontsource-variable/geist';
+
 import './index.css';
 
+export function prefersDark(): boolean {
+  return (
+    typeof window !== 'undefined' &&
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(prefers-color-scheme: dark)').matches
+  );
+}
+
+/**
+ * Put the resolved theme on <html> as a class.
+ *
+ * `system` used to add no class at all and lean on a
+ * `prefers-color-scheme` block in CSS, which meant the whole dark palette
+ * existed twice — once under `.dark`, once in the media query — and any
+ * recolour had to be made in both or system-theme users silently kept the
+ * old one. Resolving the preference here leaves CSS with a single source of
+ * truth for what dark looks like.
+ */
 function applyTheme() {
+  const root = document.documentElement;
+  let theme = 'system';
   try {
     const raw = localStorage.getItem('nira-settings');
-    const settings = raw ? JSON.parse(raw) : {};
-    const theme = settings.theme || 'system';
-    if (theme === 'dark') {
-      document.documentElement.classList.add('dark');
-      document.documentElement.classList.remove('light');
-    } else if (theme === 'light') {
-      document.documentElement.classList.add('light');
-      document.documentElement.classList.remove('dark');
-    }
-  } catch { /* use system default */ }
+    theme = (raw ? JSON.parse(raw) : {}).theme || 'system';
+  } catch {
+    /* unreadable settings: fall back to the system preference */
+  }
+  const dark = theme === 'dark' || (theme === 'system' && prefersDark());
+  root.classList.toggle('dark', dark);
+  root.classList.toggle('light', !dark);
 }
 
 applyTheme();

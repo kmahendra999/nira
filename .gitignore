@@ -131,3 +131,8 @@ learning.db
 minion_logs/
 *.oj-debug.json
 oj-debug.*.json
+
+# tsc incremental state. Committing it shares stale build info between
+# checkouts, which silently skips re-checking files and hides type errors
+# until something unrelated invalidates the cache.
+frontend/tsconfig.tsbuildinfo

@@ -1,15 +1,14 @@
-import { createRequire } from 'module';
-
 import { describe, expect, it } from 'vitest';
+
+// Read through Vite's JSON import rather than node's createRequire: this is a
+// browser-targeted tsconfig with no node types, so createRequire type-checks
+// only by accident of a stale incremental build.
+import pkg from '../../package.json';
 
 // analytics.ts hardcoded APP_VERSION = '0.1.0' behind a TODO while the app
 // shipped as 1.0.x, so every telemetry event was tagged with a version that
 // had not existed for a long time and version-filtered analytics were
 // meaningless. It now comes from package.json via Vite's define().
-
-const pkg = createRequire(import.meta.url)('../../package.json') as {
-  version: string;
-};
 
 describe('__APP_VERSION__', () => {
   it('is injected by the build', () => {

@@ -1,6 +1,5 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-@import "shadcn/tailwind.css";
 @custom-variant dark (&:is(.dark *));
 
 /*
@@ -62,12 +61,23 @@
     --sidebar-width: 260px;
     --chat-max-width: 720px;
 
-    --font-display: 'Chakra Petch', 'Space Grotesk', system-ui, sans-serif;
-    --font-hud: 'IBM Plex Mono', 'SF Mono', 'JetBrains Mono', ui-monospace, monospace;
+    /* Loaded in main.tsx. The system stack stays as the fallback for the
+     * first paint and for anywhere the webfont fails to load. */
+    --font-sans: 'Geist Variable', system-ui, -apple-system,
+      BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --font-mono: 'SF Mono', 'JetBrains Mono', 'Fira Code', ui-monospace,
+      monospace;
 
     color-scheme: light;
   }
 
+  /* Dark palette — one copy, two selectors.
+   *
+   * This lived in `.dark` and again, byte for byte, inside a
+   * prefers-color-scheme block. Two copies of ~45 custom properties meant a
+   * recolour had to be made twice or the system-theme path silently kept the
+   * old brand; the orange rebrand had to touch both. `:root:not(.light)`
+   * keeps the explicit-light override working. */
   .dark {
     --color-bg: #0a0a0b;
     --color-bg-secondary: #121214;
@@ -115,55 +125,6 @@
     color-scheme: dark;
   }
 
-  @media (prefers-color-scheme: dark) {
-    :root:not(.light) {
-      --color-bg: #0a0a0b;
-      --color-bg-secondary: #121214;
-      --color-bg-tertiary: #18181b;
-      --color-surface: #121214;
-      --color-sidebar: rgba(12, 12, 14, 0.72);
-      --color-border: rgba(255, 255, 255, 0.09);
-      --color-border-subtle: rgba(255, 255, 255, 0.05);
-
-      --color-text: #ededef;
-      --color-text-secondary: #8d8d93;
-      --color-text-tertiary: #5c5c63;
-      --color-text-inverse: #0a0a0b;
-
-      --color-accent: #fb923c;
-      --color-accent-hover: #fdba74;
-      --color-accent-subtle: rgba(251, 146, 60, 0.1);
-      --color-accent-glow: rgba(251, 146, 60, 0.3);
-
-      --color-accent-amber: #facc15;
-      --color-accent-amber-hover: #fde047;
-      --color-accent-amber-subtle: rgba(250, 204, 21, 0.12);
-      --color-accent-purple: #b794ff;
-      --color-accent-purple-hover: #c9b0ff;
-      --color-accent-purple-subtle: rgba(183, 148, 255, 0.12);
-      --color-accent-blue-subtle: rgba(251, 146, 60, 0.12);
-
-      --color-success: #3ddc97;
-      --color-warning: #facc15;
-      --color-error: #f87171;
-
-      --color-code-bg: #0c121a;
-      --color-input-bg: #0c121a;
-      --color-input-border: rgba(251, 146, 60, 0.12);
-
-      --color-user-bubble: rgba(251, 146, 60, 0.14);
-      --color-user-bubble-text: #ffedd5;
-      --color-on-accent: #070b11;
-      --color-disabled-bg: #121a24;
-
-      --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.4);
-      --shadow-md: 0 4px 14px -2px rgb(0 0 0 / 0.5), 0 0 0 1px rgba(251, 146, 60, 0.04);
-      --shadow-lg: 0 18px 40px -12px rgb(0 0 0 / 0.7), 0 0 0 1px rgba(251, 146, 60, 0.06);
-
-      color-scheme: dark;
-    }
-  }
-
   * {
     margin: 0;
     padding: 0;
@@ -177,7 +138,7 @@
   }
 
   body {
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-family: var(--font-sans);
     font-weight: 400;
     line-height: 1.5;
     letter-spacing: -0.01em;
@@ -298,7 +259,7 @@
     padding: 0.15em 0.35em;
     border-radius: var(--radius-sm);
     font-size: 0.85em;
-    font-family: "SF Mono", "JetBrains Mono", "Fira Code", "Cascadia Code", monospace;
+    font-family: var(--font-mono);
   }
 
   .prose pre {
@@ -315,7 +276,7 @@
   }
 
   .prose pre code {
-    font-family: "SF Mono", "JetBrains Mono", "Fira Code", "Cascadia Code", monospace;
+    font-family: var(--font-mono);
   }
 
   .prose ul, .prose ol {
@@ -605,109 +566,13 @@
     }
   }
 }
-:root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.809 0.105 251.813);
-  --chart-2: oklch(0.623 0.214 259.815);
-  --chart-3: oklch(0.546 0.245 262.881);
-  --chart-4: oklch(0.488 0.243 264.376);
-  --chart-5: oklch(0.424 0.199 265.638);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
-}
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.809 0.105 251.813);
-  --chart-2: oklch(0.623 0.214 259.815);
-  --chart-3: oklch(0.546 0.245 262.881);
-  --chart-4: oklch(0.488 0.243 264.376);
-  --chart-5: oklch(0.424 0.199 265.638);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
-}
-@theme inline {
-  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  /* shadcn component tokens — namespaced to avoid collision with Nira design tokens */
-  --color-cn-sidebar-ring: var(--sidebar-ring);
-  --color-cn-sidebar-border: var(--sidebar-border);
-  --color-cn-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-cn-sidebar-accent: var(--sidebar-accent);
-  --color-cn-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-cn-sidebar-primary: var(--sidebar-primary);
-  --color-cn-sidebar-foreground: var(--sidebar-foreground);
-  --color-cn-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
-  --color-ring: var(--ring);
-  --color-cn-input: var(--input);
-  --color-cn-border: var(--border);
-  --color-destructive: var(--destructive);
-  --color-cn-accent-foreground: var(--accent-foreground);
-  --color-cn-accent: var(--accent);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-muted: var(--muted);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-secondary: var(--secondary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-primary: var(--primary);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-popover: var(--popover);
-  --color-card-foreground: var(--card-foreground);
-  --color-card: var(--card);
-  --color-foreground: var(--foreground);
-  --color-background: var(--background);
-  /* Keep project radius tokens — don't override with shadcn calc values */
-}
+/* The shadcn starter palette (--background/--primary/--chart-*) used to live
+ * here, namespaced to --color-cn-* so it would not collide with Nira's own
+ * tokens. Two colour systems that disagreed: the shadcn one was achromatic
+ * with blue charts, nothing read it, and a rebrand that edited the wrong set
+ * changed nothing visible. Removed along with the primitives that referenced
+ * it. Nira's tokens are at the top of this file. */
+
 
 /* Deep Research timeline — pending-step shimmer */
 @keyframes nira-research-shimmer {
