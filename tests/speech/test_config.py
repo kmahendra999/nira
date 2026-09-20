@@ -5,6 +5,18 @@ from types import SimpleNamespace
 from nira.core.config import NiraConfig, SpeechConfig
 
 
+def _recorded(audio: bytes = b"RIFFfake", *, had_speech: bool = True):
+    """A Recording as record_until_silence now returns.
+
+    It used to return bare WAV bytes. Reporting whether the gate ever opened
+    lets the caller skip transcription on silence, which otherwise costs a
+    full Whisper decode and reliably hallucinates a stock phrase.
+    """
+    from nira.speech.voice_io import Recording
+
+    return Recording(audio=audio, had_speech=had_speech, duration_seconds=1.0)
+
+
 def test_speech_config_defaults():
     cfg = SpeechConfig()
     assert cfg.backend == "auto"
@@ -96,7 +108,7 @@ class TestConfiguredLanguageReachesTheBackend:
         session._stt_resolved = True
 
         with patch(
-            "nira.speech.voice_io.record_until_silence", return_value=b"RIFFfake"
+            "nira.speech.voice_io.record_until_silence", return_value=_recorded()
         ):
             record_voice(MagicMock(), session=session)
 
@@ -114,7 +126,7 @@ class TestConfiguredLanguageReachesTheBackend:
         session._stt_resolved = True
 
         with patch(
-            "nira.speech.voice_io.record_until_silence", return_value=b"RIFFfake"
+            "nira.speech.voice_io.record_until_silence", return_value=_recorded()
         ):
             record_voice(MagicMock(), session=session)
 

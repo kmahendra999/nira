@@ -28,6 +28,19 @@ from nira.memory.store import LocalFactStore
 from nira.tools._stubs import BaseTool, ToolSpec
 
 
+def _recorded(audio: bytes = b"RIFFfake", *, had_speech: bool = True):
+    """A Recording as record_until_silence now returns.
+
+    It used to return bare WAV bytes. Reporting whether the gate ever opened
+    lets the caller skip transcription on silence, which otherwise costs a
+    full Whisper decode and reliably hallucinates a stock phrase out of room
+    tone.
+    """
+    from nira.speech.voice_io import Recording
+
+    return Recording(audio=audio, had_speech=had_speech, duration_seconds=1.0)
+
+
 class _SimpleChatAgent(BaseAgent):
     agent_id = "simple_chat_agent"
 
@@ -194,7 +207,7 @@ class TestVoiceInput:
             ) as discover,
             patch(
                 "nira.speech.voice_io.record_until_silence",
-                return_value=b"wav",
+                return_value=_recorded(b"wav"),
             ),
         ):
             assert record_voice(console, session) == "first message"
@@ -219,7 +232,7 @@ class TestVoiceInput:
             ),
             patch(
                 "nira.speech.voice_io.record_until_silence",
-                return_value=b"wav",
+                return_value=_recorded(b"wav"),
             ),
         ):
             result = record_voice(console, session)

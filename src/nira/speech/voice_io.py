@@ -1,83 +1,182 @@
-"""Microphone recording with silence detection and audio playback helpers."""
+"""Microphone capture with voice activity detection, and audio playback.
+
+Capture used to end an utterance after 1.5 s of silence measured against a
+fixed absolute RMS threshold of 500. Both numbers were problems.
+
+The 1.5 s was pure latency on every single turn, paid before any model ran, so
+a conversational response budget was gone before transcription started. The
+fixed threshold assumed one room: in a noisy one the gate never closes and you
+record the full ceiling, while a quiet or low-gain microphone never opens it and
+you wait out the startup timeout. A threshold has to be relative to the room's
+own noise floor, which is what this measures.
+
+Playback was ``sd.play(); sd.wait()`` — a blocking wait with no way to stop it.
+A long answer could not be cut short, and Ctrl-C did not reach it.
+"""
 
 from __future__ import annotations
 
 import io
+import logging
+import threading
 import wave
+from dataclasses import dataclass
+
+logger = logging.getLogger(__name__)
 
 _SAMPLE_RATE = 16000
 _CHANNELS = 1
-_CHUNK = 1024
-_SILENCE_THRESHOLD = 500  # RMS below this → silence
-_SILENCE_SECONDS = 1.5  # seconds of silence before auto-stop
+
+# 32 ms per chunk. The trailing-silence window is now short enough that 64 ms
+# quantisation was a meaningful share of it.
+_CHUNK = 512
+
+_SILENCE_SECONDS = 0.4  # trailing silence that ends an utterance
 _STARTUP_SILENCE_SECONDS = 5.0  # give up early if speech never begins
 _MAX_RECORD_SECONDS = 30  # safety ceiling
 
+# Ambient level is sampled for this long before the gate is armed.
+_CALIBRATION_SECONDS = 0.25
+
+# Speech must exceed the measured noise floor by this factor to open the gate.
+_NOISE_MULTIPLIER = 3.0
+
+# ...but never below this, so a silent room (floor near zero) does not arm a
+# gate that any faint hum would trip.
+_MIN_SPEECH_RMS = 120.0
+
+# ...and never above this, so calibrating while the user is already talking
+# cannot raise the bar past ordinary speech.
+_MAX_SPEECH_RMS = 2000.0
+
+# Closing threshold, as a fraction of the opening one. Hysteresis: without a
+# gap the gate chatters on every syllable boundary and clips the utterance.
+_RELEASE_RATIO = 0.6
+
+
+@dataclass
+class Recording:
+    """Captured audio plus what the gate observed while capturing it."""
+
+    audio: bytes
+    """WAV bytes, 16-bit mono."""
+
+    had_speech: bool
+    """False when the gate never opened.
+
+    The caller should skip transcription entirely in that case. Sending
+    silence to Whisper costs a full decode and reliably hallucinates stock
+    phrases ("Thank you.", "Thanks for watching!") out of nothing.
+    """
+
+    duration_seconds: float
+    noise_floor: float = 0.0
+    threshold: float = 0.0
+
 
 def _rms(data: bytes) -> float:
-    """Compute RMS amplitude of 16-bit PCM bytes."""
-    import struct
+    """RMS amplitude of 16-bit PCM bytes."""
+    import numpy as np
 
-    n = len(data) // 2
-    if n == 0:
+    if not data:
         return 0.0
-    shorts = struct.unpack(f"{n}h", data[: n * 2])
-    return (sum(s * s for s in shorts) / n) ** 0.5
+    samples = np.frombuffer(data, dtype="<i2")
+    if samples.size == 0:
+        return 0.0
+    # float64 accumulate: squaring int16 overflows, and the mean of a large
+    # chunk in float32 loses enough precision to wobble a threshold decision.
+    return float(np.sqrt(np.mean(samples.astype("float64") ** 2)))
 
 
 def record_until_silence(
     *,
     sample_rate: int = _SAMPLE_RATE,
-    silence_threshold: int = _SILENCE_THRESHOLD,
+    silence_threshold: float | None = None,
     silence_seconds: float = _SILENCE_SECONDS,
     startup_silence_seconds: float = _STARTUP_SILENCE_SECONDS,
     max_seconds: float = _MAX_RECORD_SECONDS,
-) -> bytes:
-    """Record from the default microphone until silence is detected.
+    calibration_seconds: float = _CALIBRATION_SECONDS,
+    chunk: int = _CHUNK,
+) -> Recording:
+    """Record until the speaker stops, and report whether they ever started.
 
-    Returns raw WAV bytes (16-bit mono).
-    Raises RuntimeError if sounddevice is not installed.
+    ``silence_threshold`` overrides the measured noise floor; leave it unset to
+    calibrate against the room, which is almost always what you want.
     """
     try:
         import sounddevice as sd
     except ImportError:
         raise RuntimeError(
             "sounddevice is required for voice input. "
-            "Install with: pip install sounddevice"
+            "Install with: pip install 'Nira[voice]'"
         )
 
-    chunks_per_second = sample_rate / _CHUNK
-    silence_chunks = int(silence_seconds * chunks_per_second)
-    startup_silence_chunks = max(1, int(startup_silence_seconds * chunks_per_second))
-    max_chunks = int(max_seconds * chunks_per_second)
+    chunks_per_second = sample_rate / chunk
+    silence_chunks = max(1, round(silence_seconds * chunks_per_second))
+    startup_chunks = max(1, round(startup_silence_seconds * chunks_per_second))
+    max_chunks = max(1, round(max_seconds * chunks_per_second))
+    calibration_chunks = (
+        0
+        if silence_threshold is not None
+        else max(1, round(calibration_seconds * chunks_per_second))
+    )
 
     frames: list[bytes] = []
+    ambient: list[float] = []
     silence_count = 0
     has_speech = False
+    noise_floor = 0.0
+    open_at = float(silence_threshold) if silence_threshold is not None else 0.0
+    close_at = open_at * _RELEASE_RATIO
 
     with sd.RawInputStream(
         samplerate=sample_rate,
         channels=_CHANNELS,
         dtype="int16",
-        blocksize=_CHUNK,
+        blocksize=chunk,
     ) as stream:
-        for _ in range(max_chunks):
-            raw, _ = stream.read(_CHUNK)
+        for index in range(max_chunks):
+            raw, _ = stream.read(chunk)
             data = bytes(raw)
             frames.append(data)
-
             amplitude = _rms(data)
-            if amplitude > silence_threshold:
-                has_speech = True
+
+            if index < calibration_chunks:
+                ambient.append(amplitude)
+                if index == calibration_chunks - 1:
+                    # The quietest calibration chunk, not the mean: if the user
+                    # started talking during calibration the mean is dominated
+                    # by their voice, and the gate would be set above it.
+                    noise_floor = min(ambient) if ambient else 0.0
+                    open_at = min(
+                        max(noise_floor * _NOISE_MULTIPLIER, _MIN_SPEECH_RMS),
+                        _MAX_SPEECH_RMS,
+                    )
+                    close_at = open_at * _RELEASE_RATIO
+                continue
+
+            if not has_speech:
+                if amplitude > open_at:
+                    has_speech = True
+                    silence_count = 0
+                elif index + 1 >= startup_chunks:
+                    break
+                continue
+
+            if amplitude > close_at:
                 silence_count = 0
-            elif not has_speech and len(frames) >= startup_silence_chunks:
-                break
-            elif has_speech:
+            else:
                 silence_count += 1
                 if silence_count >= silence_chunks:
                     break
 
-    return _frames_to_wav(frames, sample_rate)
+    return Recording(
+        audio=_frames_to_wav(frames, sample_rate),
+        had_speech=has_speech,
+        duration_seconds=len(frames) * chunk / sample_rate if sample_rate else 0.0,
+        noise_floor=noise_floor,
+        threshold=open_at,
+    )
 
 
 def _frames_to_wav(frames: list[bytes], sample_rate: int) -> bytes:
@@ -90,37 +189,72 @@ def _frames_to_wav(frames: list[bytes], sample_rate: int) -> bytes:
     return buf.getvalue()
 
 
-def play_wav(audio: bytes, sample_rate: int = 24000) -> None:
-    """Play raw WAV bytes through the default output device.
+def _decode(audio: bytes, fallback_rate: int):
+    """Decode WAV bytes to float32 samples, falling back to raw PCM."""
+    import numpy as np
+    import soundfile as sf
 
-    If the bytes are a valid WAV file, sample rate is read from the header;
-    otherwise ``sample_rate`` is used as a fallback.
-    """
     try:
-        import numpy as np
+        data, rate = sf.read(io.BytesIO(audio), dtype="float32")
+        return data, rate
+    except Exception:
+        samples = np.frombuffer(audio, dtype="<i2").astype("float32") / 32768.0
+        return samples, fallback_rate
+
+
+def play_wav(
+    audio: bytes,
+    sample_rate: int = 24000,
+    *,
+    interrupt: threading.Event | None = None,
+) -> bool:
+    """Play audio, returning True if it finished and False if it was cut short.
+
+    Pass ``interrupt`` to stop playback early — that is what makes a long
+    answer interruptible. Previously this was ``sd.play(); sd.wait()``, which
+    offers no way in: the reply had to finish, and Ctrl-C did not reach it
+    because the wait sat outside the REPL's handler.
+    """
+    if not audio:
+        # Nothing to play, and no reason to import an optional decoder to
+        # discover that.
+        return True
+
+    try:
         import sounddevice as sd
-        import soundfile as sf
     except ImportError:
         raise RuntimeError(
             "sounddevice, numpy, and soundfile are required for voice output. "
-            "Install with: pip install sounddevice numpy soundfile"
+            "Install with: pip install 'Nira[voice]'"
         )
 
-    buf = io.BytesIO(audio)
+    data, rate = _decode(audio, sample_rate)
+    if len(data) == 0:
+        return True
+
+    sd.play(data, rate)
     try:
-        data, sr = sf.read(buf, dtype="float32")
-    except Exception:
-        # Fall back: treat as raw PCM
-        import struct
+        if interrupt is None:
+            sd.wait()
+            return True
 
-        n = len(audio) // 2
-        data = (
-            np.array(struct.unpack(f"{n}h", audio[: n * 2]), dtype="float32") / 32768.0
-        )
-        sr = sample_rate
+        # Poll rather than sd.wait() so the event is observed promptly. 20 ms
+        # is well under the ~150 ms at which a person notices a delay, and the
+        # cost is negligible next to the audio callback itself.
+        while sd.get_stream().active:
+            if interrupt.wait(0.02):
+                sd.stop()
+                return False
+        return True
+    except KeyboardInterrupt:
+        # Ctrl-C during a long reply should stop the audio, not leave it
+        # playing while the traceback prints.
+        sd.stop()
+        raise
+    finally:
+        # A partially played buffer must not bleed into the next utterance.
+        if interrupt is not None and interrupt.is_set():
+            sd.stop()
 
-    sd.play(data, sr)
-    sd.wait()
 
-
-__all__ = ["play_wav", "record_until_silence"]
+__all__ = ["Recording", "play_wav", "record_until_silence"]

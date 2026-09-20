@@ -171,7 +171,7 @@ def record_voice(
 
     console.print("[dim cyan]Listening… (speak now, stops on silence)[/dim cyan]")
     try:
-        audio_bytes = record_until_silence()
+        recording = record_until_silence()
     except KeyboardInterrupt:
         return VOICE_EXIT
     except Exception as exc:
@@ -182,10 +182,17 @@ def record_voice(
         console.print(f"[red]Mic error: {_terminal_safe_text(exc)}[/red]")
         return VOICE_EXIT
 
+    if not recording.had_speech:
+        # The gate never opened, so this is the startup timeout's worth of
+        # room tone. Transcribing it costs a full decode and reliably
+        # hallucinates a stock phrase out of the noise.
+        console.print("[dim]Nothing heard — try again.[/dim]")
+        return None
+
     console.print("[dim]Transcribing…[/dim]")
     try:
         result = backend.transcribe(
-            audio_bytes, format="wav", language=active_session.get_language()
+            recording.audio, format="wav", language=active_session.get_language()
         )
         text = result.text.strip()
         if text:
