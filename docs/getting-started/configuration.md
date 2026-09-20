@@ -233,6 +233,7 @@ max_turns = 10
 # objective = ""
 # system_prompt = ""
 # system_prompt_path = ""
+# permission_mode = ""
 context_from_memory = true
 ```
 
@@ -244,6 +245,7 @@ context_from_memory = true
 | `objective` | string | `""` | Concise purpose string for routing, learning, and documentation. |
 | `system_prompt` | string | `""` | Inline system prompt. Takes precedence over `system_prompt_path` when set. |
 | `system_prompt_path` | string | `""` | Path to a system prompt file (`.txt` or `.md`). |
+| `permission_mode` | string | `""` | How much a code agent may do without asking. Empty leaves the Claude Agent SDK's own default. |
 | `context_from_memory` | bool | `true` | Whether to automatically inject relevant memory context into queries. |
 
 !!! note "Generation parameters moved"
@@ -251,6 +253,14 @@ context_from_memory = true
 
 !!! note "Backward compatibility"
     The old field name `default_tools` is still accepted as a backward-compatible property for `tools`. New configurations should use `tools`.
+
+!!! warning "Permission mode"
+    `permission_mode` applies to agents with file and shell access, such as
+    `claude_code`. It is read from configuration only — never from an API
+    request — so that a paired phone holding the `ask` scope cannot grant
+    itself the right to skip approvals it was not given. Values are passed
+    through to the Claude Agent SDK; leaving it empty keeps that SDK's own
+    default rather than choosing one here.
 
 !!! info "Context injection"
     When `context_from_memory = true` and documents have been indexed, every query automatically searches memory for relevant chunks and prepends them as system context. This gives the model access to your indexed knowledge base without any extra steps. Disable with `--no-context` on the CLI or `context=False` in the SDK.

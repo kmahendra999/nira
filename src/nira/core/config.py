@@ -1140,6 +1140,14 @@ class AgentConfig:
     system_prompt: str = ""  # inline system prompt (takes precedence if set)
     system_prompt_path: str = ""  # path to system prompt file (.txt, .md)
     context_from_memory: bool = True  # inject relevant memory context into prompts
+    # How much an agent with file and shell access may do without asking.
+    # Empty means the Claude Agent SDK's own default. This exists because the
+    # parameter reached ClaudeCodeAgent in Phase 4 and nothing ever set it, so
+    # the posture for an agent editing your files was whatever the SDK
+    # happened to pick rather than something Nira or you chose. It is read
+    # from config, never from a request: a paired phone holding only "ask"
+    # must not be able to name its own permission mode.
+    permission_mode: str = ""
     default_system_prompt: str = (
         "You are Nira, a helpful AI assistant running locally on the "
         "user's own hardware. You are not a cloud service, and you are not "

@@ -261,6 +261,46 @@ Show connection status for all configured channels.
 !!! note "Channel endpoints"
     Channel endpoints require `[channel] enabled = true` in your config and platform-specific credentials configured in `[channel.<platform>]` sub-sections. When not configured, `GET /v1/channels` returns an empty list and other channel endpoints return 503.
 
+### Devices and scopes
+
+A phone or tablet pairs with `nira device pair <name>`, which prints a QR code
+carrying a single-use invitation valid for ten minutes.
+
+- `POST /v1/devices/enroll` redeems an invitation for that device's own key.
+  This is the one authenticated-API path that takes no credential: a device
+  that has not paired has nothing to present, and the invitation *is* the
+  credential.
+- `GET /v1/devices/me` reports the calling device's identity and scopes. It
+  needs authentication but no particular scope, because a client decides which
+  controls to offer from exactly this answer.
+
+Each device holds scopes — `ask`, `watch`, `approve`, `admin` — granted at
+pairing time and defaulting to `ask` and `watch`. Every request is checked
+against them, and the classification is default-deny: a path that has not been
+classified requires `admin`. The machine key is unaffected; it carries no
+device identity and is not scope-checked.
+
+| Scope | Buys |
+|-------|------|
+| `ask` | Sending prompts, transcribing speech, starting work in a project |
+| `watch` | Reading state and subscribing to progress |
+| `approve` | Answering human-in-the-loop approval requests |
+| `admin` | Everything, including managing devices and configuration |
+
+### Projects
+
+- `GET /v1/projects` lists the directories registered with `nira project add`.
+- `POST /v1/projects/{name}/run` starts agentic work in one, with a JSON body
+  of `{"prompt": "..."}`. It returns as soon as the work is under way, because
+  agentic work takes minutes and a mobile client cannot hold a request open
+  that long. The response carries a run id.
+- `GET /v1/projects/runs` and `GET /v1/projects/runs/{id}` report how runs went.
+
+Progress arrives on `WS /v1/agents/events` while a run is in flight. The
+agent's permission mode and resource ceilings come from configuration, never
+from the request body — see `agent.permission_mode` in
+[Configuration](../getting-started/configuration.md).
+
 ### WebSocket endpoints
 
 - `WS /v1/chat/stream` streams interactive chat messages.
@@ -281,6 +321,10 @@ The server selects `nira.auth.v1` in its handshake response. The built-in
 frontend handles this encoding automatically. Base64url is only a transport
 encoding, not encryption; use `wss://` for remote connections and treat the
 `Sec-WebSocket-Protocol` request header as credential-bearing.
+
+A paired device presents its own key here, by either transport, and is held to
+the same scopes as over HTTP: `/v1/agents/events` needs `watch`,
+`/v1/chat/stream` needs `ask`.
 
 !!! warning "WebSocket authentication migration"
     The former `?token=<key>` query parameter is not accepted because request
