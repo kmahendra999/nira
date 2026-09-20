@@ -17,8 +17,17 @@ from __future__ import annotations
 import re
 from typing import List
 
-# Sentence-final punctuation followed by whitespace, or at end of buffer.
-_BOUNDARY = re.compile(r"[.!?…]+[\"')\]]*(?=\s)|[.!?…]+[\"')\]]*$")
+from nira.speech.text_prep import has_speakable_content
+
+# Sentence-final punctuation that is *followed by whitespace*.
+#
+# Deliberately not anchored to end-of-buffer. Mid-stream the buffer ends
+# wherever the last token happened to land, so an end-anchored match fires on
+# the "3." of "3.14" and on the '"go.' of '"go."' before the disambiguating
+# character has arrived — a premature cut, which is the one failure this
+# splitter must not have. Waiting for the following space costs one token.
+# The tail left over at the end of a stream is handled by ``flush``.
+_BOUNDARY = re.compile(r"[.!?…]+[\"')\]]*(?=\s)")
 
 # Clause break used only to get the FIRST utterance out sooner.
 _CLAUSE = re.compile(r"[,;:—–][\"')\]]*(?=\s)")
@@ -43,28 +52,28 @@ _ABBREVIATIONS = (
     "al.",
 )
 
-# A decimal point or a version number: "3.14", "v1.2.3", "Python 3.12".
-_NUMERIC_DOT = re.compile(r"\d[.,]$")
+# A list enumerator: "1." or "a)" at the start of a line. Anchored to the line
+# start on purpose — matching after any whitespace would also suppress a
+# sentence that simply ends in a small number ("The answer is 42.").
+#
+# Decimals need no rule at all: the period in "3.14" is followed by a digit, so
+# it never satisfies the boundary's whitespace lookahead in the first place.
+_ENUMERATOR = re.compile(r"(?:^|\n)[ \t]*(?:\d{1,3}|[A-Za-z])[.)]$")
 
-# An initial or an enumerator: "J." in "J. Smith", "1." starting a list item.
-_SINGLE_TOKEN_DOT = re.compile(r"(?:^|\s)(?:[A-Za-z]|\d{1,3})[.)]$")
+# An initial: "J." and "R." in "J. R. Tolkien".
+_INITIAL = re.compile(r"(?:^|\s)[A-Z][.)]$")
 
 
 def _is_false_boundary(buffer: str, end: int) -> bool:
     """True when the punctuation at *end* does not really end a sentence."""
     head = buffer[:end]
     stripped = head.rstrip()
-    if _NUMERIC_DOT.search(stripped):
+    if _ENUMERATOR.search(stripped):
         return True
-    if _SINGLE_TOKEN_DOT.search(stripped):
+    if _INITIAL.search(stripped):
         return True
     lowered = stripped.lower()
     return any(lowered.endswith(abbr.lower()) for abbr in _ABBREVIATIONS)
-
-
-def _has_speakable_content(text: str) -> bool:
-    """True when *text* contains something worth sending to a synthesiser."""
-    return any(ch.isalnum() for ch in text)
 
 
 class SentenceAccumulator:
@@ -111,7 +120,7 @@ class SentenceAccumulator:
         """Return whatever is left, complete or not."""
         remainder = self._buffer.strip()
         self._buffer = ""
-        if not _has_speakable_content(remainder):
+        if not has_speakable_content(remainder):
             return []
         self._emitted += 1
         return [remainder]
@@ -130,7 +139,7 @@ class SentenceAccumulator:
             return None
         chunk = self._buffer[:cut].strip()
         self._buffer = self._buffer[cut:].lstrip()
-        if not _has_speakable_content(chunk):
+        if not has_speakable_content(chunk):
             # Punctuation on its own ("...", a stray bullet): drop it rather
             # than handing a synthesiser something it cannot pronounce, but
             # keep scanning — the rest of the buffer may hold a real sentence.
