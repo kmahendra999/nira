@@ -1,10 +1,21 @@
+import { useEffect, useState } from 'react';
 import { EnergyDashboard } from '../components/Dashboard/EnergyDashboard';
 import { CostComparison } from '../components/Dashboard/CostComparison';
 import { TraceDebugger } from '../components/Dashboard/TraceDebugger';
 
+function utcStamp(): string {
+  return new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
+}
+
 export function DashboardPage() {
-  const now = new Date();
-  const stamp = now.toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
+  // Computed once at render, this froze at mount time and then sat under a
+  // "Live telemetry" heading contradicting itself — the longer the tab stayed
+  // open, the more wrong it got.
+  const [stamp, setStamp] = useState(utcStamp);
+  useEffect(() => {
+    const id = setInterval(() => setStamp(utcStamp()), 1000);
+    return () => clearInterval(id);
+  }, []);
 
   return (
     <div className="flex-1 overflow-y-auto px-6 py-10">

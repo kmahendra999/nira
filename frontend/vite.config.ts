@@ -1,3 +1,4 @@
+import { createRequire } from 'module';
 import path from 'path';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
@@ -7,7 +8,15 @@ import { VitePWA } from 'vite-plugin-pwa';
 // VITE_SUPABASE_ANON_KEY is intentionally NOT required here: a missing key
 // disables the savings leaderboard at runtime (see src/lib/supabase.ts) rather
 // than failing the build, so the package/app stays publishable without it.
+// Telemetry used to report a hardcoded APP_VERSION of '0.1.0' while the app
+// shipped as 1.0.x, so every analytics event was mislabelled. Take it from
+// package.json at build time instead — one source of truth.
+const { version: APP_VERSION } = createRequire(import.meta.url)('./package.json');
+
 export default defineConfig({
+  define: {
+    __APP_VERSION__: JSON.stringify(APP_VERSION),
+  },
   resolve: {
     alias: {
       '@': path.resolve(import.meta.dirname, './src'),

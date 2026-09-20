@@ -47,9 +47,10 @@ const KNOWN_EVENTS = new Set<string>([
   'usage_daily_summary',
 ]);
 
-// Hardcoded app version — should match the backend.
-// TODO: wire to Vite define() so this comes from package.json at build time.
-const APP_VERSION = '0.1.0';
+// Injected by Vite from package.json (see vite.config.ts). Previously
+// hardcoded to '0.1.0' while the app shipped as 1.0.x, which mislabelled
+// every analytics event and made version-filtered telemetry useless.
+const APP_VERSION = __APP_VERSION__;
 
 interface AnalyticsIdentity {
   enabled: boolean;
