@@ -11,6 +11,8 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
+from nira.server.device_scopes import required_scope
+
 logger = logging.getLogger(__name__)
 
 _WS_AUTH_PROTOCOL = "nira.auth.v1"
@@ -83,27 +85,37 @@ class AuthMiddleware(BaseHTTPMiddleware):
                         {"detail": "Invalid API key"},
                         status_code=401,
                     )
-                # Downstream handlers read this to enforce scopes. Carried on
-                # the ASGI scope rather than a header so it cannot be spoofed
-                # by a client sending one.
+                # Carried on the ASGI scope rather than a header so a
+                # client cannot spoof it by sending one.
                 request.scope["nira_device"] = device
+
+                # A device key is not the machine key. Enforce what this
+                # device was actually granted, defaulting to admin-only for
+                # anything unclassified — see nira.server.device_scopes.
+                needed = required_scope(request.method, request.url.path)
+                if needed and not device.can(needed):
+                    logger.info(
+                        "device %s denied %s %s (needs %s, has %s)",
+                        device.id,
+                        request.method,
+                        request.url.path,
+                        needed,
+                        ",".join(device.scopes),
+                    )
+                    return JSONResponse(
+                        {
+                            "detail": (
+                                f"This device was not granted '{needed}' access. "
+                                "Re-pair it with that scope to allow this."
+                            )
+                        },
+                        status_code=403,
+                    )
         return await call_next(request)
 
     def _authenticate_device(self, token: str):  # noqa: ANN202
         """Resolve a per-device key, recording that the device was seen."""
-        if self._device_store is None or not token:
-            return None
-        try:
-            device = self._device_store.authenticate(token)
-        except Exception:  # noqa: BLE001 - a registry fault must not authorise
-            logger.exception("device authentication failed")
-            return None
-        if device is not None:
-            try:
-                self._device_store.touch(device.id)
-            except Exception:  # noqa: BLE001 - liveness bookkeeping is not auth
-                logger.debug("could not record device last-seen", exc_info=True)
-        return device
+        return _authenticate_device_key(self._device_store, token)
 
     @staticmethod
     def _is_cors_preflight(request: Request) -> bool:
@@ -201,9 +213,25 @@ def _offered_websocket_auth(websocket) -> tuple[str, str | None]:  # noqa: ANN00
     return credentials[0], _WS_AUTH_PROTOCOL
 
 
+def _decode_websocket_credential(credential_protocol: str) -> str:
+    """Recover the key a client encoded into a subprotocol token."""
+    if not credential_protocol.startswith(_WS_KEY_PROTOCOL_PREFIX):
+        return ""
+    encoded = credential_protocol[len(_WS_KEY_PROTOCOL_PREFIX) :]
+    # The encoder strips padding to keep the token valid subprotocol syntax.
+    padding = "=" * (-len(encoded) % 4)
+    try:
+        return base64.urlsafe_b64decode(encoded + padding).decode("utf-8")
+    except (ValueError, UnicodeDecodeError):
+        return ""
+
+
 def authenticate_websocket(
     websocket,  # noqa: ANN001
     expected_key: str,
+    *,
+    device_store=None,  # noqa: ANN001
+    required_scope_name: str = "",
 ) -> tuple[bool, str | None]:
     """Authenticate a WebSocket and return its negotiated auth subprotocol.
 
@@ -211,6 +239,12 @@ def authenticate_websocket(
     clients, which cannot set that header, offer ``nira.auth.v1`` plus a
     marked, unpadded base64url encoding of the UTF-8 key. The encoding only
     makes the credential valid subprotocol syntax; it does not make it secret.
+
+    A paired device presents its own key here, exactly as it does over HTTP.
+    Without *device_store* this function only ever recognised the machine key,
+    so a phone could send a prompt but could not watch the desktop work on it
+    — the live progress the pairing exists to deliver was the one thing a
+    device key could not reach.
     """
     credential_protocol, selected_protocol = _offered_websocket_auth(websocket)
 
@@ -230,7 +264,43 @@ def authenticate_websocket(
     protocol_valid = bool(credential_protocol and expected_protocol) and (
         _api_keys_match(credential_protocol, expected_protocol)
     )
-    return header_valid or protocol_valid, selected_protocol
+    if header_valid or protocol_valid:
+        return True, selected_protocol
+
+    presented = (
+        header_token
+        if scheme.lower() == "bearer" and header_token
+        else _decode_websocket_credential(credential_protocol)
+    )
+    device = _authenticate_device_key(device_store, presented)
+    if device is None:
+        return False, selected_protocol
+    if required_scope_name and not device.can(required_scope_name):
+        logger.info(
+            "device %s denied websocket (needs %s, has %s)",
+            device.id,
+            required_scope_name,
+            ",".join(device.scopes),
+        )
+        return False, selected_protocol
+    return True, selected_protocol
+
+
+def _authenticate_device_key(device_store, token: str):  # noqa: ANN001, ANN202
+    """Resolve a device key, recording that the device was seen."""
+    if device_store is None or not token:
+        return None
+    try:
+        device = device_store.authenticate(token)
+    except Exception:  # noqa: BLE001 - a registry fault must not authorise
+        logger.exception("device authentication failed")
+        return None
+    if device is not None:
+        try:
+            device_store.touch(device.id)
+        except Exception:  # noqa: BLE001 - liveness bookkeeping is not auth
+            logger.debug("could not record device last-seen", exc_info=True)
+    return device
 
 
 def websocket_authorized(websocket, expected_key: str) -> bool:  # noqa: ANN001

@@ -131,9 +131,32 @@ class TestDeviceKeys:
 
         return app, store
 
-    def _pair(self, store, name="Pixel 8", **kwargs):
-        enrollment = store.create_enrollment(name, **kwargs)
+    def _pair(self, store, name="Pixel 8", scopes=("admin",), **kwargs):
+        """Pair a device that can reach the synthetic route below.
+
+        ``admin`` because ``/v1/whoami`` exists only in this test and is
+        therefore unclassified — and an unclassified path requires ``admin``
+        by design, so that a route added without a thought for phones locks
+        down rather than opening up. These tests are about authentication;
+        the scope table has its own file.
+        """
+        enrollment = store.create_enrollment(name, scopes=list(scopes), **kwargs)
         return store.redeem_enrollment(enrollment.token, platform="android")
+
+    def test_a_device_is_held_to_its_scopes(self, tmp_path) -> None:
+        app, store = self._app_with_devices(tmp_path)
+        try:
+            _, key = self._pair(store, scopes=("ask", "watch"))
+            resp = TestClient(app).get(
+                "/v1/whoami", headers={"Authorization": f"Bearer {key}"}
+            )
+        finally:
+            store.close()
+
+        # Authenticating is not the same as being allowed. A default pairing
+        # reaches an unclassified route only to be refused by scope.
+        assert resp.status_code == 403
+        assert "admin" in resp.json()["detail"]
 
     def test_a_device_key_is_accepted(self, tmp_path) -> None:
         app, store = self._app_with_devices(tmp_path)

@@ -219,3 +219,150 @@ class TestAgentEventsAuth:
             assert ws.accepted_subprotocol is None
             bus.publish(EventType.AGENT_TICK_START, {"agent_id": "a"})
             assert ws.receive_json()["data"]["agent_id"] == "a"
+
+
+class TestDeviceKeyOverWebsocket:
+    """A paired phone must be able to watch the desktop work.
+
+    Until the device store was wired in here, ``authenticate_websocket`` knew
+    only the machine key. A phone could send a prompt over HTTP and then be
+    refused the events socket that reports progress on it — the live progress
+    the whole pairing exists to deliver was the one thing a device key could
+    not reach.
+    """
+
+    @pytest.fixture
+    def store(self, tmp_path):
+        from nira.devices.store import DeviceStore
+
+        return DeviceStore(tmp_path / "devices.db")
+
+    @staticmethod
+    def _enrol(store, name, scopes):
+        enrollment = store.create_enrollment(name, scopes=scopes)
+        _device, key = store.redeem_enrollment(enrollment.token, platform="android")
+        return key
+
+    def test_device_key_is_accepted_in_a_subprotocol(self, store):
+        from nira.server.auth_middleware import authenticate_websocket
+
+        key = self._enrol(store, "phone", ["ask", "watch"])
+        ok, protocol = authenticate_websocket(
+            _ws(subprotocols=_auth_subprotocols(key)),
+            "nira_sk_machine",
+            device_store=store,
+            required_scope_name="watch",
+        )
+        assert ok is True
+        assert protocol == AUTH_PROTOCOL
+
+    def test_device_key_is_accepted_in_a_bearer_header(self, store):
+        from nira.server.auth_middleware import authenticate_websocket
+
+        key = self._enrol(store, "phone", ["watch"])
+        ok, _ = authenticate_websocket(
+            _ws(headers={"authorization": f"Bearer {key}"}),
+            "nira_sk_machine",
+            device_store=store,
+            required_scope_name="watch",
+        )
+        assert ok is True
+
+    def test_a_device_without_the_scope_is_refused(self, store):
+        from nira.server.auth_middleware import authenticate_websocket
+
+        key = self._enrol(store, "phone", ["ask"])
+        ok, _ = authenticate_websocket(
+            _ws(subprotocols=_auth_subprotocols(key)),
+            "nira_sk_machine",
+            device_store=store,
+            required_scope_name="watch",
+        )
+        assert ok is False
+
+    def test_admin_implies_the_scope(self, store):
+        from nira.server.auth_middleware import authenticate_websocket
+
+        key = self._enrol(store, "laptop", ["admin"])
+        ok, _ = authenticate_websocket(
+            _ws(subprotocols=_auth_subprotocols(key)),
+            "nira_sk_machine",
+            device_store=store,
+            required_scope_name="watch",
+        )
+        assert ok is True
+
+    def test_a_revoked_device_is_refused(self, store):
+        from nira.server.auth_middleware import authenticate_websocket
+
+        key = self._enrol(store, "lost-phone", ["admin"])
+        store.revoke(store.list()[0].id)
+        ok, _ = authenticate_websocket(
+            _ws(subprotocols=_auth_subprotocols(key)),
+            "nira_sk_machine",
+            device_store=store,
+            required_scope_name="watch",
+        )
+        assert ok is False
+
+    def test_an_unknown_key_is_still_refused(self, store):
+        from nira.server.auth_middleware import authenticate_websocket
+
+        ok, _ = authenticate_websocket(
+            _ws(subprotocols=_auth_subprotocols("nira_dk_never_issued")),
+            "nira_sk_machine",
+            device_store=store,
+            required_scope_name="watch",
+        )
+        assert ok is False
+
+    def test_without_a_device_store_only_the_machine_key_works(self, store):
+        from nira.server.auth_middleware import authenticate_websocket
+
+        key = self._enrol(store, "phone", ["admin"])
+        ok, _ = authenticate_websocket(
+            _ws(subprotocols=_auth_subprotocols(key)),
+            "nira_sk_machine",
+            device_store=None,
+        )
+        assert ok is False
+
+    def test_the_machine_key_never_consults_the_device_store(self, store):
+        from nira.server.auth_middleware import authenticate_websocket
+
+        exploding = MagicMock()
+        exploding.authenticate.side_effect = AssertionError("must not be reached")
+        ok, _ = authenticate_websocket(
+            _ws(subprotocols=_auth_subprotocols("nira_sk_machine")),
+            "nira_sk_machine",
+            device_store=exploding,
+            required_scope_name="watch",
+        )
+        assert ok is True
+
+    def test_a_padded_encoding_still_decodes(self, store):
+        """The encoder strips base64 padding; the decoder must put it back."""
+        from nira.server.auth_middleware import authenticate_websocket
+
+        # Try several name lengths so at least one key lands on each of the
+        # three padding cases.
+        for index in range(4):
+            key = self._enrol(store, f"phone-{'x' * index}", ["watch"])
+            ok, _ = authenticate_websocket(
+                _ws(subprotocols=_auth_subprotocols(key)),
+                "nira_sk_machine",
+                device_store=store,
+                required_scope_name="watch",
+            )
+            assert ok is True, f"padding case {index}"
+
+    def test_a_malformed_credential_does_not_raise(self, store):
+        from nira.server.auth_middleware import authenticate_websocket
+
+        ok, _ = authenticate_websocket(
+            _ws(subprotocols=[AUTH_PROTOCOL, f"{KEY_PROTOCOL_PREFIX}!!!not-base64!!!"]),
+            "nira_sk_machine",
+            device_store=store,
+            required_scope_name="watch",
+        )
+        assert ok is False

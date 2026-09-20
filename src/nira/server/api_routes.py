@@ -767,7 +767,12 @@ async def websocket_chat_stream(websocket: WebSocket):
     from nira.server.auth_middleware import authenticate_websocket
 
     expected_key = getattr(websocket.app.state, "api_key", "")
-    authorized, subprotocol = authenticate_websocket(websocket, expected_key)
+    authorized, subprotocol = authenticate_websocket(
+        websocket,
+        expected_key,
+        device_store=getattr(websocket.app.state, "device_store", None),
+        required_scope_name="ask",
+    )
     if not authorized:
         # Closing before accept rejects the HTTP upgrade request.
         await websocket.close(code=1008)

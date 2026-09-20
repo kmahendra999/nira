@@ -79,7 +79,12 @@ def create_ws_router(event_bus: EventBus, event_log: EventLog | None = None) -> 
         from nira.server.auth_middleware import authenticate_websocket
 
         expected_key = getattr(websocket.app.state, "api_key", "")
-        authorized, subprotocol = authenticate_websocket(websocket, expected_key)
+        authorized, subprotocol = authenticate_websocket(
+            websocket,
+            expected_key,
+            device_store=getattr(websocket.app.state, "device_store", None),
+            required_scope_name="watch",
+        )
         if not authorized:
             # Closing before accept rejects the HTTP upgrade request.
             await websocket.close(code=1008)
