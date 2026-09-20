@@ -6,11 +6,9 @@
   <p>
     <a href="https://github.com/open-jarvis/OpenJarvis"><img src="https://img.shields.io/badge/forked%20from-OpenJarvis-blue" alt="Forked from OpenJarvis"></a>
     <a href="https://arxiv.org/abs/2605.17172"><img src="https://img.shields.io/badge/arXiv-2605.17172-b31b1b.svg" alt="arXiv (OpenJarvis)"></a>
-    <a href="https://nira-ai.github.io/nira/"><img src="https://img.shields.io/badge/docs-mkdocs-blue" alt="Docs"></a>
+    <a href="https://kmahendra999.github.io/nira/"><img src="https://img.shields.io/badge/docs-mkdocs-blue" alt="Docs"></a>
     <img src="https://img.shields.io/badge/python-%3E%3D3.10-blue" alt="Python">
     <img src="https://img.shields.io/badge/license-Apache%202.0-green" alt="License">
-    <a href="https://discord.gg/nira"><img src="https://img.shields.io/badge/discord-join-7289da?logo=discord&logoColor=white" alt="Discord"></a>
-    <a href="https://x.com/NiraAI"><img src="https://img.shields.io/badge/X-@NiraAI-black?logo=x&logoColor=white" alt="X / Twitter"></a>
   </p>
 </div>
 
@@ -22,15 +20,15 @@
 
 ---
 
-> **[Documentation](https://nira-ai.github.io/nira/)**
+> **[Documentation](https://kmahendra999.github.io/nira/)**
 >
-> **[Project Site](https://nira-ai.github.io/nira/)**
+> **[Project Site](https://kmahendra999.github.io/nira/)**
 >
 > **[Paper](https://arxiv.org/abs/2605.17172)**
 >
-> **[Leaderboard](https://nira-ai.github.io/nira/leaderboard/)**
+> **[Leaderboard](https://kmahendra999.github.io/nira/leaderboard/)**
 >
-> **[Roadmap](https://nira-ai.github.io/nira/development/roadmap/)**
+> **[Roadmap](https://kmahendra999.github.io/nira/development/roadmap/)**
 
 ## Why Nira?
 
@@ -44,13 +42,13 @@ Pick your platform and run one command. Each installer handles [uv](https://docs
 
 | Platform | One-liner |
 |---|---|
-| **macOS · Linux · WSL2** | `curl -fsSL https://nira-ai.github.io/nira/install.sh \| bash` |
-| **Native Windows** | `irm https://nira-ai.github.io/nira/install.ps1 \| iex` |
-| **Desktop GUI** | Download `.exe` / `.dmg` / `.deb` / `.rpm` / `.AppImage` from the [latest release](https://github.com/nira-ai/nira/releases) |
+| **macOS · Linux · WSL2** | `curl -fsSL https://kmahendra999.github.io/nira/install.sh \| bash` |
+| **Native Windows** | `irm https://kmahendra999.github.io/nira/install.ps1 \| iex` |
+| **Desktop GUI** | Download `.exe` / `.dmg` / `.deb` / `.rpm` / `.AppImage` from the [latest release](https://github.com/kmahendra999/nira/releases) |
 
 Then `nira` to start. The Rust extension and larger models continue downloading in the background; `nira doctor` shows status.
 
-Platform-specific notes (WSL2 setup, native-Windows scheduled-task service, desktop prerequisites, manual / contributor install): see the [installation docs](https://nira-ai.github.io/nira/getting-started/install/).
+Platform-specific notes (WSL2 setup, native-Windows scheduled-task service, desktop prerequisites, manual / contributor install): see the [installation docs](https://kmahendra999.github.io/nira/getting-started/install/).
 
 ## Quick Start
 
@@ -77,7 +75,7 @@ nira connect gdrive          # one OAuth covers Gmail / Calendar / Tasks
 nira digest --fresh          # generate and play your first briefing
 ```
 
-Per-preset deep dives: [morning digest](https://nira-ai.github.io/nira/user-guide/morning-digest/) · [deep research](https://nira-ai.github.io/nira/user-guide/deep-research/) · [code assistant](https://nira-ai.github.io/nira/user-guide/code-assistant/) · [scheduled monitor](https://nira-ai.github.io/nira/user-guide/scheduled-monitor/) · [chat simple](https://nira-ai.github.io/nira/user-guide/chat-simple/) · or the full [quickstart guide](https://nira-ai.github.io/nira/getting-started/quickstart/).
+Per-preset deep dives: [morning digest](https://kmahendra999.github.io/nira/user-guide/morning-digest/) · [deep research](https://kmahendra999.github.io/nira/user-guide/deep-research/) · [code assistant](https://kmahendra999.github.io/nira/user-guide/code-assistant/) · [scheduled monitor](https://kmahendra999.github.io/nira/user-guide/scheduled-monitor/) · [chat simple](https://kmahendra999.github.io/nira/user-guide/chat-simple/) · or the full [quickstart guide](https://kmahendra999.github.io/nira/getting-started/quickstart/).
 
 ### Skills
 
@@ -100,7 +98,7 @@ nira bench skills --max-samples 5 --seeds 42
 
 Import from [Hermes Agent](https://github.com/NousResearch/hermes-agent) (~150 skills), [OpenClaw](https://github.com/openclaw/skills) (~13,700 community skills), or any GitHub repo. Skills follow the [agentskills.io](https://agentskills.io/specification) open standard.
 
-See the [Skills User Guide](https://nira-ai.github.io/nira/user-guide/skills/) and [Skills Tutorial](https://nira-ai.github.io/nira/tutorials/skills-workflow/) for details.
+See the [Skills User Guide](https://kmahendra999.github.io/nira/user-guide/skills/) and [Skills Tutorial](https://kmahendra999.github.io/nira/tutorials/skills-workflow/) for details.
 
 ### Built-in Agents
 
@@ -117,16 +115,13 @@ Nira ships with eight built-in agents across three execution modes (on-demand, s
 | `native_openhands` | On-demand | CodeAct — generates and executes Python code |
 | `simple` | On-demand | Single-turn chat, no tools |
 
-See the [User Guide](https://nira-ai.github.io/nira/user-guide/morning-digest/) and [Tutorials](https://nira-ai.github.io/nira/tutorials/) for detailed setup instructions.
+See the [User Guide](https://kmahendra999.github.io/nira/user-guide/morning-digest/) and [Tutorials](https://kmahendra999.github.io/nira/tutorials/) for detailed setup instructions.
 
-Full documentation — including Docker deployment, cloud engines, development setup, and tutorials — at **[nira-ai.github.io/nira](https://nira-ai.github.io/nira/)**.
+Full documentation — including Docker deployment, cloud engines, development setup, and tutorials — at **[kmahendra999.github.io/nira](https://kmahendra999.github.io/nira/)**.
 
 ## Community
 
-- **GitHub:** [github.com/nira-ai/nira](https://github.com/nira-ai/nira)
-- **Discord:** [discord.gg/nira](https://discord.gg/nira)
-- **X / Twitter:** [@NiraAI](https://x.com/NiraAI)
-- **Docs:** [nira-ai.github.io/nira](https://nira-ai.github.io/nira/)
+- **GitHub:** [github.com/kmahendra999/nira](https://github.com/kmahendra999/nira)
 
 ## Contributing
 
@@ -135,14 +130,14 @@ We welcome contributions! See the [Contributing Guide](CONTRIBUTING.md) for ince
 Quick start for contributors:
 
 ```bash
-git clone https://github.com/nira-ai/nira.git
+git clone https://github.com/kmahendra999/nira.git
 cd Nira
 uv sync --extra dev
 uv run pre-commit install
 uv run pytest tests/ -v
 ```
 
-Browse the [Roadmap](https://nira-ai.github.io/nira/development/roadmap/) for areas where help is needed. Comment **"take"** on any issue to get auto-assigned.
+Browse the [Roadmap](https://kmahendra999.github.io/nira/development/roadmap/) for areas where help is needed. Comment **"take"** on any issue to get auto-assigned.
 
 ## About
 

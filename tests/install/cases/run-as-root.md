@@ -15,7 +15,7 @@ User runs `sudo bash install.sh` or invokes the installer from a root shell.
 Re-run as the regular user (without sudo):
 
 ```bash
-curl -fsSL https://nira-ai.github.io/nira/install.sh | bash
+curl -fsSL https://kmahendra999.github.io/nira/install.sh | bash
 ```
 
 ## Test

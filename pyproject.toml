@@ -202,10 +202,10 @@ docs = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/nira-ai/nira"
-Documentation = "https://nira-ai.github.io/nira/"
-Repository = "https://github.com/nira-ai/nira"
-Issues = "https://github.com/nira-ai/nira/issues"
+Homepage = "https://github.com/kmahendra999/nira"
+Documentation = "https://kmahendra999.github.io/nira/"
+Repository = "https://github.com/kmahendra999/nira"
+Issues = "https://github.com/kmahendra999/nira/issues"
 
 [project.scripts]
 nira = "nira.cli:main"

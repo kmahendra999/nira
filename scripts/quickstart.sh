@@ -6,7 +6,7 @@ set -euo pipefail
 # the backend API server and frontend, then opens the browser.
 #
 # Usage:
-#   git clone https://github.com/nira-ai/nira.git
+#   git clone https://github.com/kmahendra999/nira.git
 #   cd Nira
 #   ./scripts/quickstart.sh
 # ──────────────────────────────────────────────────────────────────────

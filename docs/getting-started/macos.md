@@ -1,7 +1,7 @@
 # macOS Install
 
 ```bash
-curl -fsSL https://nira-ai.github.io/nira/install.sh | bash
+curl -fsSL https://kmahendra999.github.io/nira/install.sh | bash
 ```
 
 Works on Intel and Apple Silicon. The installer auto-detects your CPU/GPU.

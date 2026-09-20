@@ -4,18 +4,18 @@
 
 | Platform | One-liner | Detailed guide |
 |---|---|---|
-| **macOS** | `curl -fsSL https://nira-ai.github.io/nira/install.sh \| bash` | [macOS install](macos.md) |
-| **Linux** | `curl -fsSL https://nira-ai.github.io/nira/install.sh \| bash` | [Linux install](linux.md) |
-| **WSL2 on Windows** | `curl -fsSL https://nira-ai.github.io/nira/install.sh \| bash` (run inside Ubuntu) | [WSL2 install](wsl2.md) |
-| **Native Windows** | `irm https://nira-ai.github.io/nira/install.ps1 \| iex` | [Native Windows install](windows-native.md) |
-| **Desktop GUI** | Download from the [latest release](https://github.com/nira-ai/nira/releases) | — |
+| **macOS** | `curl -fsSL https://kmahendra999.github.io/nira/install.sh \| bash` | [macOS install](macos.md) |
+| **Linux** | `curl -fsSL https://kmahendra999.github.io/nira/install.sh \| bash` | [Linux install](linux.md) |
+| **WSL2 on Windows** | `curl -fsSL https://kmahendra999.github.io/nira/install.sh \| bash` (run inside Ubuntu) | [WSL2 install](wsl2.md) |
+| **Native Windows** | `irm https://kmahendra999.github.io/nira/install.ps1 \| iex` | [Native Windows install](windows-native.md) |
+| **Desktop GUI** | Download from the [latest release](https://github.com/kmahendra999/nira/releases) | — |
 
 The bash and PowerShell installers do the same thing on their respective hosts. The rest of this page documents the bash installer in detail; the [native Windows guide](windows-native.md) is the equivalent reference for PowerShell.
 
 ## Bash installer
 
 ```bash
-curl -fsSL https://nira-ai.github.io/nira/install.sh | bash
+curl -fsSL https://kmahendra999.github.io/nira/install.sh | bash
 ```
 
 The installer downloads everything for you — including [uv](https://docs.astral.sh/uv/)
@@ -26,7 +26,7 @@ model. **You don't need to install uv or any other prerequisite first.**
     This script is served straight from the project's own GitHub Pages site,
     so HTTPS always works. You may also see `https://nira.ai/install.sh`
     referenced in older docs — that domain is community-operated and has had
-    intermittent TLS issues ([#337](https://github.com/nira-ai/nira/issues/337)).
+    intermittent TLS issues ([#337](https://github.com/kmahendra999/nira/issues/337)).
     The `nira.github.io` URL above is the canonical one.
 
 About 3 minutes on a typical broadband connection. Type `nira` to start chatting.
@@ -84,7 +84,7 @@ Local-first remains the default when no key is in env. Precedence is OpenRouter 
 | Variable | Default | Purpose |
 |---|---|---|
 | `NIRA_HOME` | `$HOME/.nira` | Install location. |
-| `NIRA_REPO_URL` | `https://github.com/nira-ai/nira.git` | Source repo for the clone step. |
+| `NIRA_REPO_URL` | `https://github.com/kmahendra999/nira.git` | Source repo for the clone step. |
 
 ## Uninstall
 

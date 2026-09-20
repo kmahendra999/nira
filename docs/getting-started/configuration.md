@@ -35,7 +35,7 @@ The root is resolved in priority order:
 
 ```bash
 # Relocate the whole install + runtime tree at install time:
-NIRA_HOME=~/apps/nira curl -fsSL https://nira-ai.github.io/nira/install.sh | bash
+NIRA_HOME=~/apps/nira curl -fsSL https://kmahendra999.github.io/nira/install.sh | bash
 
 # Or for a single run / your shell profile:
 export NIRA_HOME=~/apps/nira

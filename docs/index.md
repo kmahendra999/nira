@@ -43,7 +43,7 @@ Nira is that stack. It is a framework for local-first personal AI, built around 
     Run the full chat UI locally with one script:
 
     ```bash
-    git clone https://github.com/nira-ai/nira.git
+    git clone https://github.com/kmahendra999/nira.git
     cd Nira
     ./scripts/quickstart.sh
     ```
@@ -59,16 +59,16 @@ Nira is that stack. It is a framework for local-first personal AI, built around 
     **Step 1.** Start the backend:
 
     ```bash
-    git clone https://github.com/nira-ai/nira.git
+    git clone https://github.com/kmahendra999/nira.git
     cd Nira
     ./scripts/quickstart.sh
     ```
 
     **Step 2.** Download and open the desktop app:
 
-    [Download for macOS](https://github.com/nira-ai/nira/releases/download/desktop-v1.0.2/Nira_1.0.1_universal.dmg){ .md-button .md-button--primary }
+    [Download for macOS](https://github.com/kmahendra999/nira/releases/download/desktop-v1.0.2/Nira_1.0.1_universal.dmg){ .md-button .md-button--primary }
 
-    Also available for [Windows](https://github.com/nira-ai/nira/releases/download/desktop-v1.0.2/Nira_1.0.1_x64-setup.exe), [Linux (DEB)](https://github.com/nira-ai/nira/releases/download/desktop-v1.0.2/Nira_1.0.1_amd64.deb), and [Linux (RPM)](https://github.com/nira-ai/nira/releases/download/desktop-v1.0.2/Nira-1.0.1-1.x86_64.rpm). See the [Downloads](downloads.md) page for details.
+    Also available for [Windows](https://github.com/kmahendra999/nira/releases/download/desktop-v1.0.2/Nira_1.0.1_x64-setup.exe), [Linux (DEB)](https://github.com/kmahendra999/nira/releases/download/desktop-v1.0.2/Nira_1.0.1_amd64.deb), and [Linux (RPM)](https://github.com/kmahendra999/nira/releases/download/desktop-v1.0.2/Nira-1.0.1-1.x86_64.rpm). See the [Downloads](downloads.md) page for details.
 
     The app connects to `http://localhost:8000` automatically.
 
@@ -215,7 +215,7 @@ Nira is built around five composable layers. Each has a clean interface and can 
 
 Nira is part of [Intelligence Per Watt](https://www.intelligence-per-watt.ai/), a research initiative studying the efficiency of on-device AI systems. Developed at [Hazy Research](https://hazyresearch.stanford.edu/) and the [Scaling Intelligence Lab](https://scalingintelligence.stanford.edu/) at [Stanford SAIL](https://ai.stanford.edu/).
 
-Read the [blog post](https://nira-ai.github.io/nira/) for the full research motivation, architecture details, and experimental results.
+Read the [blog post](https://kmahendra999.github.io/nira/) for the full research motivation, architecture details, and experimental results.
 
 ## Citation
 
@@ -243,4 +243,4 @@ Read the [blog post](https://nira-ai.github.io/nira/) for the full research moti
   <a href="https://hai.stanford.edu/">Stanford HAI</a>
 </p>
 
-Follow [@NiraAI](https://x.com/NiraAI) on X for updates.
+Follow [@NiraAI](https://x.com/kmahendra999) on X for updates.

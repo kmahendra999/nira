@@ -2740,7 +2740,7 @@ def _detect_hardware() -> HardwareInfo:
 def mine() -> None:
     """Pearl PoUW mining commands.
 
-    See https://nira-ai.github.io/nira/user-guide/mining/ for the
+    See https://kmahendra999.github.io/nira/user-guide/mining/ for the
     full guide.
     """
 

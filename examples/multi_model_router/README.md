@@ -6,7 +6,7 @@ to larger models.
 
 ## Requirements
 
-- Nira installed (`git clone https://github.com/nira-ai/nira.git && cd Nira && uv sync` or `uv sync --extra dev`)
+- Nira installed (`git clone https://github.com/kmahendra999/nira.git && cd Nira && uv sync` or `uv sync --extra dev`)
 - An inference engine running with multiple models available
 
 ## Usage

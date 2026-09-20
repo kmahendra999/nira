@@ -49,7 +49,7 @@ FACTS = [
     "Nira is open source under Apache 2.0, built at Stanford at Hazy Research and the Scaling Intelligence Lab at SAIL. Because the tools for studying and building local-first AI should be available to everyone.",
     "Nira supports 27 channel integrations including Slack, Discord, Telegram, WhatsApp. Adding a new channel is one file implementing BaseChannel with connect, send, and disconnect.",
     "Nira supports multiple inference engines: Ollama, vLLM, SGLang, llama.cpp. nira init picks the right one for your hardware.",
-    "Install Nira by running git clone https://github.com/nira-ai/nira.git then cd Nira then uv sync. Use nira init to auto-detect hardware and configure the engine.",
+    "Install Nira by running git clone https://github.com/kmahendra999/nira.git then cd Nira then uv sync. Use nira init to auto-detect hardware and configure the engine.",
     "Nira memory and RAG supports four backends: SQLite FTS5 for keyword search, FAISS for vector similarity, ColBERT for token-level matching, and BM25 for probabilistic retrieval.",
     "Nira ships with nine example projects: deep_research, code_companion, messaging_hub, scheduled_ops, browser_assistant, security_scanner, daily_digest, doc_qa, and multi_model_router.",
 ]
@@ -158,7 +158,7 @@ def main() -> None:
             '- "four rag backends, swap with one config change. been '
             'testing colbert on our docs and the retrieval quality jump is real"\n\n'
             "Only real facts. No invented stats. "
-            "Link: https://github.com/nira-ai/nira",
+            "Link: https://github.com/kmahendra999/nira",
             agent="orchestrator",
             tools=["think", "memory_search", "channel_send"],
             temperature=0.7,

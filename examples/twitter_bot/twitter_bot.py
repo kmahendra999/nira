@@ -188,7 +188,7 @@ def _build_bug_prompt(author: str, tweet_id: str, text: str) -> str:
         f"Tweet from @{author} (tweet ID: {tweet_id}):\n"
         f'"{text}"\n\n'
         "1. call http_request to create a github issue:\n"
-        "   url: https://api.github.com/repos/nira-ai/nira/issues\n"
+        "   url: https://api.github.com/repos/kmahendra999/nira/issues\n"
         "   method: POST\n"
         '   headers: {"Authorization": "Bearer $GITHUB_TOKEN", '
         '"Accept": "application/vnd.github+json"}\n'
@@ -210,7 +210,7 @@ def _build_feature_prompt(author: str, tweet_id: str, text: str) -> str:
         f"Tweet from @{author} (tweet ID: {tweet_id}):\n"
         f'"{text}"\n\n'
         "1. call http_request to create a github issue:\n"
-        "   url: https://api.github.com/repos/nira-ai/nira/issues\n"
+        "   url: https://api.github.com/repos/kmahendra999/nira/issues\n"
         "   method: POST\n"
         f'   body: {{"title": "feature request: <title>", "body": "requested '
         f"via twitter by @{author}: {text}\", "
@@ -885,7 +885,7 @@ def _run_live(
                 success=True,
                 content=(
                     '{"number": 999, "html_url": '
-                    '"https://github.com/nira-ai/nira/issues/999"}'
+                    '"https://github.com/kmahendra999/nira/issues/999"}'
                 ),
             )
 

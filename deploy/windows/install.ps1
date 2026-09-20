@@ -22,10 +22,10 @@
          deploy/windows/nira-service.ps1).
 
     Usage (one-liner):
-      irm https://nira-ai.github.io/nira/install.ps1 | iex
+      irm https://kmahendra999.github.io/nira/install.ps1 | iex
 
     Usage (file invocation, supports flags):
-      irm https://nira-ai.github.io/nira/install.ps1 -OutFile install.ps1
+      irm https://kmahendra999.github.io/nira/install.ps1 -OutFile install.ps1
       .\install.ps1 -SkipService
 
     Flags (when running the file directly):
@@ -263,7 +263,7 @@ if (-not (Test-Path $installRoot)) {
 $repoUrl = if ($env:NIRA_REPO_URL) {
     $env:NIRA_REPO_URL
 } else {
-    'https://github.com/nira-ai/nira.git'
+    'https://github.com/kmahendra999/nira.git'
 }
 
 if (Test-Path (Join-Path $srcDir '.git')) {
@@ -534,5 +534,5 @@ if ($shouldInstallService) {
     Write-Host "           powershell -File `"$serviceScript`" uninstall    (remove)"
 }
 Write-Host ""
-Write-Host "  Docs:    https://nira-ai.github.io/nira/"
+Write-Host "  Docs:    https://kmahendra999.github.io/nira/"
 Write-Host ""

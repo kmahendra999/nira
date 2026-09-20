@@ -18,7 +18,7 @@ contribute code to Nira.
 ### Clone and Install
 
 ```bash
-git clone https://github.com/nira-ai/nira.git
+git clone https://github.com/kmahendra999/nira.git
 cd Nira
 uv sync --extra dev
 ```

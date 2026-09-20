@@ -9,7 +9,7 @@ PowerShell, without WSL2 or Docker.
 In an elevated-or-regular PowerShell:
 
 ```powershell
-irm https://nira-ai.github.io/nira/install.ps1 | iex
+irm https://kmahendra999.github.io/nira/install.ps1 | iex
 ```
 
 What it does:
@@ -39,7 +39,7 @@ absent:
 
 ```powershell
 $env:NIRA_SKIP_SERVICE = '1'
-irm https://nira-ai.github.io/nira/install.ps1 | iex
+irm https://kmahendra999.github.io/nira/install.ps1 | iex
 ```
 
 The available env vars: `NIRA_SKIP_SERVICE`, `NIRA_SERVICE`,
@@ -111,7 +111,7 @@ uv sync --extra desktop --group desktop-native
 Or re-run the installer with `-Force`:
 
 ```powershell
-irm https://nira-ai.github.io/nira/install.ps1 | iex
+irm https://kmahendra999.github.io/nira/install.ps1 | iex
 # (then re-run with the file directly, passing -Force)
 ```
 

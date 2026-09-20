@@ -628,7 +628,7 @@ Three things surfaced during execution that change later phases:
    stale `server.pid/lock/log`, leaving OpenJarvis runnable side by side.
 2. **Your data has not been migrated yet** — deliberately, because that `hey_jarvis.py` process is
    still live. It happens automatically and safely on your first `nira` command.
-3. **`nira-ai/nira` is a placeholder org** in every upstream URL. Replace with:
+3. **`kmahendra999/nira` is a placeholder org** in every upstream URL. Replace with:
    `git grep -l nira-ai | xargs sed -i 's|nira-ai|YOURORG|g'`
 
 ### Phase 2 — Bug fixes ✅

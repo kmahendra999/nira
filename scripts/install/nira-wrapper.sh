@@ -7,7 +7,7 @@ VENV="$NIRA_HOME/.venv"
 
 if [[ ! -d "$VENV" ]]; then
     echo "nira: venv not found at $VENV" >&2
-    echo "Re-run the installer: curl -fsSL https://nira-ai.github.io/nira/install.sh | bash" >&2
+    echo "Re-run the installer: curl -fsSL https://kmahendra999.github.io/nira/install.sh | bash" >&2
     exit 1
 fi
 

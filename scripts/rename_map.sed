@@ -14,17 +14,20 @@
 # 1. URLs, handled before identifiers.
 #
 # Without these, the blanket rules below would mangle upstream links into
-# nonsense like `github.com/nira/Nira`. `nira-ai/nira` is a PLACEHOLDER — swap it
-# for the real org with:  git grep -l nira-ai | xargs sed -i 's|nira-ai|YOURORG|g'
+# nonsense like `github.com/nira/Nira`.
+#
+# Nira's own repo is github.com/kmahendra999/nira. Community links that have no
+# Nira equivalent (Discord, X) are dropped by the README rather than pointed at
+# an invented URL — a dead link is worse than no link.
 # ---------------------------------------------------------------------------
-s|api\.github\.com/repos/open-jarvis/OpenJarvis|api.github.com/repos/nira-ai/nira|g
-s|github\.com/open-jarvis/OpenJarvis|github.com/nira-ai/nira|g
-s|open-jarvis\.github\.io/OpenJarvis|nira-ai.github.io/nira|g
-s|openjarvis\.stanford\.edu|nira-ai.github.io/nira|g
+s|api\.github\.com/repos/open-jarvis/OpenJarvis|api.github.com/repos/kmahendra999/nira|g
+s|github\.com/open-jarvis/OpenJarvis|github.com/kmahendra999/nira|g
+s|open-jarvis\.github\.io/OpenJarvis|kmahendra999.github.io/nira|g
+s|openjarvis\.stanford\.edu|kmahendra999.github.io/nira|g
 s|pool\.openjarvis\.ai|pool.nira.ai|g
 s|discord\.gg/openjarvis|discord.gg/nira|g
 s|discord\.gg/CMVBmDQ5Fj|discord.gg/nira|g
-s|x\.com/OpenJarvisAI|x.com/NiraAI|g
+s|x\.com/OpenJarvisAI|x.com/kmahendra999|g
 
 # ---------------------------------------------------------------------------
 # 2. Grammar, before identifiers.

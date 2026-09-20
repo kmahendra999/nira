@@ -7,7 +7,7 @@ A personalized daily briefing that collects data from your connected services, s
 ### 1. Install and set up Nira
 
 ```bash
-git clone https://github.com/nira-ai/nira.git
+git clone https://github.com/kmahendra999/nira.git
 cd Nira
 uv sync --extra dev
 ```

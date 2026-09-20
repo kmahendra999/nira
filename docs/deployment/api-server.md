@@ -7,7 +7,7 @@ Nira includes an OpenAI-compatible API server built on FastAPI and uvicorn. It e
 The server requires the `[server]` extra (FastAPI + uvicorn):
 
 ```bash
-git clone https://github.com/nira-ai/nira.git
+git clone https://github.com/kmahendra999/nira.git
 cd Nira
 uv sync --extra server
 ```

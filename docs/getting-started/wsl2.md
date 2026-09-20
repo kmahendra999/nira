@@ -18,7 +18,7 @@ Then open the Ubuntu (or Debian) shell that gets installed.
 ## Install Nira
 
 ```bash
-curl -fsSL https://nira-ai.github.io/nira/install.sh | bash
+curl -fsSL https://kmahendra999.github.io/nira/install.sh | bash
 ```
 
 About 3 minutes. Type `nira` to start.

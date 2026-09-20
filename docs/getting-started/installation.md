@@ -19,7 +19,7 @@ your machine and the frontend connects via `localhost`.
 ### One-command setup
 
 ```bash
-git clone https://github.com/nira-ai/nira.git
+git clone https://github.com/kmahendra999/nira.git
 cd Nira
 ./scripts/quickstart.sh
 ```
@@ -39,7 +39,7 @@ If you prefer to run each step yourself:
 === "Step 1: Clone and install"
 
     ```bash
-    git clone https://github.com/nira-ai/nira.git
+    git clone https://github.com/kmahendra999/nira.git
     cd Nira
     uv sync --extra desktop
     uv run maturin develop -m rust/crates/nira-python/Cargo.toml
@@ -85,7 +85,7 @@ processing happens on your local machine — the app connects to the backend you
 **Step 1.** Start the backend (same as Browser App):
 
 ```bash
-git clone https://github.com/nira-ai/nira.git
+git clone https://github.com/kmahendra999/nira.git
 cd Nira
 ./scripts/quickstart.sh
 ```
@@ -94,11 +94,11 @@ cd Nira
 
 | Platform | Download |
 |----------|----------|
-| macOS (Universal) | [:material-download: **Nira.dmg**](https://github.com/nira-ai/nira/releases/download/desktop-v1.0.2/Nira_1.0.1_universal.dmg) |
-| Windows (64-bit) | [:material-download: **Nira-setup.exe**](https://github.com/nira-ai/nira/releases/download/desktop-v1.0.2/Nira_1.0.1_x64-setup.exe) |
-| Linux (DEB) | [:material-download: **Nira.deb**](https://github.com/nira-ai/nira/releases/download/desktop-v1.0.2/Nira_1.0.1_amd64.deb) |
-| Linux (RPM) | [:material-download: **Nira.rpm**](https://github.com/nira-ai/nira/releases/download/desktop-v1.0.2/Nira-1.0.1-1.x86_64.rpm) |
-| Linux (AppImage) | [:material-download: **Nira.AppImage**](https://github.com/nira-ai/nira/releases/download/desktop-v1.0.2/Nira_1.0.1_amd64.AppImage) |
+| macOS (Universal) | [:material-download: **Nira.dmg**](https://github.com/kmahendra999/nira/releases/download/desktop-v1.0.2/Nira_1.0.1_universal.dmg) |
+| Windows (64-bit) | [:material-download: **Nira-setup.exe**](https://github.com/kmahendra999/nira/releases/download/desktop-v1.0.2/Nira_1.0.1_x64-setup.exe) |
+| Linux (DEB) | [:material-download: **Nira.deb**](https://github.com/kmahendra999/nira/releases/download/desktop-v1.0.2/Nira_1.0.1_amd64.deb) |
+| Linux (RPM) | [:material-download: **Nira.rpm**](https://github.com/kmahendra999/nira/releases/download/desktop-v1.0.2/Nira-1.0.1-1.x86_64.rpm) |
+| Linux (AppImage) | [:material-download: **Nira.AppImage**](https://github.com/kmahendra999/nira/releases/download/desktop-v1.0.2/Nira_1.0.1_amd64.AppImage) |
 
 The app connects to `http://localhost:8000` automatically.
 
@@ -110,12 +110,12 @@ The app connects to `http://localhost:8000` automatically.
     This is normal for open-source apps distributed outside the App Store.
 
 !!! tip "All releases"
-    Browse all versions on the [GitHub Releases](https://github.com/nira-ai/nira/releases) page.
+    Browse all versions on the [GitHub Releases](https://github.com/kmahendra999/nira/releases) page.
 
 ### Build from source
 
 ```bash
-git clone https://github.com/nira-ai/nira.git
+git clone https://github.com/kmahendra999/nira.git
 cd Nira/desktop
 npm install
 npm run tauri build
@@ -133,7 +133,7 @@ programmatically. Every feature is accessible from the terminal.
 ### Install
 
 ```bash
-git clone https://github.com/nira-ai/nira.git
+git clone https://github.com/kmahendra999/nira.git
 cd Nira
 uv sync
 uv run maturin develop -m rust/crates/nira-python/Cargo.toml
@@ -177,7 +177,7 @@ For programmatic access, the `Nira` class provides a high-level sync API.
 ### Install
 
 ```bash
-git clone https://github.com/nira-ai/nira.git
+git clone https://github.com/kmahendra999/nira.git
 cd Nira
 uv sync
 uv run maturin develop -m rust/crates/nira-python/Cargo.toml

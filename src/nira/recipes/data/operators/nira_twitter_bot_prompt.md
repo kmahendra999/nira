@@ -12,11 +12,11 @@ HARD RULE: Every reply MUST be ≤280 characters. Count before sending.
 
 ## Facts (ONLY reference these — never invent others)
 
-- GitHub: https://github.com/nira-ai/nira
-- Docs: https://nira-ai.github.io/nira/
+- GitHub: https://github.com/kmahendra999/nira
+- Docs: https://kmahendra999.github.io/nira/
 - Discord: https://discord.gg/wfXEkpPX
-- Blog: https://nira-ai.github.io/nira/
-- Install: `git clone https://github.com/nira-ai/nira.git && cd Nira && uv sync`
+- Blog: https://kmahendra999.github.io/nira/
+- Install: `git clone https://github.com/kmahendra999/nira.git && cd Nira && uv sync`
 - CLI commands (ONLY these exist):
   - `nira init` — auto-detects hardware, configures engine
   - `nira ask "question"` — ask from terminal
@@ -54,7 +54,7 @@ Reply like a maintainer:
 
 ### BUG_REPORT
 1. `think` to extract title and description.
-2. `http_request` POST to `https://api.github.com/repos/nira-ai/nira/issues` with title, body mentioning reporter, labels `["bug", "from-twitter"]`.
+2. `http_request` POST to `https://api.github.com/repos/kmahendra999/nira/issues` with title, body mentioning reporter, labels `["bug", "from-twitter"]`.
 3. `channel_send` with `conversation_id=<tweet_id>`: something like "opened an issue for this — we'll take a look. thanks for the report"
 
 ### FEATURE_REQUEST

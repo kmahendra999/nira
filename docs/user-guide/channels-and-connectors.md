@@ -298,7 +298,7 @@ We recommend creating **one Slack app** that handles both. The App Manifest belo
 
 8. **(Optional) Set the app icon:**
    - Go to Basic Information → Display Information
-   - Upload the [Nira icon](https://github.com/nira-ai/nira/blob/main/assets/nira-slack-icon.jpg)
+   - Upload the [Nira icon](https://github.com/kmahendra999/nira/blob/main/assets/nira-slack-icon.jpg)
 
 ### Required Bot Token Scopes (reference)
 

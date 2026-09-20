@@ -1,8 +1,8 @@
 site_name: Nira
-site_url: https://nira-ai.github.io/nira/
+site_url: https://kmahendra999.github.io/nira/
 site_description: Personal AI, On Personal Devices
 site_author: Nira Contributors
-repo_url: https://github.com/nira-ai/nira
+repo_url: https://github.com/kmahendra999/nira
 repo_name: nira/Nira
 edit_uri: edit/main/docs/
 
@@ -141,7 +141,7 @@ extra:
     index_name: ""   # e.g. "nira"
   social:
     - icon: fontawesome/brands/github
-      link: https://github.com/nira-ai/nira
+      link: https://github.com/kmahendra999/nira
 
 nav:
   - Home: index.md

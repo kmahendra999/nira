@@ -15,7 +15,7 @@ Create the user and installation directory:
 ```bash
 sudo useradd --system --create-home --home-dir /opt/nira nira
 sudo -u nira python3 -m venv /opt/nira/.venv
-sudo -u nira git clone https://github.com/nira-ai/nira.git /opt/nira/Nira
+sudo -u nira git clone https://github.com/kmahendra999/nira.git /opt/nira/Nira
 cd /opt/nira/Nira && sudo -u nira uv sync --extra server
 ```
 

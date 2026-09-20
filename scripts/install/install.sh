@@ -2,7 +2,7 @@
 # install.sh — Nira curl-pipe-bash installer.
 #
 # Usage:
-#   curl -fsSL https://nira-ai.github.io/nira/install.sh | bash
+#   curl -fsSL https://kmahendra999.github.io/nira/install.sh | bash
 #
 # Flags (only used in tests / power users):
 #   --no-bg-orchestrator   Skip the detached background orchestrator
@@ -11,7 +11,7 @@
 #
 # Environment overrides:
 #   NIRA_HOME        Install dir (default: $HOME/.nira)
-#   NIRA_REPO_URL    git repo URL (default: https://github.com/nira-ai/nira.git)
+#   NIRA_REPO_URL    git repo URL (default: https://github.com/kmahendra999/nira.git)
 #   NIRA_FORCE_WSL   Set 1 to force WSL detection (testing)
 
 set -euo pipefail
@@ -49,13 +49,13 @@ Nira runs on Windows via WSL2. Two paths:
 
      Open the Ubuntu shell that gets installed, then re-run:
 
-       curl -fsSL https://nira-ai.github.io/nira/install.sh | bash
+       curl -fsSL https://kmahendra999.github.io/nira/install.sh | bash
 
   2. Desktop app — download the .exe from the Releases page:
-     https://github.com/nira-ai/nira/releases
+     https://github.com/kmahendra999/nira/releases
 
 See the WSL2 install guide for the full walkthrough:
-  https://nira-ai.github.io/nira/getting-started/wsl2/
+  https://kmahendra999.github.io/nira/getting-started/wsl2/
 EOF
         exit 1
         ;;
@@ -148,7 +148,7 @@ Two ways forward:
        Arch:          sudo pacman -S $tool
 
   2. Pre-authenticate sudo before piping (caches credentials for 5 min):
-       sudo -v && curl -fsSL https://nira-ai.github.io/nira/install.sh | bash
+       sudo -v && curl -fsSL https://kmahendra999.github.io/nira/install.sh | bash
 EOF
         exit 1
     fi
@@ -219,7 +219,7 @@ fi
 # unset, $XDG_DATA_HOME/nira if XDG_DATA_HOME is set). With nothing set
 # the root is ~/.nira, so existing installs are untouched.
 NIRA_HOME="${NIRA_HOME:-$HOME/.nira}"
-NIRA_REPO_URL="${NIRA_REPO_URL:-https://github.com/nira-ai/nira.git}"
+NIRA_REPO_URL="${NIRA_REPO_URL:-https://github.com/kmahendra999/nira.git}"
 SRC_DIR="$NIRA_HOME/src"
 VENV_DIR="$NIRA_HOME/.venv"
 STATE_DIR="$NIRA_HOME/.state"

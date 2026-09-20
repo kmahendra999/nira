@@ -14,7 +14,7 @@ ollama pull qwen3.5:4b
 ### 2. Install and initialize Nira
 
 ```bash
-git clone https://github.com/nira-ai/nira.git
+git clone https://github.com/kmahendra999/nira.git
 cd Nira
 uv sync
 nira init --preset chat-simple --force
@@ -113,7 +113,7 @@ The server is OpenAI-compatible, so any client that works with the OpenAI API ca
 ## Using the Desktop App
 
 1. Start the backend: `nira serve` (or `./scripts/quickstart.sh`)
-2. Download and open the desktop app from the [releases page](https://github.com/nira-ai/nira/releases)
+2. Download and open the desktop app from the [releases page](https://github.com/kmahendra999/nira/releases)
 3. The app connects to `http://localhost:8000` automatically
 
 ## Switching Models

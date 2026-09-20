@@ -297,7 +297,7 @@ class TestPromptBuilders:
 
     def test_bug_prompt_contains_github_url(self):
         prompt = _build_bug_prompt("bob", "456", "crash on startup")
-        assert "api.github.com/repos/nira-ai/nira/issues" in prompt
+        assert "api.github.com/repos/kmahendra999/nira/issues" in prompt
         assert "http_request" in prompt
         assert "channel_send" in prompt
         assert "bob" in prompt
@@ -306,7 +306,7 @@ class TestPromptBuilders:
 
     def test_feature_prompt_contains_github_url(self):
         prompt = _build_feature_prompt("carol", "789", "add dark mode")
-        assert "api.github.com/repos/nira-ai/nira/issues" in prompt
+        assert "api.github.com/repos/kmahendra999/nira/issues" in prompt
         assert "enhancement" in prompt
         assert "carol" in prompt
         assert "789" in prompt
@@ -491,7 +491,7 @@ class TestEnvVarExpansion:
             ) as mock_req,
         ):
             result = tool.execute(
-                url="https://api.github.com/repos/nira-ai/nira/issues",
+                url="https://api.github.com/repos/kmahendra999/nira/issues",
                 method="POST",
                 headers={
                     "Authorization": "Bearer $GITHUB_TOKEN",
@@ -786,7 +786,7 @@ class TestGitHubIssueCreation:
         mock_resp.text = json.dumps(
             {
                 "number": 42,
-                "html_url": "https://github.com/nira-ai/nira/issues/42",
+                "html_url": "https://github.com/kmahendra999/nira/issues/42",
             }
         )
         mock_resp.headers = {"content-type": "application/json"}
@@ -801,7 +801,7 @@ class TestGitHubIssueCreation:
             ) as mock_req,
         ):
             result = tool.execute(
-                url="https://api.github.com/repos/nira-ai/nira/issues",
+                url="https://api.github.com/repos/kmahendra999/nira/issues",
                 method="POST",
                 headers={
                     "Authorization": "Bearer $GITHUB_TOKEN",
@@ -855,7 +855,7 @@ class TestGitHubIssueCreation:
             ) as mock_req,
         ):
             result = tool.execute(
-                url="https://api.github.com/repos/nira-ai/nira/issues",
+                url="https://api.github.com/repos/kmahendra999/nira/issues",
                 method="POST",
                 headers={
                     "Authorization": "Bearer $GITHUB_TOKEN",

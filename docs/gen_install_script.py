@@ -2,8 +2,8 @@
 
 Serves the installers at::
 
-    https://nira-ai.github.io/nira/install.sh   (Linux / macOS / WSL2)
-    https://nira-ai.github.io/nira/install.ps1  (native Windows)
+    https://kmahendra999.github.io/nira/install.sh   (Linux / macOS / WSL2)
+    https://kmahendra999.github.io/nira/install.ps1  (native Windows)
 
 so users have an HTTPS-valid, project-controlled install URL that does not
 depend on the externally-hosted ``nira.ai`` domain — whose TLS config

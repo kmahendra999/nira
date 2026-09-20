@@ -7,7 +7,7 @@ A multi-hop research agent that searches across your indexed documents, cross-re
 ### 1. Install and initialize
 
 ```bash
-git clone https://github.com/nira-ai/nira.git
+git clone https://github.com/kmahendra999/nira.git
 cd Nira
 uv sync --extra dev
 nira init --preset deep-research --force

@@ -281,7 +281,7 @@ COMPARISON_HTML = """\
     <div class="cta-sub">Install Nira and run AI locally
       with zero API costs.</div>
     <div class="code-block">
-      <code>git clone https://github.com/nira-ai/nira.git
+      <code>git clone https://github.com/kmahendra999/nira.git
 && cd Nira && uv sync</code>
       <button class="copy-btn" id="copy-btn">Copy</button>
     </div>

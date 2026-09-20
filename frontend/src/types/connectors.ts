@@ -211,7 +211,7 @@ export const SOURCE_CATALOG: ConnectorMeta[] = [
       },
       {
         label: '(Optional) Set the app icon: in the left sidebar click "Basic Information" → scroll to "Display Information" → upload the Nira logo',
-        url: 'https://github.com/nira-ai/nira/blob/main/assets/nira-slack-icon.jpg',
+        url: 'https://github.com/kmahendra999/nira/blob/main/assets/nira-slack-icon.jpg',
         urlLabel: 'Download icon',
       },
     ],

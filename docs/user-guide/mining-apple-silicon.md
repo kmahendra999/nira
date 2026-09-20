@@ -152,7 +152,7 @@ Session
 | `maturin build` complains about `tikv-jemallocator` | macOS SDK too old | Update macOS / Xcode |
 
 For anything not on this list, capture `~/.nira/logs/mining/` and open
-an issue at https://github.com/nira-ai/nira/issues.
+an issue at https://github.com/kmahendra999/nira/issues.
 
 ## What changes in v2 / v3
 
