@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import threading
+from contextlib import contextmanager
 from typing import Any, Iterable, Optional
 
 from rich.markup import escape
@@ -41,6 +42,7 @@ class VoiceSession:
     def __init__(self, config: object | None = None) -> None:
         self._config = config
         self._language: Optional[str] = None
+        self._barge_in: Optional[bool] = None
         self._stt_resolved = False
         self._stt_backend: Any = None
         self._tts_backend: Any = None
@@ -139,6 +141,16 @@ class VoiceSession:
                 f"({substitute or 'backend default'}).[/dim yellow]"
             )
         return substitute, speed
+
+    def barge_in_enabled(self) -> bool:
+        """Whether to listen for the user while a reply is playing."""
+        if self._barge_in is None:
+            from nira.core.config import load_config
+
+            config = self._config if self._config is not None else load_config()
+            speech = getattr(config, "speech", None)
+            self._barge_in = bool(getattr(speech, "barge_in", False))
+        return self._barge_in
 
     def warm_up(self) -> threading.Thread:
         """Resolve and load both backends in the background.
@@ -240,8 +252,17 @@ def record_voice(
         return None
 
 
-def speak(text: str, console: Any, session: VoiceSession | None = None) -> None:
-    """Synthesize and play text, reusing a healthy backend for the session."""
+def speak(
+    text: str,
+    console: Any,
+    session: VoiceSession | None = None,
+    *,
+    interrupt: "threading.Event | None" = None,
+) -> bool:
+    """Synthesize and play text, reusing a healthy backend for the session.
+
+    Returns False when playback was cut short by *interrupt*.
+    """
     from nira.speech.voice_io import play_wav
 
     active_session = session or VoiceSession()
@@ -252,14 +273,14 @@ def speak(text: str, console: Any, session: VoiceSession | None = None) -> None:
         active_session.get_voice_preferences()
     except Exception as exc:
         console.print(f"[red]Invalid speech config: {_terminal_safe_text(exc)}[/red]")
-        return
+        return True
 
     spoken = strip_markdown_for_speech(text)
     if not has_speakable_content(spoken):
         # Markdown that reduces to nothing — a bare code fence, a rule. There
         # is no audio to produce, and handing it to a backend just produces an
         # error the user cannot act on.
-        return
+        return True
 
     while (backend := active_session.get_tts_backend()) is not None:
         played_any = False
@@ -279,11 +300,19 @@ def speak(text: str, console: Any, session: VoiceSession | None = None) -> None:
                 pieces = [backend.synthesize(spoken, **synth_kwargs)]
 
             for piece in pieces:
+                if interrupt is not None and interrupt.is_set():
+                    return False
                 if not piece.audio:
                     continue
-                play_wav(piece.audio, sample_rate=piece.sample_rate)
+                completed = play_wav(
+                    piece.audio,
+                    sample_rate=piece.sample_rate,
+                    interrupt=interrupt,
+                )
                 played_any = True
-            return
+                if not completed:
+                    return False
+            return True
         except Exception as exc:
             console.print(
                 f"[dim yellow]Voice backend "
@@ -294,7 +323,7 @@ def speak(text: str, console: Any, session: VoiceSession | None = None) -> None:
                 # Part of this utterance is already audible. Falling back now
                 # would synthesise the same text on another backend and repeat
                 # what the user just heard, in a different voice.
-                return
+                return True
             active_session.discard_tts_backend()
 
     console.print(
@@ -302,6 +331,29 @@ def speak(text: str, console: Any, session: VoiceSession | None = None) -> None:
         "dependencies with: pip install 'Nira[voice]', or configure a healthy "
         "OpenAI/Cartesia backend.[/dim yellow]"
     )
+    return True
+
+
+@contextmanager
+def _barge_in_listener(session: VoiceSession):
+    """Yield an interrupt Event, listening for the user if barge-in is on.
+
+    Off by default: without acoustic echo cancellation the microphone hears the
+    reply on open speakers and Nira interrupts itself. See ``speech.barge_in``.
+    """
+    if not session.barge_in_enabled():
+        yield None
+        return
+
+    from nira.speech.voice_io import SpeechInterrupter
+
+    try:
+        with SpeechInterrupter() as listener:
+            yield listener.triggered
+    except Exception:
+        # Losing barge-in must not cost the user their reply.
+        logger.debug("barge-in unavailable", exc_info=True)
+        yield None
 
 
 def speak_token_stream(
@@ -329,20 +381,38 @@ def speak_token_stream(
     """
     from nira.speech.segmentation import SentenceAccumulator
 
+    active = session or VoiceSession()
     accumulator = SentenceAccumulator()
     full: list[str] = []
 
-    for token in tokens:
-        full.append(token)
-        if echo:
-            console.print(_terminal_safe_text(token), end="", markup=False)
-        for sentence in accumulator.push(token):
-            speak(sentence, console, session)
+    with _barge_in_listener(active) as interrupt:
 
-    for sentence in accumulator.flush():
-        speak(sentence, console, session)
+        def _say(sentence: str) -> bool:
+            return speak(sentence, console, active, interrupt=interrupt)
 
-    if echo:
+        interrupted = False
+        for token in tokens:
+            full.append(token)
+            if echo:
+                console.print(_terminal_safe_text(token), end="", markup=False)
+            if interrupted:
+                # Keep draining the stream so the transcript stays complete and
+                # the producer thread is not left blocked, but stop speaking.
+                continue
+            for sentence in accumulator.push(token):
+                if not _say(sentence):
+                    interrupted = True
+                    break
+
+        if not interrupted:
+            for sentence in accumulator.flush():
+                if not _say(sentence):
+                    interrupted = True
+                    break
+
+    if interrupted and echo:
+        console.print("\n[dim]— interrupted —[/dim]")
+    elif echo:
         console.print()
     return "".join(full)
 

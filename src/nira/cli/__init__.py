@@ -117,7 +117,7 @@ if not _DATA_BOUNDARY_BOOTSTRAP:
     from nira.cli.bench_cmd import bench
     from nira.cli.channel_cmd import channel
     from nira.cli.channels_cmd import channels
-    from nira.cli.chat_cmd import chat
+    from nira.cli.chat_cmd import chat, talk
     from nira.cli.compose_cmd import compose
     from nira.cli.config_cmd import config
     from nira.cli.connect_cmd import connect
@@ -149,6 +149,7 @@ if not _DATA_BOUNDARY_BOOTSTRAP:
     cli.add_command(init, "init")
     cli.add_command(ask, "ask")
     cli.add_command(chat, "chat")
+    cli.add_command(talk, "talk")
     cli.add_command(serve, "serve")
     cli.add_command(model, "model")
     cli.add_command(memory, "memory")

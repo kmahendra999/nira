@@ -740,3 +740,56 @@ class TestChatAgents:
         assert "chat executed!" not in result.output
         assert "Confirm:" not in result.output
         assert limiter.keys == ["tool_chat_agent:dangerous_chat"]
+
+
+class TestTalkCommand:
+    """`nira talk` — voice was only reachable as a flag on `chat`."""
+
+    def test_registered_on_the_cli(self) -> None:
+        from nira.cli import cli
+
+        result = CliRunner().invoke(cli, ["--help"])
+
+        assert result.exit_code == 0
+        assert "talk" in result.output
+
+    def test_help_describes_the_spoken_session(self) -> None:
+        from nira.cli.chat_cmd import talk
+
+        result = CliRunner().invoke(talk, ["--help"])
+
+        assert result.exit_code == 0
+        assert "spoken conversation" in result.output
+
+    def test_exposes_chat_options_but_not_the_voice_flag(self) -> None:
+        """--voice is implied, so offering it again would be confusing."""
+        from nira.cli.chat_cmd import chat, talk
+
+        talk_params = {param.name for param in talk.params}
+        chat_params = {param.name for param in chat.params}
+
+        assert "voice_mode" not in talk_params
+        assert talk_params == chat_params - {"voice_mode"}
+
+    def test_runs_chat_with_voice_enabled(self) -> None:
+        from nira.cli.chat_cmd import talk
+
+        engine = MagicMock()
+        engine.engine_id = "mock"
+        config = NiraConfig()
+        config.intelligence.default_model = "test-model"
+
+        with (
+            patch("nira.cli.chat_cmd.load_config", return_value=config),
+            patch("nira.engine.get_engine", return_value=("mock", engine)),
+            patch("nira.intelligence.register_builtin_models"),
+            patch("nira.cli._voice_chat.record_voice") as record_voice,
+        ):
+            result = CliRunner().invoke(
+                talk, ["--model", "test-model"], input="/quit\n"
+            )
+
+        assert result.exit_code == 0
+        # The voice prompt, not the plain one — proof --voice was applied.
+        assert "Voice mode ON" in result.output
+        record_voice.assert_not_called()

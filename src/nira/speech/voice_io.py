@@ -257,4 +257,99 @@ def play_wav(
             sd.stop()
 
 
-__all__ = ["Recording", "play_wav", "record_until_silence"]
+# Barge-in needs a higher bar than ordinary capture. Without acoustic echo
+# cancellation the microphone hears the reply itself, so the gate has to ignore
+# anything at the level the speakers produce and require the sound to persist.
+_BARGE_IN_MULTIPLIER = 6.0
+_BARGE_IN_SUSTAIN_SECONDS = 0.25
+
+
+class SpeechInterrupter:
+    """Watch the microphone during playback and signal when the user speaks.
+
+    Use as a context manager; the :attr:`triggered` event is what
+    :func:`play_wav` takes as its ``interrupt``.
+
+    This is what makes a spoken reply interruptible rather than something you
+    have to sit through. It is deliberately harder to trigger than ordinary
+    capture: sustained sound well above the room's floor, because on open
+    speakers the microphone is also hearing the reply and a hair trigger makes
+    Nira interrupt itself mid-sentence. There is no echo cancellation here, so
+    this belongs behind ``speech.barge_in`` and really wants headphones.
+    """
+
+    def __init__(
+        self,
+        *,
+        sample_rate: int = _SAMPLE_RATE,
+        chunk: int = _CHUNK,
+        noise_floor: float = 0.0,
+        threshold: float | None = None,
+        sustain_seconds: float = _BARGE_IN_SUSTAIN_SECONDS,
+    ) -> None:
+        self.triggered = threading.Event()
+        self._sample_rate = sample_rate
+        self._chunk = chunk
+        self._threshold = (
+            float(threshold)
+            if threshold is not None
+            else min(
+                max(noise_floor * _BARGE_IN_MULTIPLIER, _MIN_SPEECH_RMS * 2),
+                _MAX_SPEECH_RMS,
+            )
+        )
+        self._sustain_chunks = max(1, round(sustain_seconds * (sample_rate / chunk)))
+        self._stop = threading.Event()
+        self._thread: threading.Thread | None = None
+
+    @property
+    def threshold(self) -> float:
+        return self._threshold
+
+    def __enter__(self) -> "SpeechInterrupter":
+        self._thread = threading.Thread(
+            target=self._listen, name="nira-barge-in", daemon=True
+        )
+        self._thread.start()
+        return self
+
+    def __exit__(self, *exc_info) -> None:
+        self._stop.set()
+        if self._thread is not None:
+            self._thread.join(timeout=1.0)
+
+    def _listen(self) -> None:
+        try:
+            import sounddevice as sd
+        except ImportError:
+            return
+
+        consecutive = 0
+        try:
+            with sd.RawInputStream(
+                samplerate=self._sample_rate,
+                channels=_CHANNELS,
+                dtype="int16",
+                blocksize=self._chunk,
+            ) as stream:
+                while not self._stop.is_set():
+                    raw, _ = stream.read(self._chunk)
+                    if _rms(bytes(raw)) > self._threshold:
+                        consecutive += 1
+                        if consecutive >= self._sustain_chunks:
+                            self.triggered.set()
+                            return
+                    else:
+                        consecutive = 0
+        except Exception:
+            # The reply must keep playing if the microphone is unavailable —
+            # losing barge-in is a missing convenience, not a failed turn.
+            logger.debug("barge-in listener stopped", exc_info=True)
+
+
+__all__ = [
+    "Recording",
+    "SpeechInterrupter",
+    "play_wav",
+    "record_until_silence",
+]

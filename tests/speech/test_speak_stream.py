@@ -175,3 +175,75 @@ class TestWarmUp:
             ),
         ):
             session.warm_up().join(timeout=5)  # must not raise
+
+
+class TestBargeIn:
+    """Interrupting a spoken reply.
+
+    Playback was sd.play() + sd.wait(): a long answer had to be sat through,
+    and Ctrl-C did not reach it. Barge-in stays off by default because there
+    is no acoustic echo cancellation — on open speakers the microphone hears
+    the reply and Nira interrupts itself.
+    """
+
+    def _session(self, *, barge_in: bool):
+        from nira.cli._voice_chat import VoiceSession
+
+        session = VoiceSession(MagicMock())
+        session._barge_in = barge_in
+        return session
+
+    def test_disabled_by_default(self) -> None:
+        from nira.core.config import SpeechConfig
+
+        assert SpeechConfig().barge_in is False
+
+    def test_no_listener_is_started_when_disabled(self) -> None:
+        session = self._session(barge_in=False)
+
+        with (
+            patch("nira.speech.voice_io.SpeechInterrupter") as interrupter,
+            patch("nira.cli._voice_chat.speak", return_value=True),
+        ):
+            speak_token_stream(_tokens("Hello."), MagicMock(), session, echo=False)
+
+        interrupter.assert_not_called()
+
+    def test_an_interruption_stops_speaking_the_rest(self) -> None:
+        session = self._session(barge_in=False)
+        spoken = []
+
+        def _speak(text, *_args, **_kwargs):
+            spoken.append(text)
+            return len(spoken) < 2  # the second utterance is cut short
+
+        with patch("nira.cli._voice_chat.speak", side_effect=_speak):
+            speak_token_stream(
+                _tokens("One. Two. Three. Four."), MagicMock(), session, echo=False
+            )
+
+        assert spoken == ["One.", "Two."], "kept speaking after the interruption"
+
+    def test_the_transcript_stays_complete_after_an_interruption(self) -> None:
+        """Speech stops; the reply itself is still recorded in history."""
+        session = self._session(barge_in=False)
+        text = "One. Two. Three. Four."
+
+        with patch("nira.cli._voice_chat.speak", return_value=False):
+            result = speak_token_stream(_tokens(text), MagicMock(), session, echo=False)
+
+        assert result == text
+
+    def test_a_listener_failure_does_not_cost_the_reply(self) -> None:
+        session = self._session(barge_in=True)
+
+        with (
+            patch(
+                "nira.speech.voice_io.SpeechInterrupter",
+                side_effect=RuntimeError("no microphone"),
+            ),
+            patch("nira.cli._voice_chat.speak", return_value=True) as speak,
+        ):
+            speak_token_stream(_tokens("Hello."), MagicMock(), session, echo=False)
+
+        speak.assert_called_once()

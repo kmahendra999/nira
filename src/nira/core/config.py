@@ -1628,6 +1628,13 @@ class SpeechConfig:
     tts_backend: str = "kokoro"  # "kokoro", "openai_tts", "cartesia"
     voice_id: str = "bm_george"
     voice_speed: float = 1.0
+    # Listen while speaking, and stop the reply when the user starts talking.
+    #
+    # Off by default because it needs headphones. There is no acoustic echo
+    # cancellation here, so on open speakers the microphone hears the reply and
+    # Nira interrupts itself mid-sentence. With headphones it works well and is
+    # the difference between a conversation and a pair of monologues.
+    barge_in: bool = False
 
 
 @dataclass(slots=True)

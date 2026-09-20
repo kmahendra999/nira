@@ -549,3 +549,26 @@ def chat(
 
 
 __all__ = ["chat"]
+
+
+@click.command("talk")
+@click.pass_context
+def talk(ctx: click.Context, **kwargs: object) -> None:
+    """Start a spoken conversation.
+
+    Press Enter to speak; recording stops when you stop talking, and replies
+    are read back as they are generated. Identical to ``nira chat --voice``,
+    and every ``chat`` option applies here too.
+
+    Set ``[speech] barge_in = true`` to interrupt a reply by talking over it.
+    It needs headphones — there is no echo cancellation, so on open speakers
+    the microphone hears the reply and cuts it off.
+    """
+    # Voice was reachable only as a flag on `chat`, which left the most
+    # distinctive mode of the product the least discoverable one.
+    kwargs["voice_mode"] = True
+    ctx.invoke(chat, **kwargs)
+
+
+# Mirror chat's options so `nira talk --model x` behaves like `nira chat`.
+talk.params = [param for param in chat.params if param.name != "voice_mode"]
