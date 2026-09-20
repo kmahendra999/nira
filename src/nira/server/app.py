@@ -539,6 +539,13 @@ def create_app(
             app.add_middleware(
                 AuthMiddleware, api_key=api_key, device_store=device_store
             )
+
+            # Added after AuthMiddleware so it runs *before* it, seeing the
+            # device identity auth attached and bucketing per device rather
+            # than lumping every paired client together.
+            from nira.server.rate_limit_middleware import RateLimitMiddleware
+
+            app.add_middleware(RateLimitMiddleware)
         except Exception as exc:
             logger.debug("Auth middleware init skipped: %s", exc)
 
