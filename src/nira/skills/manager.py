@@ -19,6 +19,45 @@ from nira.tools._stubs import BaseTool, ToolExecutor
 logger = logging.getLogger(__name__)
 
 
+def _configured_public_key() -> Optional[bytes]:
+    """The skill-signing public key, if the user configured one.
+
+    ``security.signing_key_path`` has been in the config since signing
+    existed and was read by nothing, so a skill's ``signature`` field was
+    never checked on the path skills are actually loaded from. Skills come
+    from a remote index and define steps the agent executes, which is exactly
+    what signing is for.
+
+    Returns None when no key is set — there is nothing to verify against, and
+    refusing to load every skill because the user never opted into signing
+    would break a working install to enforce a policy they did not choose.
+    """
+    try:
+        from nira.core.config import load_config
+
+        configured = str(
+            getattr(getattr(load_config(), "security", None), "signing_key_path", "")
+            or ""
+        ).strip()
+    except Exception:  # noqa: BLE001 - an unreadable config is not a key
+        return None
+    if not configured:
+        return None
+
+    path = Path(configured).expanduser()
+    try:
+        return path.read_bytes()
+    except OSError as exc:
+        # Loud, because the user asked for verification and is not getting it.
+        logger.error(
+            "skill signing key %s could not be read (%s); "
+            "skill signatures will NOT be verified",
+            path,
+            exc,
+        )
+        return None
+
+
 class SkillManager:
     """Coordinate skill discovery, resolution, catalog generation, and execution.
 
@@ -79,9 +118,14 @@ class SkillManager:
             from disk — but ``_load_overlays()`` still runs (in case the
             caller had previously seeded ``self._skills`` directly).
         """
+        public_key = _configured_public_key()
         if paths:
             for directory in paths:
-                manifests = discover_skills(directory)
+                manifests = discover_skills(
+                    directory,
+                    verify_signature=public_key is not None,
+                    public_key=public_key,
+                )
                 for manifest in manifests:
                     # First-seen wins: do not overwrite an already-registered skill
                     if manifest.name not in self._skills:

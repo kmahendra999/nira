@@ -106,7 +106,22 @@ def load_skill(
     )
 
     # Verify signature if requested
-    if verify_signature and public_key and manifest.signature:
+    if verify_signature and public_key:
+        # An unsigned skill is refused, not waved through. The gate used to
+        # also require ``manifest.signature``, which meant anyone who wanted
+        # to bypass the check could simply delete the line that gets checked —
+        # a verification that its own subject can switch off is not one.
+        #
+        # The consequence is deliberate: once a signing key is configured,
+        # skills that are not signed with it stop loading. That is what
+        # "verify signatures" has to mean, and it only happens because the
+        # user set `security.signing_key_path` themselves.
+        if not manifest.signature:
+            raise ValueError(
+                f"Skill '{manifest.name}' is not signed, and signature "
+                "verification is enabled. Sign it, or clear "
+                "security.signing_key_path to load unsigned skills."
+            )
         try:
             from nira.security.signing import verify_b64
 
@@ -202,7 +217,12 @@ def load_skill_markdown(path: str | Path) -> SkillManifest:
         )
 
 
-def load_skill_directory(path: str | Path) -> SkillManifest:
+def load_skill_directory(
+    path: str | Path,
+    *,
+    verify_signature: bool = False,
+    public_key: Optional[bytes] = None,
+) -> SkillManifest:
     """Load a skill from a directory containing ``skill.toml`` and/or ``SKILL.md``.
 
     - If only ``skill.toml`` is present the manifest is loaded from TOML.
@@ -224,7 +244,11 @@ def load_skill_directory(path: str | Path) -> SkillManifest:
         )
 
     if has_toml:
-        manifest = load_skill(toml_path)
+        manifest = load_skill(
+            toml_path,
+            verify_signature=verify_signature,
+            public_key=public_key,
+        )
         if has_md:
             md_manifest = load_skill_markdown(md_path)
             # Merge markdown content into the TOML-sourced manifest
@@ -263,13 +287,29 @@ def load_skill_directory(path: str | Path) -> SkillManifest:
     return manifest
 
 
-def discover_skills(directory: str | Path) -> list[SkillManifest]:
+def discover_skills(
+    directory: str | Path,
+    *,
+    verify_signature: bool = False,
+    public_key: Optional[bytes] = None,
+) -> list[SkillManifest]:
     """Scan a directory for skill definitions and load them.
 
     Handles three layouts:
     - Flat ``*.toml`` files directly inside *directory*.
     - Skill directories: ``<directory>/<name>/{skill.toml,SKILL.md}``.
     - Sourced layout: ``<directory>/<source>/<name>/{skill.toml,SKILL.md}``.
+
+    A skill manifest can carry a ``signature``, and ``load_skill`` has always
+    known how to check one — but neither this function nor
+    :func:`load_skill_directory` could pass the key, so on the path skills are
+    actually loaded from the signature was never looked at. Skills come from a
+    remote index and define steps the agent executes, which is precisely the
+    case signing exists for.
+
+    Verification is off without a key because there is nothing to check
+    against. With one, an unsigned or mis-signed skill is skipped and logged
+    rather than loaded.
     """
     directory = Path(directory).expanduser()
     if not directory.exists():
@@ -280,7 +320,13 @@ def discover_skills(directory: str | Path) -> list[SkillManifest]:
     # Flat *.toml files at the top level
     for toml_file in sorted(directory.glob("*.toml")):
         try:
-            manifests.append(load_skill(toml_file))
+            manifests.append(
+                load_skill(
+                    toml_file,
+                    verify_signature=verify_signature,
+                    public_key=public_key,
+                )
+            )
         except Exception as exc:
             LOGGER.warning("Failed to load skill from %s: %s", toml_file, exc)
             continue
@@ -292,7 +338,13 @@ def discover_skills(directory: str | Path) -> list[SkillManifest]:
         # Direct skill package: <child>/{skill.toml,SKILL.md}
         if (child / "skill.toml").exists() or (child / "SKILL.md").exists():
             try:
-                manifests.append(load_skill_directory(child))
+                manifests.append(
+                    load_skill_directory(
+                        child,
+                        verify_signature=verify_signature,
+                        public_key=public_key,
+                    )
+                )
             except Exception as exc:
                 LOGGER.warning("Failed to load skill from %s: %s", child, exc)
                 continue
@@ -306,7 +358,13 @@ def discover_skills(directory: str | Path) -> list[SkillManifest]:
                 grandchild / "SKILL.md"
             ).exists():
                 try:
-                    manifests.append(load_skill_directory(grandchild))
+                    manifests.append(
+                        load_skill_directory(
+                            grandchild,
+                            verify_signature=verify_signature,
+                            public_key=public_key,
+                        )
+                    )
                 except Exception as exc:
                     LOGGER.warning("Failed to load skill from %s: %s", grandchild, exc)
                     continue

@@ -2410,8 +2410,12 @@ scan_input = true
 scan_output = true
 secret_scanner = true
 pii_scanner = true
-enforce_tool_confirmation = true
-ssrf_protection = true
+# enforce_tool_confirmation and ssrf_protection are NOT listed here on
+# purpose. Both describe protections that are always on and that nothing
+# reads: SSRF is checked at every call site with a comment saying it is never
+# skipped, and tool confirmation is enforced whenever a tool declares it.
+# Offering them as settings implies a control that does not exist, and the
+# first thing a reader would do with a security switch is trust it.
 # rate_limit_enabled = false
 # rate_limit_rpm = 60
 # rate_limit_burst = 10

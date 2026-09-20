@@ -1233,6 +1233,64 @@ that reports are pruned and offers the list, rather than looking like a broken l
   general enough; nothing else calls it yet.
 - **No search.** Two hundred reports is a scroll, not a corpus, but it will not stay that way.
 
+### Phase 13 — Auditing for the pattern, not guessing ✅
+
+**Python: 9,196 passing.**
+
+Every significant find in this project has come from one shape: something built, and nothing
+reaching it. Rather than guess at the next item, I swept for that shape directly.
+
+**The swallowed-error sweep came back clean.** Every parameterless GET endpoint was probed against
+a running server looking for the `/v1/sessions` pattern — a 200 whose body quietly confesses a
+failure. Forty answered correctly; the two flagged were `/v1/devices` on a server started without
+an API key, which is right and says so. That is a good result and worth recording as a negative.
+
+**The config sweep found a real one.** Of 349 config fields, five in the security sections were
+read by nothing. Four turned out to be harmless — always-on protections whose knobs are decorative.
+One was not.
+
+**Skill signature verification was unreachable.** `load_skill` has known how to verify a manifest
+signature since signing existed. It could not be asked to: `load_skill_directory` and
+`discover_skills` — the only functions the skill manager calls — took no key, and
+`security.signing_key_path` was read by nothing. A skill could carry a `signature` and nobody ever
+looked at it. Skills arrive from a remote index and define the steps an agent executes, which is
+exactly the case signing exists for. The key is now read from config and threaded through all three
+discovery layouts.
+
+**And the check could be switched off by its own subject.** The gate was
+`if verify_signature and public_key and manifest.signature` — so deleting the signature line
+skipped verification entirely. An unsigned skill is now refused when a key is configured, with a
+message saying both ways out. Verification stays off without a key: there is nothing to check
+against, and refusing every skill because the user never opted in would break a working install to
+enforce a policy nobody chose.
+
+**A correction to my own framing.** I began this phase expecting to find that the config lies to
+users about security. It mostly does not. `enforce_tool_confirmation` is already documented in two
+places as *"accepted but not currently enforced"* — the project was honest about it before I
+arrived. `ssrf_protection` and `merkle_audit` were undocumented rather than misdescribed, and both
+describe protections that are genuinely unconditional. What I actually found was one inert setting
+and one bypass, not a pattern of false assurance.
+
+`ssrf_protection` no longer appears in the generated config, because offering a security switch
+nobody reads is worse than offering none — the first thing a reader does with one is trust it. All
+three are now documented in `security.md` as accepted and not read, with what *does* enforce them.
+A test pins this: it fails if a dead switch reappears in the generated config, and I verified it
+fails by putting one back.
+
+My own test also caught my own mistake: the first "tampered skill" test passed because its
+`[[steps]]` block used a key the loader ignores, so both versions signed byte-for-byte identical
+bytes and proved nothing.
+
+### Still open in Phase 13
+
+- **Signing needs the `security-signing` extra.** `cryptography` is optional, so the 13 signature
+  tests skip where it is absent. They ran here because I installed it.
+- **Nothing signs skills yet.** Verification works; there is no `nira skill sign` to produce a
+  signature, so today the feature is for someone distributing skills with their own tooling.
+- **`sandbox_dangerous` is still inert.** The dangerous-capability warning it describes does happen,
+  but gated on a CLI flag rather than the setting. Documented behaviour and actual behaviour agree;
+  the setting is simply not the thing controlling it.
+
 ### Next
 
 The two Phase 6 refactors still outstanding: splitting `AgentsPage.tsx` (4,007 lines) and

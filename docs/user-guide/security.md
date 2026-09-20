@@ -468,6 +468,9 @@ enforce_tool_confirmation = true
 | `pii_scanner` | `bool` | `true` | Run `PIIScanner` on all text |
 | `audit_log_path` | `str` | `~/.nira/audit.db` | Path to the SQLite audit log |
 | `enforce_tool_confirmation` | `bool` | `true` | Accepted by the loader but **not currently enforced**. See [System Access](system-access.md#confirmation-behaviour) for when prompts actually happen |
+| `ssrf_protection` | `bool` | `true` | Accepted by the loader and **not read**. SSRF is checked at every outbound call site and cannot be turned off — see the note below |
+| `merkle_audit` | `bool` | `true` | Accepted by the loader and **not read**. The audit log's hash chain is always written |
+| `signing_key_path` | `string` | `""` | Path to an Ed25519 **public** key. When set, skill manifests must carry a valid signature from it or they are not loaded |
 
 !!! tip "Start with warn, tighten later"
     `mode = "warn"` is a good starting point. It lets you observe what patterns are being triggered without disrupting normal usage. Switch to `"redact"` once you are satisfied that the scanner isn't producing too many false positives for your workload.
@@ -534,3 +537,45 @@ See [Data Boundary Scan](data-boundary-scan.md) for the application config diagn
 - [API Reference: Security](../api-reference/nira/security/index.md) — full class and function signatures
 - [Tools](tools.md) — how `FileReadTool` uses file policy
 - [Configuration](../getting-started/configuration.md) — full config reference
+
+
+## Protections you cannot turn off
+
+Some settings in `[security]` are accepted by the config loader and then
+ignored. That is deliberate for two of them, and worth stating plainly,
+because a switch nobody reads is worse than no switch at all — the first
+thing a reader does with a security setting is trust it.
+
+`ssrf_protection` is not read. Every outbound request — the browser tool,
+`http_request`, web search, RSS — calls `check_ssrf` unconditionally, and the
+call sites say so. The check falls back to a pure-Python implementation when
+the Rust extension is unavailable, so an uncompiled build cannot silently
+disable it either.
+
+`merkle_audit` is not read. Every audit row carries `row_hash` and `prev_hash`
+and the chain is always written.
+
+`enforce_tool_confirmation` is not read; see
+[System Access](system-access.md#confirmation-behaviour) for when a tool
+actually prompts. Since Phase 9, a tool that an agent wants to run can also be
+routed to a person through the approval queue, which is the mechanism to reach
+for when you want to be asked.
+
+### Skill signatures
+
+`signing_key_path` **is** read, as of Phase 13. Point it at an Ed25519 public
+key and every skill manifest must carry a valid signature from that key:
+
+```toml
+[security]
+signing_key_path = "~/.nira/skill-signing.pub"
+```
+
+An unsigned skill is refused rather than waved through. The check used to also
+require the manifest to *have* a signature, which meant anyone wanting to
+bypass it could delete the line being checked.
+
+Leave it empty — the default — and skills load unverified, as before. There is
+nothing to check a signature against without a key, and refusing every skill
+because no key was configured would break a working install to enforce a
+policy nobody chose.

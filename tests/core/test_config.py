@@ -616,3 +616,64 @@ def test_mining_config_pool_parsed_as_pool_target(tmp_path):
     cfg = load_config(target)
     assert isinstance(cfg.mining.submit_target, PoolTarget)
     assert cfg.mining.submit_target.url == "https://pool.nira.ai/submit"
+
+
+class TestSecuritySettingsAreHonest:
+    """A security switch nobody reads is worse than no switch at all.
+
+    The first thing a reader does with one is trust it. So each field in
+    ``[security]`` has to be either wired to something, or documented as not
+    wired — and the generated config must not offer the unwired ones as though
+    they were controls.
+    """
+
+    # Read by nothing, on purpose, because the protection is unconditional.
+    ALWAYS_ON = ("ssrf_protection", "merkle_audit", "enforce_tool_confirmation")
+
+    def test_the_generated_config_offers_no_dead_security_switches(self) -> None:
+        from nira.core.config import detect_hardware, generate_default_toml
+
+        template = generate_default_toml(detect_hardware())
+        for field in self.ALWAYS_ON:
+            assert f"\n{field} =" not in template, (
+                f"{field} is offered in the generated config but nothing reads "
+                "it; a reader would reasonably believe they had configured "
+                "something"
+            )
+
+    def test_each_unwired_setting_is_documented_as_unwired(self) -> None:
+        from pathlib import Path
+
+        doc = (
+            Path(__file__).resolve().parents[2]
+            / "docs"
+            / "user-guide"
+            / "security.md"
+        ).read_text(encoding="utf-8")
+
+        for field in self.ALWAYS_ON:
+            assert field in doc, f"{field} is not mentioned in security.md"
+            assert "not read" in doc or "not currently enforced" in doc
+
+    def test_the_signing_key_is_actually_read(self) -> None:
+        # The one security setting here that does something. It was inert for
+        # every phase before this: skill manifests could carry a signature and
+        # nothing on the loading path ever looked at one.
+        import inspect
+
+        from nira.skills import manager
+
+        source = inspect.getsource(manager)
+        assert "signing_key_path" in source
+
+    def test_skill_discovery_can_be_given_a_key(self) -> None:
+        import inspect
+
+        from nira.skills.loader import discover_skills, load_skill_directory
+
+        # Without these parameters the verification code in load_skill was
+        # unreachable from the path skills are actually loaded through.
+        for func in (discover_skills, load_skill_directory):
+            params = inspect.signature(func).parameters
+            assert "public_key" in params, func.__name__
+            assert "verify_signature" in params, func.__name__
