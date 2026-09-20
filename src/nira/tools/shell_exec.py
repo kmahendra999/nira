@@ -147,34 +147,23 @@ class ShellExecTool(BaseTool):
             if val is not None:
                 env[key] = val
 
-        try:
-            from nira._rust_bridge import get_rust_module
-
-            _rust = get_rust_module()
-            output = _rust.ShellExecTool().execute(command, working_dir)
-            return ToolResult(
-                tool_name="shell_exec",
-                content=output or "(no output)",
-                success=True,
-                metadata={
-                    "returncode": 0,
-                    "timeout_used": timeout,
-                    "working_dir": working_dir,
-                },
-            )
-        except ImportError:
-            pass  # Fall through to subprocess below
-        except Exception as exc:
-            return ToolResult(
-                tool_name="shell_exec",
-                content=str(exc),
-                success=False,
-                metadata={
-                    "returncode": -1,
-                    "timeout_used": timeout,
-                    "working_dir": working_dir,
-                },
-            )
+        # No Rust fast path here, deliberately. One used to short-circuit
+        # everything below by calling the native ShellExecTool, and it could not
+        # uphold this tool's contract:
+        #
+        #   * the native binding returns only `result.content`, discarding the
+        #     success flag the Rust side had correctly computed — so a failing
+        #     command was reported to the model as `success=True, returncode=0`;
+        #   * it takes no environment, so the sanitised allowlist built above was
+        #     bypassed and the child inherited the full parent environment,
+        #     secrets included;
+        #   * it takes no timeout, so `_MAX_TIMEOUT` did not apply and a hung
+        #     command hung forever while metadata still claimed a timeout.
+        #
+        # There was nothing to gain by keeping it: this tool spawns a shell and
+        # waits for it, so the process spawn dominates and the interpreter
+        # overhead of subprocess.run is noise. A fast path that cannot honour the
+        # safety guarantees is not a fast path, it is a hole.
         try:
             result = subprocess.run(
                 command,

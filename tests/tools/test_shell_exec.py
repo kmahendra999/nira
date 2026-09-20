@@ -1,8 +1,12 @@
 """Tests for the shell_exec tool.
 
-Tests mock the Rust backend to verify the Python wrapper handles
-the Rust output format correctly:
-    "Exit code: {code}\\n--- stdout ---\\n{stdout}\\n--- stderr ---\\n{stderr}"
+These exercise the real subprocess path. They used to mock a native Rust
+backend that short-circuited it, and in doing so they encoded that backend's
+bugs as expected behaviour: four tests were skipped with the defect itself as
+the skip reason ("Rust backend has no timeout", "inherits parent env", "has no
+output truncation"), and test_nonzero_returncode asserted that `exit 42`
+reports success. The fast path is gone, so these now assert what the tool
+actually promises.
 """
 
 from __future__ import annotations
@@ -12,31 +16,12 @@ import os
 import shlex
 import subprocess
 import sys
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
 from nira.core import get_python_executable
 from nira.tools.shell_exec import ShellExecTool
-
-
-def _rust_output(stdout: str = "", stderr: str = "", code: int = 0) -> str:
-    """Build the Rust shell_exec output format."""
-    return f"Exit code: {code}\n--- stdout ---\n{stdout}\n--- stderr ---\n{stderr}"
-
-
-def _make_mock_rust(side_effect=None, return_value=None):
-    """Create a mock Rust module with a ShellExecTool that returns *return_value*
-    or raises via *side_effect*."""
-    mock_tool_instance = MagicMock()
-    if side_effect is not None:
-        mock_tool_instance.execute.side_effect = side_effect
-    else:
-        mock_tool_instance.execute.return_value = return_value
-    mock_shell_cls = MagicMock(return_value=mock_tool_instance)
-    mock_mod = MagicMock()
-    mock_mod.ShellExecTool = mock_shell_cls
-    return mock_mod
 
 
 class TestShellExecTool:
@@ -72,67 +57,30 @@ class TestShellExecTool:
         assert "No command" in result.content
 
     def test_simple_echo(self):
-        mock_mod = _make_mock_rust(
-            return_value=_rust_output(stdout="hello\n"),
-        )
-        tool = ShellExecTool()
-        with patch(
-            "nira._rust_bridge.get_rust_module",
-            return_value=mock_mod,
-        ):
-            result = tool.execute(command="echo hello")
+        result = ShellExecTool().execute(command="echo hello")
         assert result.success is True
         assert "hello" in result.content
-        assert "--- stdout ---" in result.content
+        assert "=== STDOUT ===" in result.content
 
     def test_capture_stderr(self):
-        mock_mod = _make_mock_rust(
-            return_value=_rust_output(stderr="error_msg\n"),
-        )
-        tool = ShellExecTool()
-        with patch(
-            "nira._rust_bridge.get_rust_module",
-            return_value=mock_mod,
-        ):
-            result = tool.execute(command="echo error_msg >&2")
+        result = ShellExecTool().execute(command="echo error_msg >&2")
         assert "error_msg" in result.content
-        assert "--- stderr ---" in result.content
+        assert "=== STDERR ===" in result.content
 
-    @pytest.mark.skip(
-        reason="Rust backend has no timeout — Command::output() blocks",
-    )
     def test_timeout_exceeded(self):
-        tool = ShellExecTool()
-        result = tool.execute(command="sleep 60", timeout=1)
+        result = ShellExecTool().execute(command="sleep 60", timeout=1)
         assert result.success is False
         assert "timed out" in result.content
         assert result.metadata["returncode"] == -1
         assert result.metadata["timeout_used"] == 1
 
     def test_timeout_capped_at_max(self):
-        """timeout param is still capped in Python; Rust ignores it."""
-        mock_mod = _make_mock_rust(
-            return_value=_rust_output(stdout="ok\n"),
-        )
-        tool = ShellExecTool()
-        with patch(
-            "nira._rust_bridge.get_rust_module",
-            return_value=mock_mod,
-        ):
-            result = tool.execute(command="echo ok", timeout=999)
+        result = ShellExecTool().execute(command="echo ok", timeout=999)
         assert result.success is True
         assert result.metadata["timeout_used"] == 300
 
     def test_working_dir(self, tmp_path):
-        mock_mod = _make_mock_rust(
-            return_value=_rust_output(stdout=str(tmp_path) + "\n"),
-        )
-        tool = ShellExecTool()
-        with patch(
-            "nira._rust_bridge.get_rust_module",
-            return_value=mock_mod,
-        ):
-            result = tool.execute(command="pwd", working_dir=str(tmp_path))
+        result = ShellExecTool().execute(command="pwd", working_dir=str(tmp_path))
         assert result.success is True
         assert str(tmp_path) in result.content
         assert result.metadata["working_dir"] == str(tmp_path)
@@ -151,29 +99,23 @@ class TestShellExecTool:
         assert result.success is False
         assert "not a directory" in result.content
 
-    @pytest.mark.skip(reason="Rust backend inherits parent env — no env isolation")
     def test_env_clearing(self):
-        """Verify that arbitrary env vars are NOT passed through."""
+        """Arbitrary host env vars must NOT reach the child."""
         marker = "NIRA_TEST_SECRET_12345"
         os.environ[marker] = "leaked"
         try:
-            tool = ShellExecTool()
-            result = tool.execute(command=f"echo ${marker}")
+            result = ShellExecTool().execute(command=f"echo ${marker}")
             assert result.success is True
             assert "leaked" not in result.content
         finally:
             os.environ.pop(marker, None)
 
-    @pytest.mark.skip(
-        reason="Rust backend inherits parent env — no env_passthrough",
-    )
     def test_env_passthrough(self):
-        """Verify that explicitly listed env vars ARE passed through."""
+        """Explicitly listed env vars ARE passed through."""
         marker = "NIRA_TEST_PASSTHROUGH_67890"
         os.environ[marker] = "allowed_value"
         try:
-            tool = ShellExecTool()
-            result = tool.execute(
+            result = ShellExecTool().execute(
                 command=f"echo ${marker}",
                 env_passthrough=[marker],
             )
@@ -183,42 +125,25 @@ class TestShellExecTool:
             os.environ.pop(marker, None)
 
     def test_returncode_in_metadata(self):
-        mock_mod = _make_mock_rust(
-            return_value=_rust_output(stdout="ok\n"),
-        )
-        tool = ShellExecTool()
-        with patch(
-            "nira._rust_bridge.get_rust_module",
-            return_value=mock_mod,
-        ):
-            result = tool.execute(command="echo ok")
+        result = ShellExecTool().execute(command="echo ok")
         assert result.success is True
         assert result.metadata["returncode"] == 0
 
     def test_nonzero_returncode(self):
-        """Non-zero exit in Rust returns ToolResult::failure() but PyO3 binding
-        returns Ok(content).  The Python wrapper currently treats that as
-        success=True (it only sets success=False on exception).  The Rust
-        output still contains the exit code in the formatted string."""
-        mock_mod = _make_mock_rust(
-            return_value=_rust_output(code=42),
-        )
-        tool = ShellExecTool()
-        with patch(
-            "nira._rust_bridge.get_rust_module",
-            return_value=mock_mod,
-        ):
-            result = tool.execute(command="exit 42")
-        # PyO3 binding returns content for both success/failure ToolResults,
-        # so Python wrapper sets success=True and returncode=0.
-        assert result.success is True
-        assert "Exit code: 42" in result.content
+        """A failing command must be reported as a failure.
 
-    @pytest.mark.skip(reason="Rust backend has no output truncation")
+        The removed native fast path returned success=True/returncode=0 for
+        every exit status, so an agent was told a command worked when it had
+        not. That is the single most consequential thing this tool can get
+        wrong, hence an explicit regression test.
+        """
+        result = ShellExecTool().execute(command="exit 42")
+        assert result.success is False
+        assert result.metadata["returncode"] == 42
+
     def test_max_output_truncation(self, tmp_path):
         """Stdout exceeding 100 KB is truncated."""
-        tool = ShellExecTool()
-        result = tool.execute(
+        result = ShellExecTool().execute(
             command=(
                 f"{shlex.quote(get_python_executable())} -c \"print('A' * 200000)\""
             ),
@@ -227,20 +152,9 @@ class TestShellExecTool:
         assert len(result.content) < 200_000
 
     def test_no_output(self):
-        """Rust always returns the format string even when stdout/stderr are empty."""
-        mock_mod = _make_mock_rust(
-            return_value=_rust_output(),
-        )
-        tool = ShellExecTool()
-        with patch(
-            "nira._rust_bridge.get_rust_module",
-            return_value=mock_mod,
-        ):
-            result = tool.execute(command="true")
+        result = ShellExecTool().execute(command="true")
         assert result.success is True
-        assert "Exit code: 0" in result.content
-        assert "--- stdout ---" in result.content
-        assert "--- stderr ---" in result.content
+        assert result.content == "(no output)"
 
     def test_tool_id(self):
         tool = ShellExecTool()
@@ -254,31 +168,22 @@ class TestShellExecTool:
         assert "command" in fn["function"]["parameters"]["properties"]
 
     def test_default_timeout_metadata(self):
-        mock_mod = _make_mock_rust(
-            return_value=_rust_output(stdout="ok\n"),
-        )
-        tool = ShellExecTool()
-        with patch(
-            "nira._rust_bridge.get_rust_module",
-            return_value=mock_mod,
-        ):
-            result = tool.execute(command="echo ok")
+        result = ShellExecTool().execute(command="echo ok")
         assert result.metadata["timeout_used"] == 30
 
-    def test_rust_exception_sets_failure(self):
-        """When the Rust backend raises an exception, Python sets success=False."""
-        mock_mod = _make_mock_rust(
-            side_effect=RuntimeError("Failed to execute: No such file or directory"),
-        )
-        tool = ShellExecTool()
-        with patch(
-            "nira._rust_bridge.get_rust_module",
-            return_value=mock_mod,
-        ):
-            result = tool.execute(command="/nonexistent_binary")
-        assert result.success is False
-        assert result.metadata["returncode"] == -1
+    def test_never_delegates_to_the_native_backend(self):
+        """The native fast path must stay gone.
 
+        It could not carry an exit status, a sanitised environment or a
+        timeout across the PyO3 boundary, so re-introducing it silently
+        reopens all three defects. Assert the bridge is never consulted.
+        """
+        with patch("nira._rust_bridge.get_rust_module") as get_rust:
+            result = ShellExecTool().execute(command="exit 7")
+
+        get_rust.assert_not_called()
+        assert result.success is False
+        assert result.metadata["returncode"] == 7
 
 class TestSanitizedEnvWindowsKeys:
     """Regression for #789: the Python fallback's env allowlist was
@@ -317,10 +222,9 @@ class TestSanitizedEnvWindowsKeys:
 
     @pytest.mark.skipif(os.name != "nt", reason="requires a real Windows child")
     def test_windows_env_vars_reach_the_subprocess(self, monkeypatch):
-        """End-to-end: with the Rust backend unavailable (forcing the
-        Python sanitised-env fallback), a Windows-critical variable
-        present in the host environment must actually reach the child
-        process instead of being stripped."""
+        """End-to-end: a Windows-critical variable present in the host
+        environment must actually reach the child process rather than
+        being stripped by the sanitised-env allowlist."""
         monkeypatch.setenv("SystemRoot", r"C:\Windows")
         monkeypatch.setenv("LOCALAPPDATA", r"C:\Users\tester\AppData\Local")
 
@@ -331,13 +235,7 @@ class TestSanitizedEnvWindowsKeys:
             return subprocess.CompletedProcess(args, 0, stdout="ok\n", stderr="")
 
         tool = ShellExecTool()
-        with (
-            patch(
-                "nira._rust_bridge.get_rust_module",
-                side_effect=ImportError("no rust module"),
-            ),
-            patch("subprocess.run", side_effect=_fake_run),
-        ):
+        with patch("subprocess.run", side_effect=_fake_run):
             result = tool.execute(command="echo ok")
 
         assert result.success is True
@@ -365,11 +263,7 @@ class TestSanitizedEnvWindowsKeys:
         )
         command = subprocess.list2cmdline([sys.executable, "-c", probe])
 
-        with patch(
-            "nira._rust_bridge.get_rust_module",
-            side_effect=ImportError("force Python fallback"),
-        ):
-            result = ShellExecTool().execute(command=command)
+        result = ShellExecTool().execute(command=command)
 
         assert result.success is True, result.content
         stdout = result.content.split("=== STDOUT ===\n", 1)[1].splitlines()[0]

@@ -113,29 +113,15 @@ impl PyFileWriteTool {
     }
 }
 
-#[pyclass(name = "ShellExecTool")]
-pub struct PyShellExecTool;
-
-#[pymethods]
-impl PyShellExecTool {
-    #[new]
-    fn new() -> Self {
-        Self
-    }
-
-    #[pyo3(signature = (command, cwd=None))]
-    fn execute(&self, command: &str, cwd: Option<&str>) -> PyResult<String> {
-        let tool = nira_tools::builtin::shell::ShellExecTool;
-        let mut params = serde_json::json!({"command": command});
-        if let Some(cwd) = cwd {
-            params["cwd"] = serde_json::Value::String(cwd.to_string());
-        }
-        let result = tool
-            .execute(&params)
-            .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
-        Ok(result.content)
-    }
-}
+// No ShellExecTool binding is exposed to Python, deliberately.
+//
+// One existed and returned `result.content` alone, discarding the success flag
+// that `nira_tools::builtin::shell::ShellExecTool` had correctly computed — so
+// Python could not tell a failed command from a successful one. It also had
+// nowhere to accept a sanitised environment or a timeout, both of which the
+// Python tool guarantees. `nira/tools/shell_exec.py` therefore runs the command
+// itself; the Rust tool stays available to Rust callers, where `ToolResult`
+// carries the exit status intact.
 
 #[pyclass(name = "HttpRequestTool")]
 pub struct PyHttpRequestTool;
