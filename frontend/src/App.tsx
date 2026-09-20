@@ -7,6 +7,7 @@ import { SettingsPage } from './pages/SettingsPage';
 import { GetStartedPage } from './pages/GetStartedPage';
 import { AgentsPage } from './pages/AgentsPage';
 import { DataSourcesPage } from './pages/DataSourcesPage';
+import { ResearchPage } from './pages/ResearchPage';
 import { LogsPage } from './pages/LogsPage';
 import { CommandPalette } from './components/CommandPalette';
 import { SetupScreen } from './components/SetupScreen';
@@ -212,6 +213,8 @@ export default function App() {
           <Route path="data-sources" element={<DataSourcesPage />} />
           <Route path="agents" element={<AgentsPage />} />
           <Route path="logs" element={<LogsPage />} />
+          <Route path="research" element={<ResearchPage />} />
+          <Route path="research/:id" element={<ResearchPage />} />
         </Route>
       </Routes>
       <Toaster position="bottom-right" />

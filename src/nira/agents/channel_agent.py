@@ -7,12 +7,15 @@ either inline or as a preview with an escalation link to a full report.
 
 from __future__ import annotations
 
+import logging
 import re
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Optional
 
 from nira.channels._stubs import BaseChannel, ChannelMessage
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Query classifier
@@ -77,6 +80,10 @@ class ChannelAgent:
         subclass).
     max_workers:
         Size of the background :class:`~concurrent.futures.ThreadPoolExecutor`.
+    research_store:
+        Where escalated reports are kept so the link in the reply resolves.
+        Defaults to the shared store; pass one explicitly in tests, or
+        ``False`` to disable storage entirely.
     """
 
     def __init__(
@@ -85,11 +92,49 @@ class ChannelAgent:
         agent: Any,
         *,
         max_workers: int = 2,
+        research_store: Any = None,
     ) -> None:
         self._channel = channel
         self._agent = agent
         self._pool = ThreadPoolExecutor(max_workers=max_workers)
+        self._research_store = research_store
         channel.on_message(self._handle_message)
+
+    def _store(self) -> Any:
+        """The research store, opened on first use.
+
+        Lazily, because most messages are short answers that never escalate
+        and opening a database for them would be work done for nothing.
+        """
+        if self._research_store is False:
+            return None
+        if self._research_store is None:
+            try:
+                from nira.research import ResearchStore
+
+                self._research_store = ResearchStore()
+            except Exception:  # noqa: BLE001 - a reply is worth more than a link
+                logger.warning("research store unavailable; link will not resolve")
+                self._research_store = False
+                return None
+        return self._research_store
+
+    def _remember(self, session_id: str, query: str, report: str) -> bool:
+        """Persist a report under the id the reply is about to quote."""
+        store = self._store()
+        if store is None:
+            return False
+        try:
+            store.save(
+                query=query,
+                report=report,
+                report_id=session_id,
+                channel=getattr(self._channel, "channel_type", "") or "",
+            )
+            return True
+        except Exception:  # noqa: BLE001 - never lose the reply over storage
+            logger.exception("could not store research report %s", session_id)
+            return False
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -127,11 +172,21 @@ class ChannelAgent:
         is_long = len(response_text) > _LONG_RESPONSE_THRESHOLD
 
         if query_type == "deep" or is_long:
-            preview = response_text[:_LONG_RESPONSE_THRESHOLD]
-            reply = _ESCALATION_TEMPLATE.format(
-                preview=preview,
-                session_id=session_id,
-            )
+            # Write the report down *before* promising it. The link used to
+            # carry a fresh uuid that referred to nothing: the full text went
+            # out of scope the moment the preview was cut from it, so the
+            # reader was offered something already thrown away.
+            stored = self._remember(session_id, msg.content, response_text)
+            if stored:
+                preview = response_text[:_LONG_RESPONSE_THRESHOLD]
+                reply = _ESCALATION_TEMPLATE.format(
+                    preview=preview,
+                    session_id=session_id,
+                )
+            else:
+                # No store, so no link. Sending the whole thing is worse than
+                # a preview but far better than a promise that will not open.
+                reply = response_text
         else:
             reply = response_text
 

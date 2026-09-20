@@ -576,35 +576,68 @@ async def remove_skill(skill_name: str, request: Request):
 sessions_router = APIRouter(prefix="/v1/sessions", tags=["sessions"])
 
 
-@sessions_router.get("")
-async def list_sessions(request: Request, limit: int = 20):
-    """List active sessions."""
-    try:
-        from nira.sessions.store import SessionStore
+# These imported ``nira.sessions.store``, which does not exist — SessionStore
+# lives in ``nira.sessions.session`` — and then called ``recent()`` and
+# ``get()``, which it does not have. A blanket ``except Exception`` turned all
+# of that into ``{"sessions": [], "error": ...}``, so the endpoint reported no
+# sessions rather than reporting that it was broken, and did so for as long as
+# nobody read the error field.
+
+
+def _session_store(request: Request):  # noqa: ANN202
+    store = getattr(request.app.state, "session_store", None)
+    if store is None:
+        from nira.sessions.session import SessionStore
 
         store = SessionStore()
-        sessions = store.recent(limit=limit)
-        items = [s.to_dict() if hasattr(s, "to_dict") else str(s) for s in sessions]
-        return {"sessions": items}
-    except Exception as exc:
-        return {"sessions": [], "error": str(exc)}
+        request.app.state.session_store = store
+    return store
+
+
+@sessions_router.get("")
+async def list_sessions(request: Request, limit: int = 20):
+    """List recent sessions, newest first."""
+    store = _session_store(request)
+    sessions = store.list_sessions(limit=max(1, min(200, limit)))
+    return {
+        "sessions": [_session_dict(session) for session in sessions],
+        "count": len(sessions),
+    }
 
 
 @sessions_router.get("/{session_id}")
 async def get_session(session_id: str, request: Request):
-    """Get a specific session."""
-    try:
-        from nira.sessions.store import SessionStore
+    """One session, with its messages."""
+    store = _session_store(request)
+    session = store.get(session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+    return _session_dict(session, messages=True)
 
-        store = SessionStore()
-        session = store.get(session_id)
-        if session is None:
-            raise HTTPException(status_code=404, detail="Session not found")
-        return session.to_dict() if hasattr(session, "to_dict") else {"id": session_id}
-    except HTTPException:
-        raise
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
+
+def _session_dict(session: Any, *, messages: bool = False) -> dict:
+    """Serialise a Session without requiring it to know about HTTP."""
+    identity = getattr(session, "identity", None)
+    body = {
+        "session_id": session.session_id,
+        "user_id": getattr(identity, "user_id", "") if identity else "",
+        "display_name": getattr(identity, "display_name", "") if identity else "",
+        "created_at": session.created_at,
+        "last_activity": session.last_activity,
+        "metadata": session.metadata,
+        "message_count": len(session.messages),
+    }
+    if messages:
+        body["messages"] = [
+            {
+                "role": message.role,
+                "content": message.content,
+                "channel": message.channel,
+                "timestamp": message.timestamp,
+            }
+            for message in session.messages
+        ]
+    return body
 
 
 # ---- Budget routes ----

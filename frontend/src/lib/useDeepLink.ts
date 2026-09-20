@@ -42,15 +42,11 @@ export function useDeepLink(): void {
 
       switch (target.type) {
         case 'research':
-          // The report itself cannot be rendered yet: /api/research is a
-          // streaming POST with no endpoint to fetch a stored session, so
-          // there is nothing to load by id. Surfacing the request beats
-          // silently doing nothing, and this becomes a real navigation once
-          // that endpoint exists.
-          navigate('/');
-          toast('Research report ready', {
-            description: `Session ${target.id}`,
-          });
+          // A real navigation at last. This used to land on the home page
+          // with a toast, because the report had nowhere to be read from —
+          // the full text was discarded the moment its preview was cut from
+          // it, so the link promised something that no longer existed.
+          navigate(`/research/${encodeURIComponent(target.id)}`);
           break;
         case 'connector':
           navigate('/data-sources');

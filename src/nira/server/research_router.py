@@ -27,7 +27,7 @@ import threading
 import time
 from typing import Any, AsyncGenerator, Callable, Dict, List, Optional
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
@@ -595,6 +595,62 @@ async def research(req: ResearchRequest, request: Request) -> StreamingResponse:
             "X-Accel-Buffering": "no",
         },
     )
+
+
+# ---------------------------------------------------------------------------
+# Stored reports
+# ---------------------------------------------------------------------------
+
+
+def _store(request: Request):  # noqa: ANN202
+    store = getattr(request.app.state, "research_store", None)
+    if store is not None:
+        return store
+    from nira.research import ResearchStore
+
+    store = ResearchStore()
+    request.app.state.research_store = store
+    return store
+
+
+@router.get("/research/{report_id}")
+async def get_research(report_id: str, request: Request) -> dict:
+    """Fetch a stored report by the id a ``nira://research/`` link carries.
+
+    This is the other half of that link. ``channel_agent`` answers a long
+    query with a preview and the link; without somewhere to read the report
+    back from, clicking it could only open the app and apologise.
+    """
+    report = _store(request).get(report_id)
+    if report is None:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "That report is no longer available. Reports are kept for the "
+                "most recent few hundred queries."
+            ),
+        )
+    return report.to_dict()
+
+
+@router.get("/research")
+async def list_research(request: Request) -> dict:
+    """Recent reports, as previews.
+
+    Previews rather than full text: a report runs to thousands of words, and
+    a listing that carried every one of them would make the common case pay
+    for the rare one.
+    """
+    limit = request.query_params.get("limit", "20")
+    try:
+        count = max(1, min(100, int(limit)))
+    except ValueError:
+        count = 20
+    reports = _store(request).recent(limit=count)
+    return {
+        "reports": [report.to_dict(full=False) for report in reports],
+        "count": len(reports),
+    }
 
 
 __all__ = ["router", "ResearchRequest"]

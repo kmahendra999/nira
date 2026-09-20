@@ -1109,6 +1109,36 @@ export interface PendingApproval {
   expires_at: string;
 }
 
+/** A research report stored when a long answer was escalated to a link. */
+export interface ResearchReport {
+  id: string;
+  query: string;
+  report: string;
+  preview: string;
+  channel: string;
+  created_at: number;
+}
+
+export async function fetchResearchReport(id: string): Promise<ResearchReport> {
+  const res = await apiFetch(`/api/research/${encodeURIComponent(id)}`);
+  if (res.status === 404) {
+    // Distinct from a transport failure: the link was fine, the report has
+    // simply been pruned. Telling the user it was not their mistake is the
+    // difference between a dead end and an explanation.
+    const body = await res.json().catch(() => ({ detail: '' }));
+    throw new Error(body.detail || 'That report is no longer available.');
+  }
+  if (!res.ok) throw new Error(`Failed: ${res.status}`);
+  return res.json();
+}
+
+export async function fetchRecentResearch(limit = 20): Promise<ResearchReport[]> {
+  const res = await apiFetch(`/api/research?limit=${limit}`);
+  if (!res.ok) throw new Error(`Failed: ${res.status}`);
+  const data = await res.json();
+  return data.reports || [];
+}
+
 export async function fetchPendingApprovals(): Promise<PendingApproval[]> {
   const res = await apiFetch(`/v1/approvals/pending`);
   if (!res.ok) throw new Error(`Failed: ${res.status}`);

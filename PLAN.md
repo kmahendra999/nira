@@ -1183,9 +1183,59 @@ someone who is not.
   `aapt2` confirms the service, both receivers and all four permissions are registered. None of it
   has been exercised on a real phone.
 
+### Phase 12 — The link that led nowhere ✅
+
+**Python: 9,171 passing. Frontend: 102. Android: 131.**
+
+`channel_agent` has been answering long queries over Telegram, Slack and iMessage with a preview
+and `nira://research/<id>` since it existed. The scheme is registered with the OS, the desktop app
+parses the URL and knows what to do with it — and the report was never written down. The full text
+went out of scope in the same breath as the preview was cut from it, and the id was a fresh uuid
+that referred to nothing.
+
+So it was not merely a feature that had not been finished. The link **promised a reader something
+that had already been thrown away**, which is a different and worse thing: a missing feature is a
+disappointment, a broken promise is a bug report.
+
+`nira/research/store.py` keeps the report under the id the reply is about to quote — before
+sending it, because writing it afterwards under a different id would recreate the same dangling
+link. `GET /api/research/{id}` reads it back, and `ResearchPage` renders it. When there is nowhere
+to store it, no link is promised: the whole answer is sent instead, which is worse than a preview
+and far better than a promise that will not open.
+
+**Two more broken things found on the way.**
+
+`/v1/sessions` imported `nira.sessions.store`, which does not exist — `SessionStore` lives in
+`nira.sessions.session` — and then called `recent()` and `get()`, which it does not have. A blanket
+`except Exception` turned all of that into `{"sessions": [], "error": ...}`, so the endpoint
+reported *no sessions* rather than reporting that it was broken, and did so for as long as nobody
+read the error field. Live, it returned `{"sessions":[],"error":"No module named
+'nira.sessions.store'"}` and its sibling 500'd. Fixed, with `SessionStore.get()` written to match.
+
+Every Markdown list in the app rendered without markers. Tailwind's preflight resets
+`list-style: none` on `ul` and `ol`, and `.prose` set padding without ever putting the markers
+back. Numbered steps lost their numbers, which is worse than losing bullets — "1. 2. 3." carries
+meaning that indentation alone does not. This has affected every chat reply the assistant has ever
+given; the research page simply made it visible.
+
+Previews strip Markdown rather than showing it. A report opens with a heading and is full of
+emphasis, so the raw text read `# Title Running a model **trades** …` — syntax crowding out words
+in exactly the place with least room for them.
+
+Verified in the running app: a stored report opens at its own URL with headings, emphasis and
+bulleted lists rendered; the listing shows prose previews; and an id that no longer exists explains
+that reports are pruned and offers the list, rather than looking like a broken link.
+
+### Still open in Phase 12
+
+- **Only `channel_agent` writes reports.** A deep research run started from the web UI streams to
+  the browser and is not kept, so it has no link and does not appear in the list. The store is
+  general enough; nothing else calls it yet.
+- **No search.** Two hundred reports is a scroll, not a corpus, but it will not stay that way.
+
 ### Next
 
-A research-session retrieval endpoint so `nira://research/<id>` renders. Then the two Phase 6
-refactors still outstanding: splitting `AgentsPage.tsx` and `DataSourcesPage.tsx`, and the logo
-mark — which is a redesign rather than a recolour, and the one item here that wants a designer
-more than an engineer.
+The two Phase 6 refactors still outstanding: splitting `AgentsPage.tsx` (4,007 lines) and
+`DataSourcesPage.tsx` (2,385), which is also where the six disclosure rows given `role="button"`
+should become real `<button>` elements. Then the logo mark — a redesign rather than a recolour, and
+the one item here that wants a designer more than an engineer.
