@@ -83,3 +83,35 @@ describe('buildWsProtocols', () => {
     expect(buildWsProtocols()).toBeUndefined();
   });
 });
+
+describe('buildWsUrl replay cursor', () => {
+  beforeEach(() => {
+    // An explicit base keeps buildWsUrl off window.location, which does not
+    // exist in this node environment.
+    localStorage.setItem(
+      SETTINGS_KEY,
+      JSON.stringify({ apiUrl: 'https://nira.example.com:8443' }),
+    );
+  });
+
+  it('omits `since` on a first connection', () => {
+    // A fresh subscriber wants what happens next, not the server's backlog.
+    expect(buildWsUrl('a1')).not.toContain('since');
+  });
+
+  it('carries the cursor on a reconnect', () => {
+    expect(buildWsUrl('a1', 42)).toContain('since=42');
+  });
+
+  it('sends since=0 rather than dropping it', () => {
+    // 0 is a real cursor meaning "everything you still hold"; treating it as
+    // absent would silently turn a resume into a fresh subscription.
+    expect(buildWsUrl('a1', 0)).toContain('since=0');
+  });
+
+  it('keeps the agent filter alongside the cursor', () => {
+    const url = buildWsUrl('a1', 7);
+    expect(url).toContain('agent_id=a1');
+    expect(url).toContain('since=7');
+  });
+});

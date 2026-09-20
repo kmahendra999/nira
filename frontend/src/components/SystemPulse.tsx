@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useAppStore } from '../lib/store';
 import { fetchManagedAgents } from '../lib/api';
+import { useAllAgentEvents, type AgentEvent } from '../lib/useAgentEvents';
 
 type PulseState = 'idle' | 'inferencing' | 'agent-active' | 'hidden';
 
@@ -23,17 +24,38 @@ export function SystemPulse({ apiReachable }: { apiReachable: boolean | null }) 
   const isStreaming = useAppStore((s) => s.streamState.isStreaming);
   const [hasRunningAgent, setHasRunningAgent] = useState(false);
 
-  // Poll for running agents every 30s
+  // One fetch to learn the current state — an agent may already have been
+  // running before this mounted, and the event stream only reports changes.
   useEffect(() => {
     if (apiReachable === false) return;
-    const check = () =>
+    fetchManagedAgents()
+      .then((agents) => setHasRunningAgent(agents.some((a) => a.status === 'running')))
+      .catch(() => {});
+  }, [apiReachable]);
+
+  // After that, follow the events. This used to poll every 30 seconds, so the
+  // most visible "something is happening" indicator in the app could be up to
+  // half a minute behind the thing it indicates — long enough for a short
+  // agent run to start and finish without the bar ever moving.
+  const onEvent = useCallback((event: AgentEvent) => {
+    if (event.type === 'agent_tick_start') {
+      setHasRunningAgent(true);
+      return;
+    }
+    if (event.type === 'agent_tick_end' || event.type === 'agent_tick_error') {
+      // Re-read rather than assume idle: another agent may still be working,
+      // and this stream is unfiltered.
       fetchManagedAgents()
         .then((agents) => setHasRunningAgent(agents.some((a) => a.status === 'running')))
-        .catch(() => {});
-    check();
-    const interval = setInterval(check, 30000);
-    return () => clearInterval(interval);
-  }, [apiReachable]);
+        .catch(() => setHasRunningAgent(false));
+    }
+  }, []);
+
+  useAllAgentEvents(
+    onEvent,
+    ['agent_tick_start', 'agent_tick_end', 'agent_tick_error'],
+    apiReachable !== false,
+  );
 
   if (apiReachable === false) return null;
 
