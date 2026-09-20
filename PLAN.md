@@ -631,7 +631,47 @@ Three things surfaced during execution that change later phases:
 3. **`nira-ai/nira` is a placeholder org** in every upstream URL. Replace with:
    `git grep -l nira-ai | xargs sed -i 's|nira-ai|YOURORG|g'`
 
+### Phase 2 — Bug fixes ✅
+
+**The suite is green for the first time: 8,701 passing, 0 failing**, across three consecutive
+parallel runs. Rust workspace tests pass, frontend 77/77, lint clean.
+
+| § | Bug | Commit |
+|---|---|---|
+| 1 | `shell_exec` reported failed commands as successes, leaked the parent environment, ignored its timeout | `d269636` |
+| 2 | RAPL `PermissionError` aborted every external eval on hardened Linux (5 of 6 failures) | `b97d554` |
+| 4 | Claude sidecar kept only the last text block of a reply | `f3f7f55` |
+| 5 | Docs told users to bind an agent with shell tools to `0.0.0.0` | `38764da` |
+| 6 | `nira gateway start --install` installed a unit that exited immediately | `8491be2` |
+| 7, 8 | A2A client sent no bearer token; Rust/Python disagreed on every task state | `46f23cf` |
+| 9 | `speech.language` was declared and read nowhere | `dc11534` |
+| 10 | `nira://` links were registered with the OS and then dropped | `adf565c` |
+| 12, 13 | Frozen "live" dashboard clock; telemetry tagged `0.1.0` since forever | `4537235` |
+| 14, 15 | npm toolchain trap documented; `Nira[voice]` now installs a loop that can hear *and* speak | `35fdf78`, `6d9d702` |
+
+Three findings worth carrying forward:
+
+- **§3 (the order-dependent test) no longer reproduces.** It failed in roughly two of three
+  parallel runs before Phase 2 and has now passed 17 consecutive parallel runs plus a full serial
+  run. I could not pin the mechanism, so I am not claiming a specific fix — note that the two tests
+  originally implicated were both network-boundary tests (SSRF/DNS), which points at environmental
+  sensitivity rather than code. Worth re-checking rather than assuming it is gone for good.
+- **§11 was not a real bug.** `MicButton`'s `pulse` animation was reported as referencing an
+  undefined keyframe; Tailwind v4 supplies `@keyframes pulse` and it is present in the built CSS.
+  Verified rather than "fixed".
+- **§16 (≈4,700 lines of dead frontend code) stays in Phase 6.** It is a restructuring task, and
+  Phase 6 item 1 already sequences it before any visual work.
+
+Two gaps were deliberately left open rather than faked, both noted in the code:
+
+- A `nira://research/<id>` link now reaches the app but cannot render the report, because
+  `/api/research` is a streaming POST with no endpoint to fetch a stored session. Delivery is
+  wired; the retrieval endpoint is a later phase.
+- `GatewayDaemon` now stays up and shuts down cleanly under a service manager, but still composes
+  little. It is honest infrastructure, not a finished gateway.
+
 ### Next
 
-**Phase 2 — Bug fixes.** Start with §5 items 1–2: `shell_exec` reporting failed commands as
-successes, and the RAPL `PermissionError` that accounts for 5 of the 6 remaining test failures.
+**Phase 3 — Voice latency.** The pipelining work in §7: stream the LLM into TTS sentence by
+sentence, add streaming to the two ABCs, cut the 1.5 s silence tax, and replace the fixed-threshold
+RMS gate with real VAD.
