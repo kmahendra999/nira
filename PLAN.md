@@ -842,9 +842,101 @@ The large refactors, deliberately not rushed:
 
 Item 10 needed nothing: the rename already corrected all 16 connector setup strings.
 
+### Phase 7 — Android client ✅
+
+**Python: 9,044 passing.** **Android: 91 passing, 5 skipped without a server (all 5 pass
+against one).** 27 Kotlin files building a 44 MB debug APK.
+
+The twelve remaining Python failures are all `*Live` classes needing things this machine does
+not have — gemma.cpp weights, Oura/Strava/Spotify/Google Tasks tokens — and fail identically on
+a clean worktree at `0ef7ff1f`.
+
+| Piece | What it does |
+|---|---|
+| `net/NiraClient.kt` | Enrol, info, streamed `ask`, `transcribe`, speech health, events socket |
+| `net/Sse.kt` | Turns one SSE line into text, end-of-stream, or nothing |
+| `data/` | Desktop registry, QR/manual pairing parser, Keystore-backed secrets, WAV framing, mic capture |
+| `ui/` | Pairing (camera + manual), desktop picker with liveness, conversation with voice |
+
+The conversation screen is the product: type or hold the microphone, watch what the desktop is
+doing on a live bar above the transcript, and read the answer as it streams.
+
+**"Work on this project" now goes somewhere.** `nira project add` has registered directories
+since Phase 4 and `ClaudeCodeAgent` has taken a `workspace` since it existed, but nothing joined
+them over HTTP — the registry was reachable only from a shell on the machine itself, so the phone
+could chat and could watch agents work without ever being able to start any. `server/project_routes.py`
+adds the join: list projects, start a run in one, read how it turned out. A row of chips above the
+composer picks where the next prompt goes — `Chat`, or one of the desktop's projects — because
+that choice changes what the prompt *does*, and sending an agent into a directory with file and
+shell access is not something to bury in a menu. It is never the default.
+
+The run is started, not awaited: agentic work takes minutes and a phone's radio does not survive
+a request held open that long, so the response carries a run id and progress arrives on the event
+socket the client is already watching. Two things the caller does *not* get to choose: the
+permission mode, which would let a device holding only `ask` grant itself the right to skip every
+approval the desktop would have raised, and the resource ceilings, which are clamped so nobody can
+pin a Node subprocess open for a day.
+
+That permission mode comes from config — and until now there was no config to come from. Phase 4
+added the parameter to `ClaudeCodeAgent` precisely because "the posture for an agent with file and
+shell access was whatever the SDK happened to default to rather than something Nira chose", and
+then nothing ever set it. `agent.permission_mode` now exists, so the choice is finally the user's.
+
+**Voice goes to your own machine.** Android's recogniser would ship the user's speech to Google,
+which is the one thing a local-first assistant exists to avoid. The phone records 16 kHz mono PCM,
+wraps it in a WAV container and posts it to the paired desktop's `/v1/speech/transcribe`, where
+the local Whisper model handles it. The microphone button only appears once `/v1/speech/health`
+confirms that desktop can actually transcribe — a mic that fails after you have finished speaking
+is worse than one that was never offered.
+
+Two bugs the live run found that no mock would have:
+
+- **A device key could not open the events WebSocket.** `authenticate_websocket` only ever knew
+  the machine key, so a paired phone could send a prompt and then be refused the socket reporting
+  progress on it — the live progress the pairing exists to deliver was the one thing a device key
+  could not reach. It now resolves device keys too, and checks the scope while it is there.
+- **Scopes were issued but enforced nothing.** `DEFAULT_SCOPES = (ask, watch)` had been handed out
+  since devices existed and attached to every request, with a comment saying downstream handlers
+  read it. Nothing did. A phone paired to ask questions could rewrite config and revoke other
+  devices. `server/device_scopes.py` now classifies every path, default-deny: anything
+  unclassified needs `admin`, so a route added later locks down rather than opening up. The
+  machine key is untouched — it carries no device identity and never reaches the check.
+
+Two more in the app's own wiring, both of the same shape — state that outlives the screen showing
+it. Tapping a desktop in the picker navigated to the conversation without changing the selection,
+so tapping one machine opened a conversation with another; selecting and opening are now a single
+action. And the picker's view model survives a trip to the pairing screen, so a desktop you had
+just paired was missing from the list you were sent back to; both screens now re-read on resume.
+
+Verified against a real `nira serve`, not only MockWebServer: enrolment issues a working key, that
+key authenticates, an unauthenticated call is refused, an answer streams back from the real model,
+and an `ask`-only device is refused `/v1/config`, `/v1/devices` and the events socket while
+keeping `/v1/chat/completions`. A project run was driven the whole way through with a device key:
+`POST /v1/projects/demo/run` returned a run id in milliseconds, the Claude Code agent ran in that
+project's directory, and sixty seconds later `/v1/projects/runs/<id>` reported `done` with the
+agent's answer and two turns. That is the requirement — a command given away from the machine,
+work started on it, progress and outcome visible — end to end against real software. `/v1/devices/me` needs authentication but no scope — a client
+decides which controls to show from exactly that answer, so gating it would leave a
+narrowly-paired phone unable to discover that it is narrowly paired.
+
+### Still open in Phase 7
+
+Everything the native app buys *over* a PWA is still ahead: background voice capture and a wake
+word, a foreground service so a task keeps streaming with the screen off, push notifications when
+a long task finishes or needs approval, assistant-button integration, and offline queueing. The
+app is also unsigned and has never run on hardware — it builds and its logic is tested on the JVM,
+which is not the same as installed.
+
+A project run's *outcome* is polled rather than pushed. The events say what the agent is doing,
+not what it concluded, so the phone asks `/v1/projects/runs/<id>` on a backoff until the run
+settles. That is deliberate — a device without the `watch` scope has no socket at all and must
+still be able to learn how the work it started turned out — but a terminal event carrying the
+result would be better, and would also let the run history survive being read by a second device.
+
 ### Next
 
-**Phase 7 — the Android client**, or the remaining UI refactors above. The server side is ready
-for a phone: per-device keys, scoped pairing over a QR, replay-on-reconnect, and an https path
-that makes the PWA installable. Installing the PWA over `tailscale serve` is the cheapest way to
-validate the whole transport, auth and progress story before any Kotlin is written.
+The remaining UI refactors in Phase 6 above — the inline-style pattern first, since the
+accessibility pass and any interaction polish depend on it. Then, carried forward from Phase 5:
+wiring `canUseTool` to `ApprovalStore` so a risky step can be approved from the phone (the
+`approve` scope exists and is now enforced, but nothing asks for it yet), multi-desktop task
+routing, and a research-session retrieval endpoint so `nira://research/<id>` renders.
