@@ -63,7 +63,11 @@ def cli(ctx: click.Context, verbose: bool, quiet: bool, pick_model_bare: bool) -
 
     _migrated = migrate_legacy_home()
     if _migrated is not None and not quiet:
-        click.echo(f"Migrated your OpenJarvis data to {_migrated}", err=True)
+        click.echo(
+            f"Copied your OpenJarvis settings and data to {_migrated}\n"
+            "Your previous OpenJarvis install was left in place and still works.",
+            err=True,
+        )
 
     ctx.ensure_object(dict)
     ctx.obj["verbose"] = verbose

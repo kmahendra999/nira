@@ -198,7 +198,7 @@ class TestLegacyConstantsHonorEnv:
 class TestMigrateLegacyHome:
     """Adoption of a pre-rename ``~/.openjarvis`` root (OpenJarvis -> Nira)."""
 
-    def test_moves_legacy_dir_when_target_absent(
+    def test_copies_state_and_leaves_legacy_install_intact(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         _clear_env(monkeypatch)
@@ -206,16 +206,51 @@ class TestMigrateLegacyHome:
         legacy = tmp_path / ".openjarvis"
         (legacy / "skills").mkdir(parents=True)
         (legacy / "config.toml").write_text("x = 1", encoding="utf-8")
+        (legacy / "memory.db").write_bytes(b"sqlite")
+        (legacy / "memory.db-wal").write_bytes(b"wal")
 
         result = paths.migrate_legacy_home()
 
         assert result == tmp_path / ".nira"
-        assert not legacy.exists()
         assert (tmp_path / ".nira" / "config.toml").read_text(
             encoding="utf-8"
         ) == "x = 1"
         assert (tmp_path / ".nira" / "skills").is_dir()
         assert (tmp_path / ".nira" / paths._MIGRATION_MARKER).exists()
+        # WAL sidecars ride along, or committed transactions would be dropped.
+        assert (tmp_path / ".nira" / "memory.db-wal").read_bytes() == b"wal"
+        # Copy, not move: the old install must keep working.
+        assert legacy.is_dir()
+        assert (legacy / "config.toml").exists()
+
+    def test_excludes_install_artifacts(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Install artifacts must not follow the state into the new root.
+
+        A virtualenv bakes its own absolute path into pyvenv.cfg and every
+        console-script shebang, so a copied one is broken on arrival — and the
+        original keeps working only because we left it alone. The installer's
+        source checkout and logs are equally not user state, and stale
+        server.pid/lock entries would describe a process that is not ours.
+        """
+        _clear_env(monkeypatch)
+        monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+        legacy = tmp_path / ".openjarvis"
+        legacy.mkdir()
+        (legacy / "config.toml").write_text("keep", encoding="utf-8")
+        for artifact in (".venv", "src", ".scripts", ".state", "cache"):
+            (legacy / artifact).mkdir()
+            (legacy / artifact / "payload").write_text("no", encoding="utf-8")
+        for runtime in ("server.pid", "server.lock", "server.log"):
+            (legacy / runtime).write_text("stale", encoding="utf-8")
+
+        result = paths.migrate_legacy_home()
+        assert result is not None
+
+        assert (result / "config.toml").read_text(encoding="utf-8") == "keep"
+        for excluded in paths._LEGACY_INSTALL_ARTIFACTS:
+            assert not (result / excluded).exists(), f"{excluded} must not be copied"
 
     def test_is_idempotent(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch

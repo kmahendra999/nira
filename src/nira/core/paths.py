@@ -31,6 +31,7 @@ REVIEW.md's no-silent-failure discipline.
 from __future__ import annotations
 
 import os
+import shutil
 from pathlib import Path
 
 _DEFAULT_DIR_NAME = ".nira"
@@ -42,31 +43,71 @@ _XDG_SUBDIR_NAME = "nira"
 _LEGACY_DIR_NAME = ".openjarvis"
 _MIGRATION_MARKER = ".migrated-from-openjarvis"
 
+# Entries under the legacy root that belong to the OLD INSTALL rather than to
+# the user, and must not be carried into Nira's root.
+#
+# This is the crux of why the migration copies a subset instead of moving the
+# directory. A real pre-rename install keeps a multi-gigabyte virtualenv and a
+# full source checkout in here beside the databases:
+#
+#   .venv     a virtualenv, which bakes its own absolute path into pyvenv.cfg
+#             and every console-script shebang. Relocating it breaks it, and
+#             anything currently running from it breaks on restart.
+#   src       a second checkout of the framework source, installed by the
+#             shell installer. Nira has its own.
+#   .scripts  installer shell scripts.
+#   .state    installer logs, build markers, downloaded model bookkeeping.
+#   cache     regenerable by definition (see get_cache_dir).
+#
+# The server.* entries are live-process bookkeeping: a stale pid or lock copied
+# into a fresh root would describe a process that is not ours.
+_LEGACY_INSTALL_ARTIFACTS = frozenset(
+    {
+        ".venv",
+        "src",
+        ".scripts",
+        ".state",
+        "cache",
+        "server.pid",
+        "server.lock",
+        "server.log",
+    }
+)
+
 
 class ConfigurationError(RuntimeError):
     """Raised when the resolved home directory would violate isolation guarantees."""
 
 
 def migrate_legacy_home() -> Path | None:
-    """Move a pre-rename ``~/.openjarvis`` root to ``~/.nira``, once.
+    """Adopt user state from a pre-rename ``~/.openjarvis`` root, once.
 
     Returns the new path when a migration happened, else ``None``.
+
+    Copies — deliberately, and does not move. Moving would be faster and atomic,
+    but the legacy root is not purely user data: it also contains the previous
+    install's virtualenv and source tree (see ``_LEGACY_INSTALL_ARTIFACTS``).
+    Relocating a virtualenv breaks it, because its absolute path is baked into
+    ``pyvenv.cfg`` and every script shebang, and anything still running from it
+    breaks the moment it restarts. Copying the state and leaving the old install
+    untouched means a user can keep running OpenJarvis side by side with Nira,
+    which during a rename is exactly what you want.
 
     Deliberately conservative — it acts only when all of the following hold:
 
     * no ``$NIRA_HOME`` / ``$XDG_DATA_HOME`` override is set, so we are
       reasoning about the default location and not a path the user chose;
-    * ``~/.openjarvis`` exists and is a real directory, not a symlink (a
-      symlink would make ``rename`` move the link and orphan the target);
+    * ``~/.openjarvis`` exists and is a real directory, not a symlink;
     * ``~/.nira`` does not exist, so we can never merge two roots or clobber
       state that a fresh install already wrote.
 
-    Uses ``rename`` rather than a copy: the tree routinely holds gigabytes of
-    skills and model data, and rename is atomic within a filesystem, so an
-    interrupted migration cannot leave a half-copied root. Cross-device moves
-    raise ``OSError``, which is surfaced rather than swallowed — per REVIEW.md's
-    no-silent-failure discipline, losing track of the user's data is exactly the
-    kind of thing that must fail loudly.
+    SQLite ``-wal`` / ``-shm`` sidecars are copied alongside their databases so
+    no committed transaction is dropped. A database being written *during* the
+    copy could still be captured mid-transaction; SQLite recovers such a
+    snapshot on next open, but the migration is best run when no agent is live.
+
+    A failure part-way through is surfaced rather than swallowed: a partially
+    populated root is worse than none, so the caller sees the ``OSError``.
     """
     if os.environ.get("NIRA_HOME") or os.environ.get("XDG_DATA_HOME"):
         return None
@@ -78,14 +119,20 @@ def migrate_legacy_home() -> Path | None:
     if current.exists() or not legacy.is_dir() or legacy.is_symlink():
         return None
 
-    legacy.rename(current)
+    shutil.copytree(
+        legacy,
+        current,
+        symlinks=True,
+        ignore=lambda _dir, names: [n for n in names if n in _LEGACY_INSTALL_ARTIFACTS],
+    )
     try:
         (current / _MIGRATION_MARKER).write_text(
-            f"Migrated from {legacy} during the OpenJarvis -> Nira rename.\n",
+            f"Copied from {legacy} during the OpenJarvis -> Nira rename.\n"
+            "The original install was left in place and still works.\n",
             encoding="utf-8",
         )
     except OSError:
-        # The move is what matters and it already succeeded; a missing
+        # The copy is what matters and it already succeeded; a missing
         # breadcrumb must not turn a good migration into a failure.
         pass
     return current
