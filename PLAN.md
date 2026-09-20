@@ -670,8 +670,51 @@ Two gaps were deliberately left open rather than faked, both noted in the code:
 - `GatewayDaemon` now stays up and shuts down cleanly under a service manager, but still composes
   little. It is honest infrastructure, not a finished gateway.
 
+### Phase 3 — Voice latency ✅
+
+**8,797 passing, 0 failing.** Measured on a 45-word reply at 30 tok/s with modelled synthesis
+cost: **time to first audio 1.89 s → 0.23 s (8.3× faster)**. Adding the capture window that
+precedes it, a turn's fixed overhead goes from ~3.39 s to ~0.63 s.
+
+| § | Change | Commit |
+|---|---|---|
+| — | Sentence segmentation + speech-ready text prep | `6532c79` |
+| 1, 2 | Stream the LLM into TTS; `synthesize_stream` on the ABC, Kokoro overrides | `1411fbe` |
+| 3, 4, 7, 11 | Calibrated VAD, 1.5 s → 0.4 s window, vectorised RMS, stoppable playback | `e64b4c2` |
+| 5, 6, 13 | Conversational Whisper decode, in-memory audio, warm start | `0aea08d` |
+| 7 | Barge-in detector, and a `nira talk` entry point | `139880b` |
+
+Where the time went, and what replaced it:
+
+- **The reply is spoken while it generates.** Each engine already implemented `async stream()`;
+  chat_cmd called the synchronous `generate()` and discarded it. The producer runs on its own
+  thread so generation of sentence N+1 overlaps playback of sentence N — consuming the stream
+  inline would re-serialise them and give back the entire win.
+- **The 1.5 s silence tax is gone.** On its own it exceeded a conversational budget, before any
+  model ran.
+- **The gate is now relative to the room.** A fixed RMS threshold of 500 meant a noisy room
+  recorded the full 30 s ceiling and a quiet microphone never triggered at all.
+- **Whisper decodes for conversation, not for transcription.** beam 5 with a six-step temperature
+  ladder is right for a recording and wrong for a turn someone is waiting on.
+- **Silence is no longer transcribed.** The startup timeout used to hand five seconds of room tone
+  to Whisper, spending a full decode to produce one of its stock hallucinations.
+
+Two things worth carrying forward:
+
+- **Streaming STT was not implemented** (the second half of §2). Partial transcripts would need a
+  backend that streams — Deepgram's live websocket API, or chunked re-decoding with faster-whisper,
+  which costs CPU for a modest gain now that the gate closes in 0.4 s and decoding is much cheaper.
+  Deferred deliberately rather than half-built.
+- **Barge-in ships off by default** (`[speech] barge_in`). There is no acoustic echo cancellation,
+  so on open speakers the microphone hears the reply and Nira interrupts itself. With headphones it
+  works well. Real AEC would make it safe to default on.
+
+Writing the segmentation tests caught two bugs in my own first version, both premature cuts — the
+one failure mode that matters, since audio cannot be taken back once it is playing. Noted in
+`6532c79`.
+
 ### Next
 
-**Phase 3 — Voice latency.** The pipelining work in §7: stream the LLM into TTS sentence by
-sentence, add streaming to the two ABCs, cut the 1.5 s silence tax, and replace the fixed-threshold
-RMS gate with real VAD.
+**Phase 4 — Live task progress.** Stream the Claude sidecar so the existing EventBus → WebSocket →
+`AgentsPage` trace lights up, pass `workspace` through the executor allowlist, implement real
+session resumption, and add a project registry.
