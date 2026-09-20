@@ -87,6 +87,10 @@ server = [
     "uvicorn>=0.30",
     "pydantic>=2.0",
     "python-multipart>=0.0.9",
+    # Device pairing prints a QR for a phone to scan. Without it the fallback
+    # is reading a 40-character token off the screen and typing it in, which
+    # is the sort of friction that stops people pairing at all.
+    "qrcode>=7.4",
 ]
 desktop = [
     "fastapi>=0.110",

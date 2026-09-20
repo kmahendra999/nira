@@ -122,6 +122,7 @@ if not _DATA_BOUNDARY_BOOTSTRAP:
     from nira.cli.config_cmd import config
     from nira.cli.connect_cmd import connect
     from nira.cli.daemon_cmd import restart, start, status, stop
+    from nira.cli.device_cmd import device
     from nira.cli.digest_cmd import digest
     from nira.cli.doctor_cmd import doctor
     from nira.cli.eval_cmd import eval_group
@@ -187,6 +188,7 @@ if not _DATA_BOUNDARY_BOOTSTRAP:
     cli.add_command(digest, "digest")
     cli.add_command(project, "project")
     cli.add_command(mcp, "mcp")
+    cli.add_command(device, "device")
 
     # Deep Research setup pulls the ingestion pipeline (embeddings/numpy). Guard
     # it so an import-time dependency failure cannot take down the whole CLI.

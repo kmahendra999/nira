@@ -34,9 +34,15 @@ class AuthMiddleware(BaseHTTPMiddleware):
     per-channel signature verification instead.
     """
 
-    def __init__(self, app, api_key: str = "") -> None:  # noqa: ANN001
+    def __init__(self, app, api_key: str = "", device_store=None) -> None:  # noqa: ANN001
         super().__init__(app)
         self._api_key = api_key or os.environ.get("NIRA_API_KEY", "")
+        # Optional per-device registry. With it, a paired phone presents its
+        # own key instead of the machine's, so one leaked credential can be
+        # revoked without cutting off every other client — and the audit trail
+        # can say *which* device did something rather than only that someone
+        # holding the shared token did.
+        self._device_store = device_store
 
     async def dispatch(self, request: Request, call_next):  # noqa: ANN001
         # Browser CORS preflights never carry Authorization, and rejecting
@@ -54,13 +60,41 @@ class AuthMiddleware(BaseHTTPMiddleware):
                     status_code=401,
                 )
             scheme, _, token = auth.partition(" ")
+            if scheme.lower() != "bearer":
+                return JSONResponse({"detail": "Invalid API key"}, status_code=401)
+
             # Constant-time comparison to avoid leaking the key via timing.
-            if scheme.lower() != "bearer" or not _api_keys_match(token, self._api_key):
-                return JSONResponse(
-                    {"detail": "Invalid API key"},
-                    status_code=401,
-                )
+            if _api_keys_match(token, self._api_key):
+                # The machine key: full trust, no device identity to attach.
+                request.scope["nira_device"] = None
+            else:
+                device = self._authenticate_device(token)
+                if device is None:
+                    return JSONResponse(
+                        {"detail": "Invalid API key"},
+                        status_code=401,
+                    )
+                # Downstream handlers read this to enforce scopes. Carried on
+                # the ASGI scope rather than a header so it cannot be spoofed
+                # by a client sending one.
+                request.scope["nira_device"] = device
         return await call_next(request)
+
+    def _authenticate_device(self, token: str):  # noqa: ANN202
+        """Resolve a per-device key, recording that the device was seen."""
+        if self._device_store is None or not token:
+            return None
+        try:
+            device = self._device_store.authenticate(token)
+        except Exception:  # noqa: BLE001 - a registry fault must not authorise
+            logger.exception("device authentication failed")
+            return None
+        if device is not None:
+            try:
+                self._device_store.touch(device.id)
+            except Exception:  # noqa: BLE001 - liveness bookkeeping is not auth
+                logger.debug("could not record device last-seen", exc_info=True)
+        return device
 
     @staticmethod
     def _is_cors_preflight(request: Request) -> bool:
@@ -87,8 +121,13 @@ class AuthMiddleware(BaseHTTPMiddleware):
 
 
 def generate_api_key() -> str:
-    """Generate a new API key with ``oj_sk_`` prefix."""
-    return f"oj_sk_{secrets.token_urlsafe(32)}"
+    """Generate a new machine API key.
+
+    The ``oj_sk_`` prefix survived the rename because it contains no form of
+    the old name for the substitution to catch. Existing keys keep working —
+    the comparison is over the whole string, not the prefix.
+    """
+    return f"nira_sk_{secrets.token_urlsafe(32)}"
 
 
 def check_bind_safety(host: str, *, api_key: str) -> None:
