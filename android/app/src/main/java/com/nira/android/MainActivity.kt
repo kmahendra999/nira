@@ -13,9 +13,11 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.nira.android.data.DesktopRegistry
+import com.nira.android.ui.ApprovalsViewModel
 import com.nira.android.ui.AskViewModel
 import com.nira.android.ui.DesktopsViewModel
 import com.nira.android.ui.PairingViewModel
+import com.nira.android.ui.screens.ApprovalsScreen
 import com.nira.android.ui.screens.AskScreen
 import com.nira.android.ui.screens.DesktopsScreen
 import com.nira.android.ui.screens.PairingScreen
@@ -25,6 +27,7 @@ private object Route {
     const val ASK = "ask"
     const val DESKTOPS = "desktops"
     const val PAIR = "pair"
+    const val APPROVALS = "approvals"
 }
 
 class MainActivity : ComponentActivity() {
@@ -62,6 +65,7 @@ private fun NiraNav(registry: DesktopRegistry) {
             AskScreen(
                 viewModel = model,
                 onDesktops = { nav.navigate(Route.DESKTOPS) },
+                onApprovals = { nav.navigate(Route.APPROVALS) },
             )
         }
         composable(Route.DESKTOPS) {
@@ -79,6 +83,10 @@ private fun NiraNav(registry: DesktopRegistry) {
                     }
                 },
             )
+        }
+        composable(Route.APPROVALS) {
+            val model: ApprovalsViewModel = viewModel(factory = factory)
+            ApprovalsScreen(viewModel = model, onBack = { nav.popBackStack() })
         }
         composable(Route.PAIR) {
             val model: PairingViewModel = viewModel(factory = factory)
@@ -103,6 +111,8 @@ private class NiraViewModelFactory(
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T = when {
         modelClass.isAssignableFrom(AskViewModel::class.java) -> AskViewModel(registry)
+        modelClass.isAssignableFrom(ApprovalsViewModel::class.java) ->
+            ApprovalsViewModel(registry)
         modelClass.isAssignableFrom(DesktopsViewModel::class.java) -> DesktopsViewModel(registry)
         modelClass.isAssignableFrom(PairingViewModel::class.java) -> PairingViewModel(registry)
         else -> throw IllegalArgumentException("Unknown view model ${modelClass.name}")

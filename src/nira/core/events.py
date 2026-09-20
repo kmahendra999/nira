@@ -82,6 +82,9 @@ class EventType(str, Enum):
     OPTIMIZE_TRIAL_END = "optimize_trial_end"
     OPTIMIZE_RUN_END = "optimize_run_end"
     FEEDBACK_RECEIVED = "feedback_received"
+    # Phase 9 — a risky step is waiting on a person, wherever they are.
+    APPROVAL_REQUESTED = "approval_requested"
+    APPROVAL_DECIDED = "approval_decided"
 
 
 @dataclass(slots=True)

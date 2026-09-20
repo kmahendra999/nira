@@ -146,3 +146,37 @@ data class ProjectRun(
 
 @Serializable
 data class ProjectRunEnvelope(val run: ProjectRun)
+
+/**
+ * A step an agent is waiting on you to allow.
+ *
+ * The run is parked while this sits here: the desktop's agent has asked
+ * whether it may do something and will not proceed until someone answers, or
+ * until it gives up and treats the silence as no.
+ */
+@Serializable
+data class Approval(
+    val id: String,
+    @SerialName("action_type") val actionType: String = "",
+    val description: String = "",
+    val payload: Map<String, kotlinx.serialization.json.JsonElement> = emptyMap(),
+    @SerialName("permission_key") val permissionKey: String = "",
+    val tier: String = "medium",
+    @SerialName("created_at") val createdAt: String = "",
+) {
+    /** True when one yes must not become a standing yes. */
+    val alwaysAsks: Boolean get() = tier == "high"
+
+    /** The command or path at issue, when there is one worth showing. */
+    val detail: String?
+        get() = (payload["input"] as? kotlinx.serialization.json.JsonObject)
+            ?.let { it["command"] ?: it["file_path"] }
+            ?.let { (it as? kotlinx.serialization.json.JsonPrimitive)?.content }
+            ?.takeIf { it.isNotBlank() }
+}
+
+@Serializable
+data class ApprovalQueue(
+    val actions: List<Approval> = emptyList(),
+    val count: Int = 0,
+)

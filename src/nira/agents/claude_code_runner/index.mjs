@@ -15,6 +15,8 @@
  * unchanged, so a caller that only reads the result still works.
  */
 
+import { createInterface } from "node:readline";
+
 import { query } from "@anthropic-ai/claude-agent-sdk";
 
 const OUTPUT_START = "---NIRA_OUTPUT_START---";
@@ -37,13 +39,101 @@ function emitError(message) {
   console.error(message);
 }
 
-async function readStdin() {
-  let data = "";
-  process.stdin.setEncoding("utf-8");
-  for await (const chunk of process.stdin) {
-    data += chunk;
-  }
-  return data;
+/**
+ * Decisions this process is still waiting on, by request id.
+ *
+ * Asking the user whether a tool may run means the answer arrives *after* the
+ * request did, so stdin has to stay open and be read a line at a time. It used
+ * to be drained in one go and closed, which is fine for a one-shot request and
+ * makes a conversation impossible.
+ */
+const pendingPermissions = new Map();
+
+/**
+ * The stdin reader, kept so it can be shut down.
+ *
+ * readline holds the event loop open for as long as it is listening. Leaving
+ * it running past the end of the run means the process never exits, its stdout
+ * never reaches end-of-file, and the host waits forever for output from a
+ * sidecar that finished long ago — a deadlock in every run, not only the ones
+ * that ask a question.
+ */
+let channel = null;
+
+function closeChannel() {
+  channel?.close();
+  channel = null;
+}
+
+/** Resolves with the first line on stdin — the request — and routes the rest. */
+function openChannel() {
+  const lines = createInterface({ input: process.stdin, crlfDelay: Infinity });
+  channel = lines;
+  return new Promise((resolve, reject) => {
+    let request;
+    lines.on("line", (line) => {
+      const text = line.trim();
+      if (!text) return;
+      if (request === undefined) {
+        try {
+          request = JSON.parse(text);
+        } catch (error) {
+          reject(error);
+          return;
+        }
+        resolve(request);
+        return;
+      }
+      let message;
+      try {
+        message = JSON.parse(text);
+      } catch {
+        // A malformed decision must not take down a run that is working.
+        return;
+      }
+      if (message?.type === "decision") {
+        const settle = pendingPermissions.get(message.id);
+        if (settle) {
+          pendingPermissions.delete(message.id);
+          settle(message);
+        }
+      }
+    });
+    lines.on("close", () => {
+      if (request === undefined) reject(new Error("no request on stdin"));
+      // Anything still waiting will never be answered now. Deny rather than
+      // hang: the host has gone away, and a parked tool call would keep the
+      // run alive indefinitely.
+      for (const [id, settle] of pendingPermissions) {
+        pendingPermissions.delete(id);
+        settle({ behavior: "deny", message: "Nira stopped listening." });
+      }
+    });
+  });
+}
+
+let permissionCounter = 0;
+
+/** Ask the host whether a tool may run, and wait for the answer. */
+function askPermission(detail, signal) {
+  const id = `perm_${++permissionCounter}`;
+  return new Promise((resolve) => {
+    const settle = (decision) => {
+      signal?.removeEventListener?.("abort", onAbort);
+      resolve(decision);
+    };
+    function onAbort() {
+      pendingPermissions.delete(id);
+      settle({ behavior: "deny", message: "The run was cancelled." });
+    }
+    if (signal?.aborted) {
+      onAbort();
+      return;
+    }
+    signal?.addEventListener?.("abort", onAbort, { once: true });
+    pendingPermissions.set(id, settle);
+    emitEvent({ type: "permission_request", id, ...detail });
+  });
 }
 
 function serializeContent(content) {
@@ -53,7 +143,7 @@ function serializeContent(content) {
 async function main() {
   let request;
   try {
-    request = JSON.parse(await readStdin());
+    request = await openChannel();
   } catch (error) {
     emitError(`Failed to parse input: ${error}`);
     process.exitCode = 1;
@@ -84,6 +174,46 @@ async function main() {
   }
   if (request.permission_mode) {
     options.permissionMode = request.permission_mode;
+  } else if (request.ask_permission) {
+    // "default" is the only mode that prompts for dangerous operations, and
+    // prompting is the entire point of setting canUseTool below. Leaving the
+    // mode unset means the SDK follows whatever the ambient settings allow,
+    // and the callback is wired to something that never fires — a permission
+    // prompt nobody can reach is exactly the state this phase set out to fix.
+    options.permissionMode = "default";
+  }
+
+  // Route "should this be allowed?" back to the host instead of letting the
+  // SDK decide alone. Without a canUseTool the SDK treats an ask as terminal,
+  // so a risky step was silently refused and nobody was ever given the chance
+  // to say yes — the approval queue, its endpoints and its `approve` scope all
+  // existed with nothing to put in them.
+  if (request.ask_permission) {
+    options.canUseTool = async (toolName, input, context) => {
+      const decision = await askPermission(
+        {
+          tool: toolName,
+          input: input ?? {},
+          // The SDK renders the prompt sentence itself. Reconstructing one
+          // from the tool name and its arguments would be a worse version of
+          // a string it already handed us.
+          title: context?.title ?? "",
+          display_name: context?.displayName ?? "",
+          description: context?.description ?? "",
+          reason: context?.decisionReason ?? "",
+          blocked_path: context?.blockedPath ?? "",
+          tool_use_id: context?.toolUseID ?? "",
+        },
+        context?.signal,
+      );
+      if (decision.behavior === "allow") {
+        return { behavior: "allow", updatedInput: input ?? {} };
+      }
+      return {
+        behavior: "deny",
+        message: decision.message || "Refused by the user.",
+      };
+    };
   }
 
   // Every text block the assistant emits, in order. Accumulated rather than
@@ -170,6 +300,7 @@ async function main() {
       }
     }
 
+    closeChannel();
     emitResult({
       // A run can end without a result message (the stream simply finishes);
       // fall back to everything the assistant actually said.
@@ -182,6 +313,7 @@ async function main() {
       },
     });
   } catch (error) {
+    closeChannel();
     const message = error instanceof Error ? error.message : String(error);
     emitError(`Claude Agent SDK error: ${message}`);
     process.exitCode = 1;

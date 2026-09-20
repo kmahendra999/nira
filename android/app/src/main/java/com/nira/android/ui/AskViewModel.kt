@@ -50,6 +50,8 @@ data class AskState(
     val activity: String? = null,
     /** The project run in flight, if the last prompt started one. */
     val run: com.nira.android.data.ProjectRun? = null,
+    /** True when something is parked waiting for a decision. */
+    val awaitingApproval: Boolean = false,
     val error: String? = null,
 )
 
@@ -150,6 +152,14 @@ class AskViewModel(
                     .collect { event ->
                         event.seq?.let { since = it }
                         backoffMs = 1_000L
+                        // An approval is not activity to report and forget:
+                        // the run is stopped until someone answers, so it has
+                        // to stay visible rather than scroll past.
+                        if (event.type == "approval_requested") {
+                            _state.value = _state.value.copy(awaitingApproval = true)
+                        } else if (event.type == "approval_decided") {
+                            _state.value = _state.value.copy(awaitingApproval = false)
+                        }
                         describe(event)?.let { text ->
                             _state.value = _state.value.copy(activity = text)
                         }
@@ -359,6 +369,7 @@ class AskViewModel(
             "inference_start" -> "Thinking"
             "inference_end" -> null
             "agent_tick_start" -> event.agent?.let { "$it is working" } ?: "An agent is working"
+            "approval_requested" -> "Waiting for you to allow this"
             "agent_tick_end", "agent_tick_error" -> null
             else -> null
         }

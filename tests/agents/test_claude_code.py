@@ -73,17 +73,31 @@ class _FakePopen:
 
 
 class _CapturingStdin:
-    """Keeps what was written after close(), which StringIO does not."""
+    """Keeps what was written after close(), which StringIO does not.
+
+    Carries ``flush`` and ``closed`` because the real pipe has them and the
+    agent now uses both: stdin stays open across the run so a permission
+    question can be answered, which means writes have to be flushed as they
+    happen and the closed pipe has to be detectable.
+    """
 
     def __init__(self) -> None:
         self.written = ""
+        self.closed = False
 
     def write(self, data: str) -> int:
         self.written += data
         return len(data)
 
-    def close(self) -> None:
+    def flush(self) -> None:
         pass
+
+    def close(self) -> None:
+        self.closed = True
+
+    def lines(self) -> list[str]:
+        """What was written, as the sidecar would read it."""
+        return [line for line in self.written.splitlines() if line.strip()]
 
 
 class _HangingLines:
@@ -849,3 +863,116 @@ class TestSessionResumption:
             result = agent.run("go")
 
         assert result.turns == 7
+
+
+class TestAsksBeforeRunningRiskyTools:
+    """The sidecar can now ask, and the pipe has to stay open for the answer.
+
+    Without a ``canUseTool`` the SDK treats an "ask" decision as terminal: the
+    tool is refused and nobody is offered the choice. Turning that into a real
+    question needs two things this class pins down — the sidecar has to be told
+    to ask, and stdin has to survive past the initial request.
+    """
+
+    def _agent(self, **kwargs):
+        engine = MagicMock()
+        engine.engine_id = "mock"
+        return ClaudeCodeAgent(engine, "test-model", api_key="k", **kwargs)
+
+    def _run(self, agent, proc):
+        with (
+            patch.object(agent, "_ensure_runner", return_value="/fake/runner"),
+            patch("subprocess.Popen", return_value=proc),
+        ):
+            return agent.run("Hello")
+
+    def test_the_request_asks_the_sidecar_to_ask(self):
+        agent = self._agent()
+        proc = _mock_proc(stdout=_wrap_output({"content": "ok", "tool_results": []}))
+
+        self._run(agent, proc)
+
+        request = json.loads(proc.stdin.lines()[0])
+        assert request["ask_permission"] is True
+
+    def test_asking_can_be_turned_off(self):
+        # A scheduled, unattended run has nobody to ask, and every risky step
+        # would sit there until it timed out.
+        agent = self._agent(ask_permission=False)
+        proc = _mock_proc(stdout=_wrap_output({"content": "ok", "tool_results": []}))
+
+        self._run(agent, proc)
+
+        assert json.loads(proc.stdin.lines()[0])["ask_permission"] is False
+
+    def test_the_request_is_one_line(self):
+        # The sidecar reads stdin a line at a time now, so a request split
+        # across lines would be parsed as a request plus garbage.
+        agent = self._agent()
+        proc = _mock_proc(stdout=_wrap_output({"content": "ok", "tool_results": []}))
+
+        self._run(agent, proc)
+
+        assert len(proc.stdin.lines()) == 1
+        assert proc.stdin.written.endswith("\n")
+
+    def test_stdin_is_closed_once_the_run_is_over(self):
+        # It stays open during the run so answers can arrive; leaving it open
+        # afterwards parks the sidecar on a pipe that will never speak again.
+        agent = self._agent()
+        proc = _mock_proc(stdout=_wrap_output({"content": "ok", "tool_results": []}))
+
+        self._run(agent, proc)
+
+        assert proc.stdin.closed is True
+
+    def test_a_permission_request_reaches_the_bridge(self):
+        agent = self._agent()
+        seen = []
+
+        class Bridge:
+            def handle(self, event):
+                seen.append(event)
+
+            def join(self, timeout=0.0):
+                pass
+
+        event = json.dumps(
+            {"type": "permission_request", "id": "perm_1", "tool": "Bash"}
+        )
+        proc = _mock_proc(
+            stdout=f"---NIRA_EVENT---{event}\n"
+            + _wrap_output({"content": "ok", "tool_results": []})
+        )
+        with patch.object(agent, "_build_approval_bridge", return_value=Bridge()):
+            self._run(agent, proc)
+
+        assert [e["id"] for e in seen] == ["perm_1"]
+
+    def test_other_events_are_not_mistaken_for_questions(self):
+        agent = self._agent()
+        seen = []
+
+        class Bridge:
+            def handle(self, event):
+                seen.append(event)
+
+            def join(self, timeout=0.0):
+                pass
+
+        event = json.dumps({"type": "tool_start", "id": "t1", "tool": "Read"})
+        proc = _mock_proc(
+            stdout=f"---NIRA_EVENT---{event}\n"
+            + _wrap_output({"content": "ok", "tool_results": []})
+        )
+        with patch.object(agent, "_build_approval_bridge", return_value=Bridge()):
+            self._run(agent, proc)
+
+        assert seen == []
+
+    def test_no_bridge_is_built_when_asking_is_off(self):
+        agent = self._agent(ask_permission=False)
+
+        # Skipping the bridge entirely also skips a JSON parse per event on
+        # the hot path of a run that never asks anything.
+        assert agent._build_approval_bridge(lambda payload: None) is None

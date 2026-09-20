@@ -8,6 +8,8 @@ import com.nira.android.data.ProjectList
 import com.nira.android.data.ProjectRun
 import com.nira.android.data.ProjectRunEnvelope
 import com.nira.android.data.ServerInfo
+import com.nira.android.data.Approval
+import com.nira.android.data.ApprovalQueue
 import com.nira.android.data.ChatTurn
 import com.nira.android.data.SpeechHealth
 import com.nira.android.data.Transcript
@@ -314,6 +316,33 @@ class NiraClient(
             .withAuth()
             .build()
         return json.decodeFromString(ProjectRun.serializer(), execute(request))
+    }
+
+
+    /**
+     * Steps waiting on a person.
+     *
+     * Needs the `approve` scope, which a device is granted only deliberately:
+     * answering these is the most consequential thing a phone can do to a
+     * desktop, since a yes lets an agent act with file and shell access.
+     */
+    suspend fun approvals(): List<Approval> {
+        val request = Request.Builder()
+            .url("$base/v1/approvals/pending")
+            .withAuth()
+            .build()
+        return json.decodeFromString(ApprovalQueue.serializer(), execute(request)).actions
+    }
+
+    /** Allow a waiting step, or refuse it. The run resumes either way. */
+    suspend fun decideApproval(id: String, approve: Boolean) {
+        val verb = if (approve) "approve" else "deny"
+        val request = Request.Builder()
+            .url("$base/v1/approvals/$id/$verb")
+            .post(ByteArray(0).toRequestBody(JSON))
+            .withAuth()
+            .build()
+        execute(request)
     }
 
     private suspend fun execute(request: Request): String =

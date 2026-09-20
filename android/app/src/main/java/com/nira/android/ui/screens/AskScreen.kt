@@ -61,7 +61,11 @@ import com.nira.android.ui.Turn
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AskScreen(viewModel: AskViewModel, onDesktops: () -> Unit) {
+fun AskScreen(
+    viewModel: AskViewModel,
+    onDesktops: () -> Unit,
+    onApprovals: () -> Unit,
+) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var draft by remember { mutableStateOf("") }
@@ -102,21 +106,37 @@ fun AskScreen(viewModel: AskViewModel, onDesktops: () -> Unit) {
         topBar = {
             TopAppBar(
                 title = { Text(state.desktop?.name ?: "No desktop") },
-                actions = { TextButton(onClick = onDesktops) { Text("Desktops") } },
+                actions = {
+                    // Only offered when something is actually waiting. A
+                    // permanent button here would be one more thing to ignore
+                    // on the screen where the answer matters most.
+                    if (state.awaitingApproval) {
+                        TextButton(onClick = onApprovals) { Text("Approve") }
+                    }
+                    TextButton(onClick = onDesktops) { Text("Desktops") }
+                },
             )
         },
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
             state.activity?.let { activity ->
                 Surface(
-                    color = MaterialTheme.colorScheme.secondaryContainer,
+                    color = if (state.awaitingApproval) {
+                        MaterialTheme.colorScheme.errorContainer
+                    } else {
+                        MaterialTheme.colorScheme.secondaryContainer
+                    },
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Text(
                         activity,
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
                         style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                        color = if (state.awaitingApproval) {
+                            MaterialTheme.colorScheme.onErrorContainer
+                        } else {
+                            MaterialTheme.colorScheme.onSecondaryContainer
+                        },
                     )
                 }
             }

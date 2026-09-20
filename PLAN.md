@@ -1010,9 +1010,71 @@ written.
   pass; restructuring JSX inside files that size is a job for the split, not for this one.
 - **The logo** (Phase 6 item 4) — colour is settled, the arc-reactor mark still needs replacing.
 
+### Phase 9 — Approve from your phone ✅
+
+**Python: 9,105 passing. Android: 100. Frontend: 102.**
+
+The approval queue, its REST endpoints, its permission memory and the `approve` scope on a paired
+device had all existed for phases with nothing to put in them. The Claude Agent SDK was given no
+`canUseTool`, so an "ask" decision was terminal: a risky step was refused outright and nobody was
+ever offered the chance to say yes. This is the piece in between.
+
+| Piece | What it does |
+|---|---|
+| `claude_code_runner/index.mjs` | Asks over the pipe and waits; stdin now carries a conversation |
+| `agents/tool_approval.py` | Queues the question, waits for an answer, sends it back |
+| `ApprovalsViewModel` / `ApprovalsScreen` | The phone's queue: what it wants to do, allow or refuse |
+| `ApprovalBell` | Now driven by events rather than a ten-second poll |
+
+**Two bugs found by building it, both severe.**
+
+The first: `readline` holds Node's event loop open, so keeping stdin open past the initial request
+meant the sidecar never exited, its stdout never reached end-of-file, and the host waited forever
+for output from a process that had finished. That is a deadlock in *every* run, not only the ones
+that ask a question. A test caught it by hanging.
+
+The second is the same pattern this project keeps producing: `canUseTool` was correctly wired to
+something that never fires. The SDK only prompts in `permissionMode: "default"`, and Nira's config
+default is empty, so the callback sat there unreachable. The runner now selects that mode whenever
+asking is enabled — a permission prompt nobody can reach is exactly the state this phase set out to
+fix.
+
+**Everything that is not a yes is a no.** A timeout denies, a missing queue denies, a store that
+will not open denies, a host that stops listening denies, an answer to a question this process
+never asked is ignored. The failure mode of the opposite choice is running a destructive command
+because SQLite was busy. Waiting happens on its own thread, so progress events keep flowing while
+the question is outstanding — a person deciding whether to allow something needs to see what the
+agent did to get there.
+
+Permission memory means a remembered decision answers instantly without interrupting anyone. The
+key is deliberately coarse — tool plus the first word of a command — because keying on the exact
+arguments means "always allow" never matches twice and the memory is decorative, while keying on
+the tool alone lets one approval of `Bash("ls")` authorise every future shell command. Tools that
+change the world are filed as `high`, which never auto-remembers: one yes to writing a file must
+not silently authorise every future write.
+
+Verified end to end against a real `nira serve`, which is the only way to know the SDK actually
+routes a call through the callback. A project run asked to write outside its workspace parked at
+`status: running`; `/v1/approvals/pending` showed the exact command; an HTTP approve — byte for
+byte what the phone sends — let it through, and the file on disk said `approved`. The same run
+denied left no file at all. A device holding `ask` and `watch` but not `approve` got 403.
+
+`echo` inside the workspace is *not* prompted, and that is correct: the SDK prompts for dangerous
+operations, and a direct probe confirmed the callback fires for a write outside the working tree
+and not for a harmless command in it.
+
+### Still open in Phase 9
+
+- **Nothing pushes.** The phone learns about a waiting question only while the app is open and its
+  socket is connected. A run that asks while the phone is asleep waits out its timeout and denies.
+  Push notifications are listed under Phase 7's remaining work and this is now their strongest
+  reason to exist.
+- **"Always allow" cannot be chosen from a client.** The store supports it and the bridge honours
+  it, but neither the phone nor the bell offers the button, so the memory can only be populated by
+  the proactive agent's own path.
+
 ### Next
 
-Carried forward from Phase 5: wiring `canUseTool` to `ApprovalStore` so a risky step can be
-approved from the phone — the `approve` scope exists and is now enforced end to end, but nothing
-asks for it yet, which makes it the last missing piece of the phone story. Then multi-desktop task
-routing, and a research-session retrieval endpoint so `nira://research/<id>` renders.
+Multi-desktop task routing (port `examples/cross_device_travel/`), and a research-session retrieval
+endpoint so `nira://research/<id>` renders. Then the two Phase 6 refactors still outstanding:
+splitting `AgentsPage.tsx` and `DataSourcesPage.tsx`, and the logo mark.

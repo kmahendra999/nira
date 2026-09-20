@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import Any, List, Optional
 
 from nira.agents._stubs import AgentContext, AgentResult, BaseAgent
+from nira.agents.tool_approval import encode_decision
 from nira.core.events import EventBus, EventType
 from nira.core.paths import get_config_dir
 from nira.core.registry import AgentRegistry
@@ -81,6 +82,9 @@ class ClaudeCodeAgent(BaseAgent):
         timeout: int = 300,
         max_turns: int = 30,
         permission_mode: str = "",
+        ask_permission: bool = True,
+        approval_timeout: float = 300.0,
+        approval_store: Optional[Any] = None,
         capability_policy: Optional[Any] = None,
         rate_limiter: Optional[Any] = None,
         agent_id: Optional[str] = None,
@@ -108,6 +112,15 @@ class ClaudeCodeAgent(BaseAgent):
         # to rather than something Nira chose.
         self._max_turns = max_turns
         self._permission_mode = permission_mode
+        # Route "may this run?" back to a person instead of letting the SDK
+        # decide alone. On by default because the alternative is what happened
+        # before: with no canUseTool the SDK treats an ask as terminal, so a
+        # risky step was refused outright and nobody was ever offered the
+        # chance to say yes. Enabling it can only widen what is possible — a
+        # timeout still denies, which is exactly the old behaviour.
+        self._ask_permission = ask_permission
+        self._approval_timeout = approval_timeout
+        self._approval_store = approval_store
         self._node_executable = "node"
 
     # ------------------------------------------------------------------
@@ -203,6 +216,7 @@ class ClaudeCodeAgent(BaseAgent):
             "session_id": self._session_id,
             "max_turns": self._max_turns,
             "permission_mode": self._permission_mode,
+            "ask_permission": bool(self._ask_permission),
         }
 
         try:
@@ -290,12 +304,27 @@ class ClaudeCodeAgent(BaseAgent):
         reader = threading.Thread(target=_pump, name="nira-claude-stdout", daemon=True)
         reader.start()
 
+        # stdin stays open. Asking whether a tool may run means the answer
+        # arrives after the request did, so the pipe has to carry a
+        # conversation rather than one write and a close.
+        stdin_lock = threading.Lock()
+
+        def _send(payload: dict[str, Any]) -> None:
+            with stdin_lock:
+                if proc.stdin is None or proc.stdin.closed:
+                    return
+                proc.stdin.write(encode_decision(payload))
+                proc.stdin.flush()
+
         try:
             assert proc.stdin is not None
-            proc.stdin.write(json.dumps(request))
-            proc.stdin.close()
-        except BrokenPipeError:
+            with stdin_lock:
+                proc.stdin.write(json.dumps(request) + "\n")
+                proc.stdin.flush()
+        except (BrokenPipeError, ValueError):
             pass  # the process died early; the exit code below reports it
+
+        bridge = self._build_approval_bridge(_send)
 
         collected: list[str] = []
         deadline = time.monotonic() + self._timeout
@@ -313,9 +342,23 @@ class ClaudeCodeAgent(BaseAgent):
             if line is None:
                 break
             if line.startswith(_EVENT_PREFIX):
-                self._publish_runner_event(line[len(_EVENT_PREFIX) :])
+                payload = line[len(_EVENT_PREFIX) :]
+                if bridge is not None:
+                    self._route_permission(payload, bridge)
+                self._publish_runner_event(payload)
             else:
                 collected.append(line)
+
+        # Nothing more will be asked; let the sidecar see end-of-input so it
+        # does not sit waiting on a pipe that will never speak again.
+        with stdin_lock:
+            if proc.stdin is not None and not proc.stdin.closed:
+                try:
+                    proc.stdin.close()
+                except (BrokenPipeError, ValueError):
+                    pass
+        if bridge is not None:
+            bridge.join(timeout=1.0)
 
         try:
             proc.wait(timeout=max(0.0, deadline - time.monotonic()))
@@ -331,6 +374,45 @@ class ClaudeCodeAgent(BaseAgent):
                 proc.stderr.close()
 
         return "".join(collected), stderr, proc.returncode or 0
+
+    def _build_approval_bridge(self, send: Any) -> Any:
+        """An approval bridge, or None when this run is not asking.
+
+        Returns None rather than a disabled bridge so the hot loop can skip the
+        JSON parse entirely for runs that never ask anything.
+        """
+        if not self._ask_permission:
+            return None
+        from nira.agents.tool_approval import ApprovalBridge
+
+        store = self._approval_store
+        if store is None:
+            try:
+                from nira.tools.approval_store import ApprovalStore
+
+                store = ApprovalStore()
+            except Exception:  # noqa: BLE001 - no queue means deny, not crash
+                logger.warning(
+                    "approval queue unavailable; risky tools will be refused"
+                )
+                store = None
+        return ApprovalBridge(
+            store=store,
+            send=send,
+            timeout_seconds=self._approval_timeout,
+            bus=self._bus,
+            agent_id=self.agent_id,
+        )
+
+    @staticmethod
+    def _route_permission(payload: str, bridge: Any) -> None:
+        """Hand a permission request to the bridge; ignore everything else."""
+        try:
+            event = json.loads(payload)
+        except (ValueError, TypeError):
+            return
+        if event.get("type") == "permission_request":
+            bridge.handle(event)
 
     def _publish_runner_event(self, payload: str) -> None:
         """Republish one sidecar event on the shared event bus.

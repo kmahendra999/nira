@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Bell, CheckCircle, ChevronDown, ChevronUp, Clock, XCircle } from 'lucide-react';
 import { approveAction, denyAction, fetchPendingApprovals } from '../lib/api';
 import type { PendingApproval } from '../lib/api';
+import { useAllAgentEvents, type AgentEvent } from '../lib/useAgentEvents';
 
 const TIER_STYLES: Record<string, { label: string; color: string; bg: string }> = {
   trivial: { label: 'Trivial', color: 'var(--color-text-secondary)', bg: 'color-mix(in srgb, var(--color-text-secondary) 10%, transparent)' },
@@ -35,9 +36,26 @@ export function ApprovalBell() {
     }
   }, []);
 
+  // One fetch to learn what is already waiting, then follow the events.
+  //
+  // This polled every ten seconds, which was survivable while the queue only
+  // held suggestions from the proactive agent. It is not survivable now that a
+  // question can block a run: the agent sits parked, the bell stays empty for
+  // up to ten seconds, and the run looks hung rather than waiting on you.
   useEffect(() => {
     load();
-    const id = setInterval(load, 10000);
+  }, [load]);
+
+  // Re-read rather than patch the list from the event payload: a decision
+  // may have been made on another device, and the queue is the shared truth.
+  const onEvent = useCallback((_event: AgentEvent) => load(), [load]);
+
+  useAllAgentEvents(onEvent, ['approval_requested', 'approval_decided']);
+
+  // A slow backstop, for a socket that dropped without us noticing and for
+  // questions that expired rather than being answered.
+  useEffect(() => {
+    const id = setInterval(load, 30000);
     return () => clearInterval(id);
   }, [load]);
 

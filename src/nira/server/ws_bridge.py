@@ -27,6 +27,10 @@ _AGENT_EVENTS = {
     EventType.AGENT_CHECKPOINT_SAVED,
     EventType.TOOL_CALL_START,
     EventType.TOOL_CALL_END,
+    # A run parked on a permission prompt looks identical to a run that
+    # has stalled unless the question itself reaches the client.
+    EventType.APPROVAL_REQUESTED,
+    EventType.APPROVAL_DECIDED,
     EventType.INFERENCE_START,
     EventType.INFERENCE_END,
     # Scheduled runs were invisible here: a task could start, work and finish
