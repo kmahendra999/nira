@@ -7,6 +7,7 @@ import {
   resetInferenceSource,
   type SetupStatus,
 } from '../lib/api';
+import { NiraMark } from './NiraMark';
 import { useAppStore } from '../lib/store';
 import { isEmbedOnlyModel } from '../lib/model-capabilities';
 import { InferenceRecoveryButton, InferenceSourceSetup } from './InferenceSourceSetup';
@@ -171,7 +172,7 @@ export function SetupScreen({ onReady }: { onReady: () => void }) {
             className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
             style={{ background: 'var(--color-accent-subtle)', color: 'var(--color-accent)' }}
           >
-            <Cpu size={32} />
+            <NiraMark size={32} />
           </div>
           <h1 className="text-2xl font-bold mb-1" style={{ color: 'var(--color-text)' }}>
             Nira

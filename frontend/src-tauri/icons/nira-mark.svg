@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  The Nira mark.
+
+  It replaces an Iron Man arc reactor, which was the right mark for a project
+  called Jarvis and means nothing for one called Nira — besides being blue, in
+  a product whose accent is orange, and being a recognisable piece of somebody
+  else's design.
+
+  Drawn rather than set in a typeface: a glyph depends on a font being present
+  wherever the icon is rasterised, and an icon that silently falls back to a
+  different face is worse than one that is plain.
+
+  Filled shapes rather than a stroked path, which is not a stylistic choice.
+  ImageMagick's built-in SVG renderer — the fallback whenever rsvg-convert is
+  not installed, which is most machines — discards stroked paths entirely. The
+  first version of this file was a stroked N and rasterised to a black tile
+  with one orange dot on it, silently. Fills render everywhere, so the letter
+  is three filled shapes: two stems with round ends, and the diagonal as a
+  quadrilateral whose corners tuck inside them.
+
+  Flat colour for the same reason gradients are avoided in small icons at all:
+  across a 92-unit stroke, a gradient is mud at 32 pixels, and 32 pixels is
+  the size that decides whether a mark works.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- The tile. Dark on purpose: the mark sits on both a light and a dark
+       desktop, and orange on near-black reads on either. -->
+  <rect x="0" y="0" width="1024" height="1024" rx="228" fill="#121214"/>
+  <rect x="8" y="8" width="1008" height="1008" rx="222" fill="none"
+        stroke="#3a3a42" stroke-width="16"/>
+
+  <!-- The diagonal, first, so the stems overlap its corners. Its four points
+       are the endpoints offset by 46 along the perpendicular — the same
+       geometry a 92-wide stroke would have produced. -->
+  <path d="M 372.6 252.2 L 724.6 716.2 L 651.4 771.8 L 299.4 307.8 Z"
+        fill="#ea580c"/>
+
+  <!-- The two stems, from 280-46 to 744+46 so the rounded ends land where a
+       round line cap would have. -->
+  <rect x="290" y="234" width="92" height="556" rx="46" fill="#ea580c"/>
+  <rect x="642" y="234" width="92" height="556" rx="46" fill="#ea580c"/>
+
+  <!-- One point of light at the top of the last stem. Nira runs on a machine
+       you own; the dot is the thing that is on, and it is the only ornament. -->
+  <circle cx="688" cy="280" r="30" fill="#fb923c"/>
+</svg>

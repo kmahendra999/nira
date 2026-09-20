@@ -118,3 +118,40 @@ class TestSecurityHeaders:
         assert "access-control-allow-origin" in resp.headers
         # Security headers should NOT be present on preflight
         assert "X-Frame-Options" not in resp.headers
+
+
+class TestContentSecurityPolicy:
+    """The page's own fonts and images have to be allowed to load.
+
+    `default-src 'self' …` alone has no `data:`, and both `font-src` and
+    `img-src` fall back to it — so KaTeX's data-URI maths fonts were refused
+    and every formula in a reply rendered in a fallback face, while the page's
+    inline-SVG background never appeared. The console said so on every load
+    and nobody was reading it.
+    """
+
+    def policy(self) -> str:
+        from nira.server.middleware import SECURITY_HEADERS
+
+        return SECURITY_HEADERS["Content-Security-Policy"]
+
+    def test_fonts_may_be_inline_data(self) -> None:
+        assert "font-src 'self' data:" in self.policy()
+
+    def test_images_may_be_inline_data_or_blobs(self) -> None:
+        assert "img-src 'self' data: blob:" in self.policy()
+
+    def test_recorded_audio_may_be_a_blob(self) -> None:
+        # The digest player and anything recorded in the browser.
+        assert "media-src" in self.policy()
+        assert "blob:" in self.policy().split("media-src")[1]
+
+    def test_scripts_may_not_be_data_uris(self) -> None:
+        # The reason data: is added per-directive rather than to default-src:
+        # a data: font or image is inert, a data: script is not.
+        default = self.policy().split(";")[0]
+        assert "default-src" in default
+        assert "data:" not in default
+
+    def test_everything_still_defaults_to_this_origin(self) -> None:
+        assert self.policy().startswith("default-src 'self'")

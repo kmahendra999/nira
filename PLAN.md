@@ -1386,8 +1386,49 @@ the extracted `formatCost`; and the arrow-key tab navigation from Phase 8 still 
   `font-src`, so KaTeX's data-URI fonts are refused and maths in a markdown reply falls back to
   system glyphs. The app's own typeface loads fine — I checked, having assumed otherwise.
 
+### Phase 16 — The mark, and the fonts nobody could load ✅
+
+**Python: 9,224 passing. Frontend: 120.** The last item on the Phase 6 list.
+
+**The icon was an Iron Man arc reactor.** Glowing blue core, segmented ring — the right mark for a
+project called Jarvis, and for one called Nira it is meaningless, fights an orange accent, and is a
+recognisable piece of somebody else's design. Replaced with a geometric N: orange on a dark tile,
+flat colour, legible at 32 pixels. Every icon file regenerates from one 1024 SVG.
+
+Two things about that SVG are not stylistic. It is **filled shapes rather than a stroked path**,
+because ImageMagick's built-in renderer — the fallback whenever `rsvg-convert` is absent, which is
+most machines — silently discards stroked paths. The first version rasterised to a black tile with
+one orange dot and no letter at all, without a warning. And the **`.icns` is written directly**,
+because ImageMagick has no ICNS writer here and cheerfully produces a PNG with an `.icns`
+extension, which the macOS build would reject. The format is a magic word, a length and typed
+chunks; all eight are verified to carry real PNG payloads.
+
+The mark is also a component, so the setup screen shows Nira's own identity rather than a generic
+CPU glyph, and follows the theme because it fills with `currentColor`.
+
+**The CSP blocked the app's own fonts.** `default-src 'self' …` with no `font-src` or `img-src`, so
+both fell back to it and `data:` was refused: every formula in a reply rendered in a fallback face,
+and the page's inline-SVG texture never appeared. The console had been saying so on every load.
+`font-src`, `img-src` and `media-src` now allow `data:`; `default-src` deliberately does not,
+because a data: font is inert and a data: script is not. Verified in the browser — loading a KaTeX
+face and a data-URI image both succeed where both previously threw.
+
+A correction: I had assumed the typeface shipped in Phase 6 was broken too. It was not. Geist loads
+fine; the blocked face was KaTeX's.
+
+### Still open in Phase 16
+
+- **The mark is an engineer's, not a designer's.** It is defensible, legible and unambiguously not
+  somebody else's — which is a real improvement on what it replaces — but a brand mark deserves
+  someone who does this for a living.
+- **The service worker would not register here.** The script is served correctly and `fetch` gets
+  it, but `register()` fails with "unknown error" in the in-app browser pane. That looks like the
+  pane's own restriction rather than a product fault, and I could not prove it either way without
+  a real Chrome.
+
 ### Next
 
-The logo mark — the arc reactor is Iron Man's, and meaningless once the name is not Jarvis. It is a
-redesign rather than a recolour, and the one item on this list that wants a designer more than an
-engineer.
+Nothing on the Phase 6 list remains. The largest unbuilt things are the ones each phase recorded as
+it went: nothing verifies a skill signature at *install* time, `nira skill sign` handles one skill
+rather than a directory, a deep research run from the web UI is still not stored, and the two big
+pages have no tests of their own — only their extracted helpers do.
