@@ -102,8 +102,15 @@ desktop = [
 ]
 # Local neural TTS. Kokoro pulls spacy/misaki for G2P; espeak-ng must also be
 # present on PATH (brew install espeak-ng) for out-of-dictionary words.
+# Everything the spoken conversation loop needs, in one extra: listening
+# (faster-whisper), speaking (kokoro, the default `speech.tts_backend`), and
+# audio I/O. `speech` below is listening only, so installing it alone left voice
+# mode able to hear but not answer — which is what the CLI used to recommend.
 voice = [
     "kokoro>=0.9",
+    "faster-whisper>=1.0",
+    # 1.24.x declares Python 3.10 support but publishes no cp310 wheels (#917).
+    "onnxruntime<1.24; python_version < '3.11'",
     "soundfile>=0.12",
     "sounddevice>=0.5",  # play_wav / record_until_silence in speech/voice_io.py
     "numpy>=1.24",

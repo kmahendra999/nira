@@ -141,7 +141,7 @@ def record_voice(
         console.print(
             "[red]No speech-to-text backend available. "
             "Install the voice dependencies with: "
-            "pip install 'Nira[speech]', or configure a healthy "
+            "pip install 'Nira[voice]', or configure a healthy "
             "OpenAI/Deepgram backend.[/red]"
         )
         return VOICE_EXIT
@@ -206,8 +206,9 @@ def speak(text: str, console: Any, session: VoiceSession | None = None) -> None:
             active_session.discard_tts_backend()
 
     console.print(
-        "[dim yellow]No TTS backend available — install kokoro: "
-        "pip install kokoro[/dim yellow]"
+        "[dim yellow]No text-to-speech backend available. Install the voice "
+        "dependencies with: pip install 'Nira[voice]', or configure a healthy "
+        "OpenAI/Cartesia backend.[/dim yellow]"
     )
 
 

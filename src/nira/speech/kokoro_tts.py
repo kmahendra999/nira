@@ -1,6 +1,6 @@
 """Kokoro TTS backend — fully open-source, runs locally.
 
-Requires the kokoro package: pip install kokoro
+Requires the kokoro package: pip install 'Nira[voice]'
 Falls back gracefully if not installed.
 
 Kokoro v1.x supports multiple languages. Each language has its own
@@ -89,7 +89,8 @@ class KokoroTTSBackend(TTSBackend):
                 from kokoro import KPipeline
             except ImportError as exc:
                 raise RuntimeError(
-                    "kokoro package not installed. Install with: pip install kokoro"
+                    "kokoro package not installed. "
+                    "Install with: pip install 'Nira[voice]'"
                 ) from exc
             try:
                 # KModel is language-blind and is by far the heaviest part of
@@ -131,7 +132,7 @@ class KokoroTTSBackend(TTSBackend):
             from kokoro import KModel
         except ImportError as exc:
             raise RuntimeError(
-                "kokoro package not installed. Install with: pip install kokoro"
+                "kokoro package not installed. Install with: pip install 'Nira[voice]'"
             ) from exc
 
         device = self._device
