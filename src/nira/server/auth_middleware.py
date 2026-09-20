@@ -145,6 +145,10 @@ def check_bind_safety(host: str, *, api_key: str) -> None:
         is_loop = host in ("localhost", "")
 
     if not is_loop and not api_key:
+        # Deliberately includes Tailscale's 100.64.0.0/10 range. Reaching the
+        # port over a tailnet proves nothing about who is knocking — a tailnet
+        # can be shared with accounts that are not yours — so network reach is
+        # not a substitute for a credential.
         logger.error(
             "Binding to %s requires NIRA_API_KEY to be set. "
             "Run: nira auth generate-key",

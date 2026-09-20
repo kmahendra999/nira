@@ -5,13 +5,42 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
-import threading
 import time
 from pathlib import Path
 
+import pytest
+
 from nira.core.events import EventBus, EventType
 from nira.core.types import ToolCall, ToolResult
+from nira.tools import _stubs
 from nira.tools._stubs import BaseTool, ToolExecutor, ToolSpec
+
+
+@pytest.fixture(autouse=True)
+def _isolated_tool_runner(monkeypatch):
+    """Give this module its own worker pool.
+
+    ToolExecutor submits to a process-wide runner with a deliberately fixed
+    set of workers, and a timed-out tool keeps running — the timeout frees the
+    caller, not the thread. The tools here sleep for five to eight seconds
+    after timing out at one, so on the shared pool they hold workers long
+    after their own test has finished. Under xdist that starved unrelated
+    tests landing in the same worker, which failed with "Tool execution
+    capacity is exhausted" and looked like a flake in whatever ran next.
+
+    The long delays are load-bearing (test_slow_tool_times_out_promptly
+    asserts we return in under 3s while the tool runs for 8), so the fix is
+    to contain them rather than shorten them.
+    """
+    runner = _stubs._BoundedToolRunner(
+        _stubs._MAX_TOOL_WORKERS, _stubs._MAX_PENDING_TOOL_CALLS
+    )
+    monkeypatch.setattr(_stubs, "_TOOL_RUNNER", runner)
+    yield runner
+    # Cancels queued work. Sleepers already running stay on *these* threads,
+    # which is the point: they die with the module instead of starving the
+    # rest of the suite.
+    runner.shutdown()
 
 
 class SlowTool(BaseTool):
@@ -133,7 +162,7 @@ class TestToolTimeout:
         assert not result.success
         assert "Unknown tool" in result.content
 
-    def test_repeated_timeouts_use_bounded_workers(self):
+    def test_repeated_timeouts_use_bounded_workers(self, _isolated_tool_runner):
         """Timed-out calls must not create one live thread per invocation."""
 
         class BrieflyStuckTool(SlowTool):
@@ -151,12 +180,11 @@ class TestToolTimeout:
             for i in range(24)
         ]
 
-        workers = [
-            thread
-            for thread in threading.enumerate()
-            if thread.name.startswith("nira-tool-")
-        ]
-        assert len(workers) <= 8
+        # This runner's own threads, not every nira-tool-* thread alive in
+        # the process. Each test now gets its own pool, and sleepers from
+        # earlier tests are still winding down, so a global count measures the
+        # module rather than the property under test.
+        assert len(_isolated_tool_runner._threads) <= 8
         assert all(not result.success for result in results)
         assert any("capacity is exhausted" in result.content for result in results)
 

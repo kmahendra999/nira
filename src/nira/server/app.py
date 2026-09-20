@@ -519,7 +519,26 @@ def create_app(
         try:
             from nira.server.auth_middleware import AuthMiddleware
 
-            app.add_middleware(AuthMiddleware, api_key=api_key)
+            # Paired devices present their own key rather than the machine's,
+            # so one can be revoked without cutting off the rest and the audit
+            # trail can name which device acted.
+            device_store = None
+            try:
+                from nira.core.paths import get_config_dir
+                from nira.devices import DeviceStore
+
+                device_store = DeviceStore(get_config_dir() / "devices.db")
+            except Exception as exc:  # noqa: BLE001
+                # Fall back to the machine key alone. Failing to open the
+                # registry must not take the server down, but it must also not
+                # quietly let unpaired clients in — which it cannot, since
+                # AuthMiddleware treats a missing store as "no device keys".
+                logger.warning("Device registry unavailable: %s", exc)
+
+            app.state.device_store = device_store
+            app.add_middleware(
+                AuthMiddleware, api_key=api_key, device_store=device_store
+            )
         except Exception as exc:
             logger.debug("Auth middleware init skipped: %s", exc)
 

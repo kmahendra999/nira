@@ -119,6 +119,13 @@ def _resolve_server_model(
 @click.command()
 @click.option("--host", default=None, help="Bind address (default: config).")
 @click.option(
+    "--tailscale",
+    "use_tailscale",
+    is_flag=True,
+    default=False,
+    help="Bind to this machine's Tailscale address instead of a local one.",
+)
+@click.option(
     "--port",
     default=None,
     type=int,
@@ -137,6 +144,7 @@ def _resolve_server_model(
 def serve(
     ctx: click.Context,
     host: str | None,
+    use_tailscale: bool,
     port: int | None,
     engine_key: str | None,
     model_name: str | None,
@@ -167,6 +175,21 @@ def serve(
 
     # Resolve host/port from CLI args or config
     bind_host = host or config.server.host
+    if use_tailscale:
+        # Better than 0.0.0.0 for a personal mesh: reachable from the user's
+        # own devices and nothing else, with WireGuard encrypting the hop.
+        # It still proves nothing about *who* is connecting — a tailnet can be
+        # shared with other accounts — so the API-key requirement below
+        # deliberately still applies.
+        from nira.server.tailnet import get_identity
+
+        identity = get_identity()
+        if identity is None:
+            raise click.ClickException(
+                "Could not determine a Tailscale address. Is tailscaled "
+                "running and logged in? (`tailscale status`)"
+            )
+        bind_host = identity.ipv4
     bind_port = port if port is not None else config.server.port
 
     # Set up engine
