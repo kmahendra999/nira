@@ -223,7 +223,12 @@ class ApprovalBridge:
         )
 
         approved = self._await_decision(action.id)
-        self._announce(request, "approved" if approved else "denied", key)
+        self._announce(
+            request,
+            "approved" if approved else "denied",
+            key,
+            action_id=action.id,
+        )
         if approved:
             return True, ""
         return False, "Refused."
@@ -268,11 +273,17 @@ class ApprovalBridge:
         outcome: str,
         key: str,
         *,
+        action_id: str = "",
         remembered: bool = False,
     ) -> None:
         self._publish(
             EventType.APPROVAL_DECIDED,
             {
+                # The queue row this settles. Without it a client cannot match
+                # a decision to the question it is already showing, so a
+                # notification raised on a phone survives the answer — and the
+                # answer may well have come from somewhere else.
+                "id": action_id,
                 "request_id": request.id,
                 "tool": request.tool,
                 "outcome": outcome,

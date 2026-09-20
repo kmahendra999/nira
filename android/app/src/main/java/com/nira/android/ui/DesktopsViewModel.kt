@@ -20,6 +20,8 @@ data class DesktopsState(
     val selectedId: String? = null,
     val reachability: Map<String, Reachability> = emptyMap(),
     val checking: Boolean = false,
+    /** Whether the background watcher is switched on. */
+    val watching: Boolean = false,
 )
 
 class DesktopsViewModel(private val registry: DesktopRegistry) : ViewModel() {
@@ -34,6 +36,7 @@ class DesktopsViewModel(private val registry: DesktopRegistry) : ViewModel() {
         _state.value = _state.value.copy(
             desktops = registry.all(),
             selectedId = registry.selected()?.id,
+            watching = registry.watchesInBackground(),
         )
         refreshReachability()
     }
@@ -59,6 +62,18 @@ class DesktopsViewModel(private val registry: DesktopRegistry) : ViewModel() {
     fun forget(id: String) {
         registry.remove(id)
         reload()
+    }
+
+    /**
+     * Turn background watching on or off.
+     *
+     * Only records the preference. Starting and stopping the service is the
+     * screen's job, because a view model cannot hold a Context without
+     * leaking the one thing it exists to outlive.
+     */
+    fun setWatching(enabled: Boolean) {
+        registry.setWatchesInBackground(enabled)
+        _state.value = _state.value.copy(watching = enabled)
     }
 
     /**

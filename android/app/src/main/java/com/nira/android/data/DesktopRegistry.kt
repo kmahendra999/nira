@@ -36,6 +36,7 @@ class DesktopRegistry(
     companion object {
         private const val KEY_DESKTOPS = "desktops"
         private const val KEY_SELECTED = "selected_desktop"
+        private const val KEY_WATCHING = "watch_in_background"
     }
 
     fun all(): List<Desktop> {
@@ -79,6 +80,19 @@ class DesktopRegistry(
         val desktops = all()
         val chosen = selectedId()?.let { id -> desktops.firstOrNull { it.id == id } }
         return chosen ?: desktops.firstOrNull()
+    }
+
+    /**
+     * Whether to keep listening while the app is closed.
+     *
+     * Off unless asked for. It costs a persistent connection, a permanent
+     * notification and battery — a reasonable trade for someone who runs long
+     * agent tasks, and an imposition on someone who does not.
+     */
+    fun watchesInBackground(): Boolean = store.read(KEY_WATCHING) == "true"
+
+    fun setWatchesInBackground(enabled: Boolean) {
+        store.write(KEY_WATCHING, if (enabled) "true" else "false")
     }
 
     private fun persist(desktops: List<Desktop>) {

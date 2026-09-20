@@ -1128,9 +1128,64 @@ That is Phases 7, 9 and 10 working as one thing.
   nothing tries to pick a machine by load or capability. That was the design study's subject and it
   remains unbuilt, deliberately — there is no evidence yet that anyone needs it.
 
+### Phase 11 — Notifications, without a cloud ✅
+
+**Python: 9,125 passing. Android: 131. Frontend: 102.**
+
+Phase 9 let a person approve a risky step from their phone, and then left the feature half-useless:
+the phone only heard the question while the app was open. An approval blocks a run *and expires*,
+so "you were not looking at your phone" quietly became "no".
+
+**Deliberately not Firebase.** A push would mean the desktop reaching Google's servers to reach a
+phone sitting on the same tailnet, and the content of every question — the commands an agent wants
+to run on your machine — travelling through a third party. In an assistant whose entire premise is
+that your data stays on hardware you own, that is the wrong trade. The socket is already there;
+`WatchService` keeps it open in a foreground service and raises local notifications.
+
+| Piece | What it does |
+|---|---|
+| `watch/Alerts.kt` | Decides what is worth interrupting someone for. Pure, so it is tested |
+| `watch/WatchService.kt` | Holds the socket to *every* paired desktop while the app is away |
+| `watch/ApprovalActionReceiver.kt` | Allow and Refuse straight from the notification |
+| `watch/BootReceiver.kt` | Starts watching again after a restart |
+
+**Only two things are worth interrupting for**: something is blocked on you, and something you
+started has finished. Tool calls, tokens and phase changes stream past continuously while a run
+works, and a notification for each would be a torrent of noise about something the user chose to
+start. A notification that fires twice, or fires for something nobody can act on, teaches people to
+swipe the next one away without reading it — which is worse than not notifying at all, because the
+one that matters then looks the same as the rest. Reconnecting replays what was missed, so the same
+approval arrives again on every network change; it is alerted once.
+
+**Answerable from the lock screen.** Allow and Refuse are notification actions, because an approval
+expires and the number of steps between seeing it and answering it decides whether the answer
+arrives in time. A decision made anywhere — the desktop, another phone — takes the notification
+down, which needed a server fix: `APPROVAL_DECIDED` carried the sidecar's request id but not the
+queue row's, so no client could match a decision to the question it was showing. Verified on a live
+socket: the requested and decided events now carry the same `id`.
+
+**Three notification channels**, because they are three different interruptions. One channel would
+mean turning off the chatty "your agent finished" notification also turns off the one that blocks a
+run — and people do turn the chatty one off.
+
+Opt-in, and the switch says why: it costs a persistent connection, a permanent notification and
+battery. That is a reasonable trade for someone running long agent tasks and an imposition on
+someone who is not.
+
+### Still open in Phase 11
+
+- **Doze is still doze.** A foreground service makes an approval far more likely to reach someone;
+  it does not make it certain. Android may defer the radio, and an aggressive OEM battery manager
+  may kill the service outright. The timeout still denies, which is the safe direction, but "the
+  phone was asleep" has been made much less likely rather than impossible.
+- **Never run on hardware.** The service, the notification actions and the boot receiver are
+  verified as far as a JVM and the built APK's manifest allow — the decisions are tested, and
+  `aapt2` confirms the service, both receivers and all four permissions are registered. None of it
+  has been exercised on a real phone.
+
 ### Next
 
 A research-session retrieval endpoint so `nira://research/<id>` renders. Then the two Phase 6
 refactors still outstanding: splitting `AgentsPage.tsx` and `DataSourcesPage.tsx`, and the logo
-mark. Push notifications remain the strongest unbuilt item — without them an approval asked while
-the phone is asleep times out and denies.
+mark — which is a redesign rather than a recolour, and the one item here that wants a designer
+more than an engineer.

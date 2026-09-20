@@ -123,4 +123,47 @@ class DesktopRegistryTest {
 
         assertThat(desktop.can("approve")).isTrue()
     }
+
+    @Test
+    fun `background watching is off until it is asked for`() {
+        // It costs a persistent connection, a permanent notification and
+        // battery. That is a reasonable trade for someone running long agent
+        // tasks and an imposition on someone who is not, so it is never the
+        // default.
+        assertThat(registry().watchesInBackground()).isFalse()
+    }
+
+    @Test
+    fun `background watching is remembered`() {
+        val registry = registry()
+
+        registry.setWatchesInBackground(true)
+
+        assertThat(registry.watchesInBackground()).isTrue()
+    }
+
+    @Test
+    fun `background watching can be turned back off`() {
+        val registry = registry()
+        registry.setWatchesInBackground(true)
+
+        registry.setWatchesInBackground(false)
+
+        // Stored as a definite false rather than cleared, so "never asked"
+        // and "asked to stop" do not have to be told apart later.
+        assertThat(registry.watchesInBackground()).isFalse()
+    }
+
+    @Test
+    fun `the watch preference survives pairing and forgetting desktops`() {
+        val registry = registry()
+        registry.setWatchesInBackground(true)
+
+        registry.save(desktop("dev_1", "laptop"))
+        registry.remove("dev_1")
+
+        // Unpairing the last desktop is not a request to change this setting,
+        // and re-pairing should not silently leave the watcher off.
+        assertThat(registry.watchesInBackground()).isTrue()
+    }
 }

@@ -1,5 +1,10 @@
 package com.nira.android.ui.screens
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -24,6 +29,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -36,10 +43,13 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nira.android.data.Desktop
 import com.nira.android.data.Reachability
 import com.nira.android.ui.DesktopsViewModel
+import com.nira.android.watch.WatchService
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -49,6 +59,19 @@ fun DesktopsScreen(
     onOpen: (Desktop) -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+
+    // Android 13 and up will not show a notification without this, and a
+    // watcher that cannot notify is a battery cost with nothing in return.
+    val askToNotify = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            WatchService.start(context)
+        } else {
+            viewModel.setWatching(false)
+        }
+    }
 
     // Re-read on every return to this screen. The view model outlives a trip
     // to the pairing screen, so without this a desktop the user just paired
@@ -83,20 +106,70 @@ fun DesktopsScreen(
             return@Scaffold
         }
 
-        LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+        Column(Modifier.fillMaxSize().padding(padding)) {
+            WatchToggle(
+                enabled = state.watching,
+                onChange = { wanted ->
+                    viewModel.setWatching(wanted)
+                    if (!wanted) {
+                        WatchService.stop(context)
+                    } else if (
+                        Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+                        ContextCompat.checkSelfPermission(
+                            context, Manifest.permission.POST_NOTIFICATIONS
+                        ) == PackageManager.PERMISSION_GRANTED
+                    ) {
+                        WatchService.start(context)
+                    } else {
+                        askToNotify.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    }
+                },
+            )
+
+            LazyColumn(
+                modifier = Modifier.fillMaxSize().padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                items(state.desktops, key = { it.id }) { desktop ->
+                    DesktopCard(
+                        desktop = desktop,
+                        selected = desktop.id == state.selectedId,
+                        reachability = state.reachability[desktop.id]
+                            ?: Reachability.Unknown,
+                        onSelect = { viewModel.select(desktop.id) },
+                        onOpen = { viewModel.open(desktop.id)?.let(onOpen) },
+                        onForget = { viewModel.forget(desktop.id) },
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun WatchToggle(enabled: Boolean, onChange: (Boolean) -> Unit) {
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        shape = MaterialTheme.shapes.medium,
+    ) {
+        Row(
+            Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            items(state.desktops, key = { it.id }) { desktop ->
-                DesktopCard(
-                    desktop = desktop,
-                    selected = desktop.id == state.selectedId,
-                    reachability = state.reachability[desktop.id] ?: Reachability.Unknown,
-                    onSelect = { viewModel.select(desktop.id) },
-                    onOpen = { viewModel.open(desktop.id)?.let(onOpen) },
-                    onForget = { viewModel.forget(desktop.id) },
+            Column(Modifier.weight(1f)) {
+                Text("Watch in the background", style = MaterialTheme.typography.titleSmall)
+                Text(
+                    // The cost, stated. An approval that expires unanswered
+                    // becomes a refusal, which is the reason to accept it.
+                    "Keeps listening while the app is closed, so an approval " +
+                        "reaches you before it expires. Uses battery and shows " +
+                        "a permanent notification.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+            Switch(checked = enabled, onCheckedChange = onChange)
         }
     }
 }

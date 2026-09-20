@@ -22,6 +22,7 @@ import com.nira.android.ui.screens.AskScreen
 import com.nira.android.ui.screens.DesktopsScreen
 import com.nira.android.ui.screens.PairingScreen
 import com.nira.android.ui.theme.NiraTheme
+import com.nira.android.watch.WatchService
 
 private object Route {
     const val ASK = "ask"
@@ -34,12 +35,14 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        setContent {
-            NiraTheme {
-                val registry = remember { NiraApp.registry(applicationContext) }
-                NiraNav(registry)
-            }
+        val registry = NiraApp.registry(applicationContext)
+        // Android may have killed the service for memory while the app was
+        // away. Opening the app is the cheapest moment to notice and put it
+        // back, and the switch stays honest.
+        if (registry.watchesInBackground() && registry.all().isNotEmpty()) {
+            runCatching { WatchService.start(this) }
         }
+        setContent { NiraTheme { NiraNav(registry) } }
     }
 }
 
