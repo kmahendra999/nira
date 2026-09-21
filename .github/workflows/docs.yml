@@ -7,12 +7,18 @@ on:
       - "docs/**"
       - "mkdocs.yml"
       - "src/nira/**"
+      - "website/public/**"
+      - "scripts/install/install.sh"
+      - ".github/workflows/docs.yml"
   pull_request:
     branches: [main]
     paths:
       - "docs/**"
       - "mkdocs.yml"
       - "src/nira/**"
+      - "website/public/**"
+      - "scripts/install/install.sh"
+      - ".github/workflows/docs.yml"
   workflow_dispatch:
 
 permissions:
@@ -64,11 +70,46 @@ jobs:
       - name: Build documentation
         run: uv run mkdocs build
 
+      # One Pages site, two things on it: the front page at the root and the
+      # documentation under /docs/. mkdocs owns `site/`, so the two are
+      # assembled here rather than by pointing mkdocs at the front page.
+      - name: Assemble the published site
+        run: |
+          set -eu
+          rm -rf _site && mkdir -p _site
+          cp -r website/public/. _site/
+
+          # The installer is served from the site, so the command on the page
+          # works. It is copied from the one place it lives.
+          cp scripts/install/install.sh _site/install.sh
+
+          # GitHub Pages runs Jekyll unless told not to, and Jekyll drops
+          # files and directories whose names start with an underscore.
+          touch _site/.nojekyll
+
+          # _headers is Cloudflare/Netlify syntax and does nothing here.
+          # Pages cannot send custom headers at all; the page carries a
+          # meta CSP instead. Shipping a file that looks like a security
+          # policy but is inert is worse than not shipping one.
+          rm -f _site/_headers
+
+          # The apk is not in the repository, and should not be: it is 42 MiB
+          # of build output. It is published as a release asset, which has no
+          # size or bandwidth limit and does not count against the repo.
+          rm -rf _site/downloads
+          printf '{\n  "downloadsBase": "https://github.com/${{ github.repository }}/releases/latest/download"\n}\n' \
+            > _site/config.json
+
+          mkdir -p _site/docs
+          cp -r site/. _site/docs/
+
+          echo "assembled:"; find _site -maxdepth 2 -not -path '*/docs/*' | sort | sed 's/^/  /'
+
       - name: Upload artifact
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v5.0.0
         with:
-          path: site/
+          path: _site/
 
   deploy:
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'

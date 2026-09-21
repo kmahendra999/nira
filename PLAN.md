@@ -1622,6 +1622,48 @@ useful to keep and wrong to publish as product marketing. The website's third ca
   cleanup task.
 - **The legacy migration has never actually run here.** The 2.5 GB is still only in the old root.
 
+### Phase 21 — Hosting, on the thing that was already half-configured ✅
+
+The site was going to Cloudflare until one number decided otherwise: the apk is 42 MiB, and both
+Cloudflare Pages and Workers Static Assets cap an individual file at **25 MiB**. GitHub Pages caps
+at 100 MB, is free on a public repository, supports a custom domain with TLS — and I already have
+push access, where Cloudflare needs a token this session does not have.
+
+**Pages was never enabled.** The workflow has been running and failing for days: it builds the
+docs, uploads the artifact, then 404s at `actions/deploy-pages` with *"Ensure GitHub Pages has been
+enabled"*. That is also the original cause of the `install.sh` 404 that started the link audit —
+the docs site the README pointed at has never existed. Enabling it is one setting in the
+repository, which only its owner can change.
+
+One Pages site, two things on it: the front page at `/`, the mkdocs documentation at `/docs/`.
+`docs.yml` assembles both into one artifact and `site_url` moved to the subpath. Its path filters
+did not include `website/`, so editing the site would never have published it.
+
+**The apk goes to a release, not the repository.** Release assets have no size or bandwidth limit
+and do not count against repository storage; committing 42 MiB of build output would add another
+42 MiB blob to history on every rebuild, permanently.
+
+That means the page fetches downloads from another origin, and **a cross-origin `HEAD` throws
+before it can read a status** — GitHub's asset host sends no CORS headers. The probe was treating
+a thrown fetch and a 404 as the same thing, which would have made a working download render as
+"Not built". They are now distinguished: resolved-with-404 means missing, thrown means unmeasurable,
+and an unmeasurable download shows as available without a size.
+
+**GitHub Pages cannot send response headers at all**, so `_headers` is inert there and the workflow
+deletes it rather than publish a file that looks like a security policy and is not. The policy
+travels in a `<meta>` instead — which cannot carry `frame-ancestors` or `sandbox` in that form, a
+real reduction against the container, which still sends the header. The two intersect rather than
+conflict.
+
+### Still open in Phase 21
+
+- **Pages is still not enabled**, so none of this is live yet.
+- **No release exists**, so the download card will link to a 404 until one is cut.
+- **`frame-ancestors` is unavailable on Pages.** Clickjacking protection is header-only, and Pages
+  sends no headers. A custom domain behind Cloudflare could add it back with a Transform Rule.
+- **A 73 MB inherited binary** — `desktop/src-tauri/binaries/ollama-aarch64-apple-darwin` — still
+  draws a warning on every push. It survived the squash because it is in the tree, not the history.
+
 ### Next
 
 Nothing on the Phase 6 list remains. The largest unbuilt things are the ones each phase recorded as

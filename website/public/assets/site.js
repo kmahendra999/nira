@@ -252,11 +252,13 @@
 
     var caveat = '';
     if (usable && entry.note) {
-      caveat = '<div class="dl-note">' + entry.note +
-        (meta && meta.sha256
-          ? '<span class="dl-sum">sha256 ' + meta.sha256 + '</span>'
-          : '') +
-        '</div>';
+      var digest = '';
+      if (meta && meta.sha256) {
+        digest = '<span class="dl-sum">sha256 ' + meta.sha256 + '</span>';
+      } else if (meta && meta.unmeasured) {
+        digest = '<span class="dl-sum">digest published with the release</span>';
+      }
+      caveat = '<div class="dl-note">' + entry.note + digest + '</div>';
     }
 
     var foot = '';
@@ -348,7 +350,19 @@
             size: parseInt(response.headers.get('content-length') || '0', 10)
           };
         })
-        .catch(function () { return { ok: false, size: 0 }; });
+        .catch(function () {
+          // A thrown fetch and a 404 mean different things, and conflating
+          // them was about to make a working download say "Not built".
+          //
+          // Release assets are served from another origin with no CORS
+          // headers, so the probe throws before it can read a status --
+          // which says nothing about whether the file is there. A real
+          // 404 resolves, with ok false, and is handled above.
+          //
+          // So: thrown means unknown. Show the card as available with no
+          // size rather than claiming a build is missing.
+          return { ok: true, size: 0, unmeasured: true };
+        });
       }));
     });
 
