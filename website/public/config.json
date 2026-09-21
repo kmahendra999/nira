@@ -1,0 +1,4 @@
+{
+  "//": "Where the downloadable builds live. Empty means 'beside this page', which is what the self-hosted container serves. The Cloudflare deployment overwrites this with the R2 origin, because a 42 MiB apk exceeds the 25 MiB per-file limit that applies to both Pages and Workers assets.",
+  "downloadsBase": ""
+}

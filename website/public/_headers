@@ -1,0 +1,18 @@
+# Headers for the Workers/Pages deployment. The container has these in
+# nginx.conf; this file is the same policy for the hosted copy, because a
+# site that is hardened only when self-hosted is not hardened.
+
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  # connect-src must allow the downloads origin, because the page asks it
+  # for each file's size before rendering a card.
+  Content-Security-Policy: default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; script-src 'self'; connect-src 'self' https://dl.kovasis.com; frame-ancestors 'none'; base-uri 'none'; form-action 'none'
+
+/assets/*
+  Cache-Control: no-cache
+
+/install.sh
+  Content-Type: text/plain; charset=utf-8
+  Cache-Control: no-store

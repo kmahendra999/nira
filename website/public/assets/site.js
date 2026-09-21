@@ -129,6 +129,17 @@
   // tailnet name once `tailscale serve` is on, and both are correct.
   var ORIGIN = location.origin;
 
+  // Downloads may not live beside the page. The self-hosted container serves
+  // them from /downloads/; the hosted site cannot, because a 42 MiB apk
+  // exceeds the 25 MiB per-file ceiling on both Pages and Workers assets, so
+  // there it comes from an R2 bucket on its own origin. config.json says
+  // which, so neither deployment needs a different copy of this file.
+  var downloadsBase = '';
+  function resolveDownload(file) {
+    if (!downloadsBase) return file;
+    return downloadsBase.replace(/\/$/, '') + '/' + file.split('/').pop();
+  }
+
   var CATALOG = [
     {
       id: 'server',
@@ -251,7 +262,8 @@
     var foot = '';
     if (entry.file && available) {
       foot = '<div class="dl-foot">' +
-               '<a class="dl-btn" href="' + entry.file + '" download>Download</a>' +
+               '<a class="dl-btn" href="' + resolveDownload(entry.file) +
+                 '" download>Download</a>' +
                (meta.size ? '<span class="dl-size">' + humanSize(meta.size) + '</span>' : '') +
              '</div>';
     }
@@ -308,20 +320,28 @@
 
   var grid = $('#downloads');
   if (grid) {
+    // Resolved before the cards render, so a card never points at the wrong
+    // origin for a moment and then corrects itself.
+    var configured = fetch('config.json')
+      .then(function (r) { return r.ok ? r.json() : {}; })
+      .then(function (c) { downloadsBase = (c && c.downloadsBase) || ''; })
+      .catch(function () { downloadsBase = ''; });
     // checksums.json is written when the image is built, by hashing
     // whatever was copied in. Hard-coding a digest here would be a digest
     // of whichever file happened to be present the day it was written,
     // which is worse than none: it would keep matching in the reader's eye
     // long after it stopped matching the file.
-    var sums = fetch('downloads/checksums.json')
+    var sums = configured
+      .then(function () { return fetch(resolveDownload('downloads/checksums.json')); })
       .then(function (r) { return r.ok ? r.json() : {}; })
       .catch(function () { return {}; });
 
     // Ask the server whether each file is actually there, with HEAD so a
     // 44 MB apk is not pulled down just to render a card.
-    var heads = Promise.all(CATALOG.map(function (entry) {
+    var heads = configured.then(function () {
+      return Promise.all(CATALOG.map(function (entry) {
       if (!entry.file) return Promise.resolve(null);
-      return fetch(entry.file, { method: 'HEAD' })
+      return fetch(resolveDownload(entry.file), { method: 'HEAD' })
         .then(function (response) {
           return {
             ok: response.ok,
@@ -329,11 +349,12 @@
           };
         })
         .catch(function () { return { ok: false, size: 0 }; });
-    }));
+      }));
+    });
 
-    Promise.all([heads, sums]).then(function (both) {
-      var results = both[0];
-      var digests = both[1] || {};
+    Promise.all([configured, heads, sums]).then(function (both) {
+      var results = both[1];
+      var digests = both[2] || {};
       grid.innerHTML = CATALOG.map(function (entry, index) {
         var meta = results[index];
         if (meta && entry.file) {
