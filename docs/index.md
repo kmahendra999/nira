@@ -211,17 +211,25 @@ Nira is built around five composable layers. Each has a clean interface and can 
 
 </div>
 
-## Research
+## Upstream research
 
-Nira is part of [Intelligence Per Watt](https://www.intelligence-per-watt.ai/), a research initiative studying the efficiency of on-device AI systems. Developed at [Hazy Research](https://hazyresearch.stanford.edu/) and the [Scaling Intelligence Lab](https://scalingintelligence.stanford.edu/) at [Stanford SAIL](https://ai.stanford.edu/).
+Nira is a fork of [OpenJarvis](https://github.com/open-jarvis/OpenJarvis), which was developed at
+[Hazy Research](https://hazyresearch.stanford.edu/) and the
+[Scaling Intelligence Lab](https://scalingintelligence.stanford.edu/) at
+[Stanford SAIL](https://ai.stanford.edu/) as part of
+[Intelligence Per Watt](https://www.intelligence-per-watt.ai/).
 
-Read the [blog post](https://kmahendra999.github.io/nira/) for the full research motivation, architecture details, and experimental results.
+Nira is not a Stanford project and is not affiliated with those groups. The five-primitive
+architecture, the energy-aware evaluation harness and the learning loop come from their work;
+what Nira adds is described in [the README](https://github.com/kmahendra999/nira#about).
 
 ## Citation
 
+Nira has no paper. If you use this work academically, cite the upstream project it is built on:
+
 ```bibtex
-@misc{saadfalcon2026nirapersonalaipersonal,
-      title={Nira: Personal AI, On Personal Devices}, 
+@misc{saadfalcon2026openjarvispersonalaipersonal,
+      title={OpenJarvis: Personal AI, On Personal Devices}, 
       author={Jon Saad-Falcon and Avanika Narayan and Robby Manihani and Tanvir Bhathal and Herumb Shandilya and Hakki Orhun Akengin and Gabriel Bo and Andrew Park and Matthew Hart and Caia Costello and Chuan Li and Christopher Ré and Azalia Mirhoseini},
       year={2026},
       eprint={2605.17172},
@@ -233,14 +241,8 @@ Read the [blog post](https://kmahendra999.github.io/nira/) for the full research
 
 ## Sponsors
 
-<p>
-  <a href="https://www.laude.org/">Laude Institute</a> &bull;
-  <a href="https://datascience.stanford.edu/marlowe">Stanford Marlowe</a> &bull;
-  <a href="https://cloud.google.com/">Google Cloud Platform</a> &bull;
-  <a href="https://lambda.ai/">Lambda Labs</a> &bull;
-  <a href="https://ollama.com/">Ollama</a> &bull;
-  <a href="https://research.ibm.com/">IBM Research</a> &bull;
-  <a href="https://hai.stanford.edu/">Stanford HAI</a>
-</p>
+Nira has none. The organisations listed here previously — Laude Institute, Stanford Marlowe,
+Google Cloud, Lambda Labs, Ollama, IBM Research and Stanford HAI — support the upstream
+OpenJarvis project, not this fork.
 
 Follow [@NiraAI](https://x.com/kmahendra999) on X for updates.

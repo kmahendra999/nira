@@ -14,12 +14,6 @@
 
 ---
 
-<div align="center">
-  <img alt="Nira demo reel" src="assets/nira_demo_reel.webp" width="75%">
-</div>
-
----
-
 > **[Documentation](https://github.com/kmahendra999/nira/blob/main/docs/index.md)**
 >
 > **[Project Site](https://github.com/kmahendra999/nira/blob/main/docs/index.md)**
@@ -32,9 +26,26 @@
 
 ## Why Nira?
 
-Personal AI agents are exploding in popularity, but nearly all of them still route intelligence through cloud APIs. Your "personal" AI continues to depend on someone else's server. At the same time, the [Intelligence Per Watt](https://www.intelligence-per-watt.ai/) research showed that local language models already handle 88.7% of single-turn chat and reasoning queries, with intelligence efficiency improving 5.3× from 2023 to 2025. The models and hardware are increasingly ready. What has been missing is the software stack to make local-first personal AI practical.
+Most "personal" AI still routes your most personal data through someone else's server. Nira runs
+on hardware you own, and the cloud is an option rather than a dependency.
 
-Nira is that stack. It is a framework for local-first personal AI, built around three core ideas: shared primitives for building on-device agents; evaluations that treat energy, FLOPs, latency, and dollar cost as first-class constraints alongside accuracy; and a learning loop that improves models using local trace data. The goal is simple: make it possible to build personal AI agents that run locally by default, calling the cloud only when truly necessary. Nira aims to be both a research platform and a production foundation for local AI, in the spirit of PyTorch.
+What Nira is for:
+
+- **Your machines, as one assistant.** Several desktops — Linux, macOS, Windows — linked over
+  Tailscale, each with its own key and scopes, so a phone that can approve a task cannot
+  administer the mesh.
+- **Your phone as the way in.** An Android client that talks to a paired desktop: speak a command,
+  watch the run in progress, and answer an approval from the lock screen. The data stays on the
+  desktop; the phone is a terminal onto it.
+- **Voice that holds a conversation**, rather than one-shot dictation.
+- **Autonomous work on real projects.** Point an agent at a directory and it edits files, runs
+  commands and reports back — with live progress you can follow from wherever you are.
+- **Approvals before anything risky.** Anything that touches your files or runs a command can stop
+  and ask first.
+
+Underneath that is the framework it was forked from: composable primitives for on-device agents,
+evaluations that treat energy, FLOPs, latency and cost as first-class constraints alongside
+accuracy, and a learning loop that improves prompts and routing from local traces.
 
 ## Installation
 

@@ -829,7 +829,8 @@ export function SettingsPage() {
                 <span className="font-semibold" style={{ color: 'var(--color-text)' }}>Nira</span> — Programming abstractions for on-device AI.
               </p>
               <p className="text-xs" style={{ color: 'var(--color-text-tertiary)' }}>
-                Part of Intelligence Per Watt, a research initiative at Stanford SAIL.
+                A fork of OpenJarvis, the local-first AI framework from Stanford SAIL.
+                Nira is not affiliated with Stanford.
               </p>
               <div className="flex gap-3 mt-3 text-xs">
                 <a

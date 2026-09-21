@@ -13,6 +13,10 @@ readme = "README.md"
 # range that has prebuilt wheels; matches the classifiers (3.10–3.13).
 requires-python = ">=3.10,<3.14"
 license = {text = "Apache-2.0"}
+# Explicit, rather than relying on hatchling's default glob: NOTICE carries the
+# upstream attribution Apache 2.0 section 4(d) requires a fork to pass on, and
+# a silent change to that default would drop it from every wheel.
+license-files = ["LICENSE", "NOTICE"]
 authors = [
     {name = "Nira Contributors"},
 ]

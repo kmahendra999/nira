@@ -1,0 +1,23 @@
+Nira
+Copyright 2026 The Nira Authors
+
+This product is a fork of OpenJarvis.
+
+  OpenJarvis
+  Copyright 2025 The OpenJarvis Authors
+  https://github.com/open-jarvis/OpenJarvis
+
+OpenJarvis was developed at Hazy Research and the Scaling Intelligence Lab at
+Stanford SAIL, as part of the Intelligence Per Watt research initiative. The
+five-primitive architecture, the energy-aware evaluation harness and the
+trace-driven learning loop originate there.
+
+Nira is an independent fork. It is not a Stanford project, is not affiliated
+with Hazy Research, the Scaling Intelligence Lab, Stanford SAIL or Intelligence
+Per Watt, and is not endorsed by them. Its sponsors, if any, are its own; the
+organisations that support the upstream project do not support this fork.
+
+Files modified from the original carry no separate marker; the divergence is
+recorded in the commit history and summarised in PLAN.md.
+
+Licensed under the Apache License, Version 2.0. See LICENSE.
