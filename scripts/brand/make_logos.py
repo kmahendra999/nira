@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 """Generate Nira's logo set from the one mark.
 
-The files this replaces were OpenJarvis's: an Iron Man arc reactor, and a
-wordmark reading "OpenJarvis". Only their filenames had been changed in the
-rename, so the README's header image still showed somebody else's product
-name in somebody else's mark.
+The files this replaces were upstream's: an Iron Man arc reactor beside
+another product's wordmark. Only their filenames had been changed, so the
+README's header image still showed the wrong name in the wrong mark.
 
 Everything here is drawn from the same geometry as
 ``frontend/src-tauri/icons/nira-mark.svg`` -- two stems with round ends and a

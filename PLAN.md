@@ -1580,6 +1580,48 @@ explicitly rather than relying on hatchling's default glob.
 - **Nothing checks for this class of error.** A blind find-replace across a fork's prose produced a
   fabricated academic citation, and no test, lint or review caught it.
 
+### Phase 20 — The rest of the traces ✅
+
+A full inventory: **129 occurrences across 21 files.** Now **90 across 15**, and what is left is
+there for a reason.
+
+**Removed outright.** `scripts/rename_map.sed` — 26 occurrences, the entire sed program that
+performed the rename. It is a spent tool, and the same blind substitution it encodes is what
+produced the fabricated citation Phase 19 had to undo.
+
+**Reworded.** Every comment narrating the rename as an event: the legacy-path comments in
+`paths.py`, the migration notice the CLI prints, a test docstring, the mark's own SVG comment in
+two files, and my two brand generators. The user-facing message no longer names the old product —
+it says "your previous settings and data", which is what the user needs to know.
+
+**Author rosters removed.** Both citation blocks reproduced thirteen researchers' names. Apache
+2.0 requires the copyright and attribution *notices* be retained — which `LICENSE` and `NOTICE`
+carry — not that a README reprint an academic author list. Both now point at the upstream
+repository, which publishes its own citation.
+
+**The dev log is no longer on the front page.** This file opens by describing the fork; it is
+useful to keep and wrong to publish as product marketing. The website's third card now links to
+`docs/` instead.
+
+**What stays, and why.**
+
+- *Attribution* — `LICENSE`, `NOTICE`, the README and docs fork lines, the website's upstream
+  card. Apache 2.0 §4(c) and §4(d). The LICENSE had already lost upstream's copyright line to the
+  find-replace once; it is not going to lose it again.
+- *`~/.openjarvis` and `.migrated-from-openjarvis`* — 14 occurrences across `paths.py` and its
+  tests. These are not text, they are a directory on disk. **This machine still has 2.5 GB there:
+  nine SQLite databases, `MEMORY.md`, `SOUL.md`, `USER.md`.** Renaming the literal would strand
+  it; renaming the marker would re-run the migration over an install that already completed one.
+- *`openjarvis://` in `deep-link.test.ts`* — one occurrence, asserting the old scheme is
+  **rejected**. Deleting it deletes the proof.
+
+### Still open in Phase 20
+
+- **This log still describes the fork throughout**, because that is what happened. It is now
+  unpublished rather than rewritten. Removing it entirely is a call for the project owner, not a
+  cleanup task.
+- **The legacy migration has never actually run here.** The 2.5 GB is still only in the old root.
+
 ### Next
 
 Nothing on the Phase 6 list remains. The largest unbuilt things are the ones each phase recorded as

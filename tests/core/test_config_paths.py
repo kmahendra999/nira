@@ -196,7 +196,7 @@ class TestLegacyConstantsHonorEnv:
 
 
 class TestMigrateLegacyHome:
-    """Adoption of a pre-rename ``~/.openjarvis`` root (OpenJarvis -> Nira)."""
+    """Adoption of a legacy ``~/.openjarvis`` root."""
 
     def test_copies_state_and_leaves_legacy_install_intact(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch

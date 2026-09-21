@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Redraw the architecture diagram.
 
-The file this replaces was titled "OpenJarvis Architecture" and drawn in
-upstream's palette. The rename changed its filename and nothing inside it,
-so the architecture page carried somebody else's title in their colours.
+The file this replaces carried upstream's title and palette. Its filename had
+been changed and nothing inside it, so the architecture page showed somebody
+else's title in their colours.
 
 The structure it described is still the right one -- interfaces over agents,
 agents over intelligence and tools, engine and hardware beneath -- so this

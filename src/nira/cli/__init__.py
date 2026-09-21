@@ -55,7 +55,7 @@ def cli(ctx: click.Context, verbose: bool, quiet: bool, pick_model_bare: bool) -
     """Top-level CLI group."""
     from nira.cli.log_config import setup_logging
 
-    # Adopt a pre-rename ``~/.openjarvis`` root before anything can read or
+    # Adopt a legacy ``~/.openjarvis`` root before anything can read or
     # create config. Runs ahead of setup_logging because logging itself writes
     # under the home directory — migrating after that would strand the log file
     # in a directory we are about to move. No-ops on every run but the first.
@@ -64,8 +64,8 @@ def cli(ctx: click.Context, verbose: bool, quiet: bool, pick_model_bare: bool) -
     _migrated = migrate_legacy_home()
     if _migrated is not None and not quiet:
         click.echo(
-            f"Copied your OpenJarvis settings and data to {_migrated}\n"
-            "Your previous OpenJarvis install was left in place and still works.",
+            f"Copied your previous settings and data to {_migrated}\n"
+            "The previous install was left in place and still works.",
             err=True,
         )
 

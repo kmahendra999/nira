@@ -225,19 +225,9 @@ what Nira adds is described in [the README](https://github.com/kmahendra999/nira
 
 ## Citation
 
-Nira has no paper. If you use this work academically, cite the upstream project it is built on:
-
-```bibtex
-@misc{saadfalcon2026openjarvispersonalaipersonal,
-      title={OpenJarvis: Personal AI, On Personal Devices}, 
-      author={Jon Saad-Falcon and Avanika Narayan and Robby Manihani and Tanvir Bhathal and Herumb Shandilya and Hakki Orhun Akengin and Gabriel Bo and Andrew Park and Matthew Hart and Caia Costello and Chuan Li and Christopher Ré and Azalia Mirhoseini},
-      year={2026},
-      eprint={2605.17172},
-      archivePrefix={arXiv},
-      primaryClass={cs.LG},
-      url={https://arxiv.org/abs/2605.17172}, 
-}
-```
+Nira has no paper of its own. Academic work building on the framework underneath it should cite
+the upstream project, which publishes its citation at
+[github.com/open-jarvis/OpenJarvis](https://github.com/open-jarvis/OpenJarvis).
 
 ## Sponsors
 

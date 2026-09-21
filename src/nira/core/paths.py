@@ -37,9 +37,10 @@ from pathlib import Path
 _DEFAULT_DIR_NAME = ".nira"
 _XDG_SUBDIR_NAME = "nira"
 
-# Pre-rename home directory. Nira was forked from OpenJarvis, whose root was
-# ``~/.openjarvis``; installs predating the rename still hold all of the user's
-# state (config, credentials, every SQLite database) there.
+# Legacy home directory. Earlier installs kept all of the user's state --
+# config, credentials, every SQLite database -- under this root. The literal
+# is load bearing: it is the directory on disk, so it cannot be renamed
+# without stranding the data it exists to find.
 _LEGACY_DIR_NAME = ".openjarvis"
 _MIGRATION_MARKER = ".migrated-from-openjarvis"
 
@@ -80,7 +81,7 @@ class ConfigurationError(RuntimeError):
 
 
 def migrate_legacy_home() -> Path | None:
-    """Adopt user state from a pre-rename ``~/.openjarvis`` root, once.
+    """Adopt user state from a legacy ``~/.openjarvis`` root, once.
 
     Returns the new path when a migration happened, else ``None``.
 
@@ -90,7 +91,7 @@ def migrate_legacy_home() -> Path | None:
     Relocating a virtualenv breaks it, because its absolute path is baked into
     ``pyvenv.cfg`` and every script shebang, and anything still running from it
     breaks the moment it restarts. Copying the state and leaving the old install
-    untouched means a user can keep running OpenJarvis side by side with Nira,
+    untouched means a user can keep the previous install running side by side,
     which during a rename is exactly what you want.
 
     Deliberately conservative — it acts only when all of the following hold:
@@ -127,7 +128,7 @@ def migrate_legacy_home() -> Path | None:
     )
     try:
         (current / _MIGRATION_MARKER).write_text(
-            f"Copied from {legacy} during the OpenJarvis -> Nira rename.\n"
+            f"Copied from {legacy} on first run.\n"
             "The original install was left in place and still works.\n",
             encoding="utf-8",
         )
