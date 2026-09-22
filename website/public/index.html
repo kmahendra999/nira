@@ -195,18 +195,43 @@
   <section class="sec" id="download">
     <div class="sec-head"><span class="num">04</span><h2>Install</h2></div>
     <p class="sec-lead">
-      Install the server first. The phone app talks to a desktop you have
-      paired with, so it is not useful on its own — and says so when it has
-      nothing to talk to.
+      Start with the server — it is the part that does the work, and the phone
+      app is not useful without a desktop to pair with. Pick your machine and
+      the steps below are the ones for it.
     </p>
 
-    <div class="dl-grid" id="downloads"></div>
+    <!-- Auto-selected from the browser, and overridable: a detector that
+         guesses wrong must never be the only way through. -->
+    <div class="plat-pick" role="tablist" aria-label="Choose your platform">
+      <button class="plat-tab" role="tab" data-os="macos"   aria-selected="false">
+        <span class="pi" aria-hidden="true">&#8984;</span> macOS</button>
+      <button class="plat-tab" role="tab" data-os="linux"   aria-selected="false">
+        <span class="pi" aria-hidden="true">&#10687;</span> Linux</button>
+      <button class="plat-tab" role="tab" data-os="windows" aria-selected="false">
+        <span class="pi" aria-hidden="true">&#8862;</span> Windows</button>
+      <button class="plat-tab" role="tab" data-os="android" aria-selected="false">
+        <span class="pi" aria-hidden="true">&#9650;</span> Android</button>
+      <span class="plat-hint" id="plat-hint"></span>
+    </div>
+
+    <div class="plat-panels" id="plat-panels"></div>
+
+    <!-- Everything, in one table, so nothing is hidden behind a picker. -->
+    <h3 class="tbl-head">Every download</h3>
+    <div class="tbl-wrap">
+      <table class="dl-table">
+        <thead>
+          <tr><th>File</th><th>Platform</th><th>Architectures</th><th>Size</th><th></th></tr>
+        </thead>
+        <tbody id="dl-table-body"></tbody>
+      </table>
+    </div>
 
     <p class="fineprint">
-      The installer and the apk are both served from this machine — nothing
-      here calls out to a CDN or an app store. Digests are computed when the
-      container image is built, from the files it is about to serve; check one
-      with <code>sha256sum nira-android.apk</code> after downloading.
+      The installer is served from this site and the app builds from GitHub
+      releases — nothing here calls out to a CDN or an app store. Digests are
+      published with each release; check one with
+      <code>sha256sum nira-android.apk</code> after downloading.
     </p>
   </section>
 

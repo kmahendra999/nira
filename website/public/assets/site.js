@@ -113,189 +113,236 @@
   }
 
   /* ---------- Install ----------
-     Instructions, not a link to a repository. The command someone needs is
-     the thing they came for, so it is on the page, copyable, and pointed at
-     this host — which means it works wherever the page is reachable, over
-     the tailnet as readily as over localhost, without depending on a docs
-     site that may or may not have been published.
+     Instructions, not a link to a repository, and the instructions for the
+     machine the reader is actually on. Everything is still reachable if the
+     detection guesses wrong: the tabs are real tabs, and the table below
+     lists every file regardless of platform. */
 
-     Sizes and availability still come from the server: a page that
-     hard-codes "44 MB" is wrong the first time the file is rebuilt, and one
-     that offers a link to a file that is not there is worse than one that
-     says so. */
-
-  // Where this page is being served from, which is also where install.sh
-  // is. Not hard-coded: localhost while the container is on your desk, the
-  // tailnet name once `tailscale serve` is on, a project Pages site under
-  // /nira/, a custom domain at the root -- all correct.
-  //
   // The directory of this document, not location.origin: a project Pages
   // site is served from a subpath, and origin alone printed a command
   // pointing at kmahendra999.github.io/install.sh, which does not exist.
   var ORIGIN = new URL('.', location.href).href.replace(/\/$/, '');
 
-  // Downloads may not live beside the page. The self-hosted container serves
-  // them from /downloads/; the hosted site cannot, because a 42 MiB apk
-  // exceeds the 25 MiB per-file ceiling on both Pages and Workers assets, so
-  // there it comes from an R2 bucket on its own origin. config.json says
-  // which, so neither deployment needs a different copy of this file.
+  // Where the builds live. Empty means beside this page, which is what the
+  // self-hosted container serves; the hosted site points at releases,
+  // because a 42 MiB apk does not belong in the repository.
   var downloadsBase = '';
   function resolveDownload(file) {
     if (!downloadsBase) return file;
     return downloadsBase.replace(/\/$/, '') + '/' + file.split('/').pop();
   }
 
-  var CATALOG = [
-    {
-      id: 'server',
-      name: 'The server',
-      platform: 'Linux · macOS · Windows via WSL2',
-      icon: '\u2318',
-      blurb: 'The part that does the work: models, agents, tools and memory. Everything else connects to it. Install this first — the phone app is not useful without it.',
-      wide: true,
-      badge: 'One command',
-      badgeKind: 'ready',
-      commands: [
-        { cmd: 'curl -fsSL ' + ORIGIN + '/install.sh | bash' }
+  var APK = 'downloads/nira-android.apk';
+  var REPO = 'https://github.com/kmahendra999/nira';
+
+  function shell(cmd) {
+    return { kind: 'cmd', cmd: cmd };
+  }
+
+  /* Each platform answers the same three questions: what do I need first,
+     what do I run, and what happens after. */
+  var PLATFORMS = {
+    macos: {
+      name: 'macOS',
+      needs: 'macOS 12 or later, Apple Silicon or Intel. Nothing else — the installer brings its own Python and inference engine.',
+      blocks: [
+        { title: 'Install the server',
+          body: shell('curl -fsSL ' + ORIGIN + '/install.sh | bash'),
+          note: 'Run it as yourself. The installer refuses to run as root and will stop if you use <code>sudo</code>.' },
+        { title: 'Start it',
+          body: shell('nira init\nnira serve') },
+        { title: 'Desktop app',
+          body: shell('git clone ' + REPO + '.git\ncd nira/frontend && npm install\nnpm run tauri build'),
+          note: 'Produces a <code>.dmg</code> in <code>frontend/src-tauri/target/release/bundle/</code>. There is no notarised build to download — Tauri bundles for the machine it is built on.' }
       ],
       steps: [
-        'Installs to <code>~/.nira</code> and puts <code>nira</code> on your PATH.',
-        'Picks an engine to suit your hardware and pulls a small model to start with.',
-        'Then run <code>nira init</code>, and <code>nira serve</code> to bring it up.'
-      ],
-      note: '<b>Do not use sudo.</b> The installer refuses to run as root and will stop. Run it as yourself; it asks for sudo only if it has to install a missing system package. Piping a URL into bash runs whatever that URL returns, so read it first — <a href="install.sh" rel="noopener">this is the script</a>.'
+        'Models are pulled to <code>~/.nira</code> and stay there.',
+        'The web UI is at <code>http://localhost:8765</code> once <code>nira serve</code> is running.',
+        'To pair a phone, run <code>nira device pair my-phone</code> and scan the QR code.'
+      ]
     },
-    {
-      id: 'android',
-      name: 'Nira for Android',
-      platform: 'Android 8.0+ · arm64, x86_64',
-      icon: '\u25b2',
-      blurb: 'Talk to a paired desktop, watch a run in progress, and answer an approval from the lock screen.',
-      file: 'downloads/nira-android.apk',
-      steps: [
-        'Download the apk on the phone, open it, and allow installs from your browser when Android asks.',
-        'On the desktop, run <code>nira device pair my-phone</code> — it prints a QR code.',
-        'Scan it from the app. The two are linked over your tailnet from then on.'
+
+    linux: {
+      name: 'Linux',
+      needs: 'Any modern distribution, x86_64 or arm64. <code>curl</code> and <code>git</code>; the installer will offer to fetch anything else it needs.',
+      blocks: [
+        { title: 'Install the server',
+          body: shell('curl -fsSL ' + ORIGIN + '/install.sh | bash'),
+          note: 'Run it as yourself, not with <code>sudo</code> — it installs to <code>~/.nira</code>, not <code>/usr/local</code>, and refuses to run as root.' },
+        { title: 'Start it',
+          body: shell('nira init\nnira serve') },
+        { title: 'Desktop app',
+          body: shell('git clone ' + REPO + '.git\ncd nira/frontend && npm install\nnpm run tauri build'),
+          note: 'Produces an <code>.AppImage</code> and a <code>.deb</code>. Needs the <a href="https://tauri.app/start/prerequisites/" rel="noopener">Tauri prerequisites</a> — on Debian/Ubuntu that is <code>libwebkit2gtk-4.1-dev</code> and <code>build-essential</code>.' }
       ],
-      // Said plainly, because it is the kind of thing a download page
-      // usually leaves out. This build is signed with the Android debug
-      // key — the one in every copy of the SDK, which authenticates
-      // nobody — and is marked debuggable, so anything with adb access
-      // can read what it stores, including the key that pairs it to your
-      // desktop. A release build replaces this the moment there is a
-      // signing key to make one with.
-      note: '<b>Debug build.</b> Signed with the Android debug key and marked debuggable — anything with adb access can read its data, including your pairing key. Fine on a phone you control; not a build to hand to someone else. Android will warn you about an unknown source; that warning is correct.',
-      missing: 'This build is not on the server. Run <code>cd android &amp;&amp; ./gradlew :app:assembleDebug</code>, copy the apk into <code>website/public/downloads/</code>, and rebuild the image.'
+      steps: [
+        'An NVIDIA or AMD GPU is detected and used automatically; CPU-only works too.',
+        'The web UI is at <code>http://localhost:8765</code> once <code>nira serve</code> is running.',
+        'To reach it from another machine, bind it to your tailnet rather than to <code>0.0.0.0</code>.'
+      ]
     },
-    {
-      id: 'desktop',
-      name: 'Desktop app',
-      platform: 'macOS · Windows · Linux',
-      icon: '\u25a3',
-      blurb: 'The Tauri desktop build — the same interface as the web UI, in its own window. There is no prebuilt binary to download: Tauri bundles for the machine it is built on, so you build it on yours.',
-      commands: [
-        { cmd: 'git clone https://github.com/kmahendra999/nira.git\ncd nira/frontend && npm install\nnpm run tauri build' }
+
+    windows: {
+      name: 'Windows',
+      needs: 'Windows 10 2004 or later, with WSL2. The CLI does not run on native Windows — Git Bash and MSYS2 install to paths the rest of Nira cannot reach, and the installer stops early rather than let you find that out three minutes in.',
+      blocks: [
+        { title: 'Set up WSL2, once',
+          body: shell('wsl --install -d Ubuntu-24.04'),
+          note: 'In an <b>administrator</b> PowerShell. Reboot when it asks, then open the Ubuntu shell it installed.' },
+        { title: 'Install the server, inside Ubuntu',
+          body: shell('curl -fsSL ' + ORIGIN + '/install.sh | bash') },
+        { title: 'Start it',
+          body: shell('nira init\nnira serve') }
       ],
       steps: [
-        'Needs Node 20+ and a Rust toolchain; the <a href="https://tauri.app/start/prerequisites/" rel="noopener">Tauri prerequisites</a> list what else your OS needs.',
-        'The bundle lands in <code>frontend/src-tauri/target/release/bundle/</code> — a <code>.dmg</code>, <code>.msi</code> or <code>.AppImage</code> depending on where you built it.'
+        'Everything after the first step happens inside the Ubuntu shell, not PowerShell.',
+        'The web UI is at <code>http://localhost:8765</code> in your Windows browser — WSL2 forwards it.',
+        'A native <code>.msi</code> desktop build can be produced with <code>npm run tauri build</code> on Windows, separately from the WSL2 server.'
+      ]
+    },
+
+    android: {
+      name: 'Android',
+      needs: 'Android 8.0 or later. The app talks to a desktop you have paired with — <b>install the server first</b>, on the machine you want it to drive.',
+      blocks: [
+        { title: 'Download the app', body: { kind: 'download' },
+          note: '<b>Debug build.</b> Signed with the Android debug key and marked debuggable — anything with adb access can read its data, including your pairing key. Fine on a phone you control; not a build to hand to someone else. Android will warn you about an unknown source; that warning is correct.' },
+        { title: 'Pair it, from the desktop',
+          body: shell('nira device pair my-phone'),
+          note: 'Prints a QR code. Scan it from the app and the two are linked over your tailnet.' }
+      ],
+      steps: [
+        'Open the apk on the phone and allow installs from your browser when Android asks.',
+        'Speak a command, watch a run in progress, and answer an approval from the lock screen.',
+        'Your data stays on the desktop. The phone is a window onto it, not a copy of it.'
       ]
     }
-  ];
+  };
 
-  function humanSize(bytes) {
-    if (!bytes && bytes !== 0) return '';
-    var units = ['B', 'KB', 'MB', 'GB'];
-    var index = 0;
-    var value = bytes;
-    while (value >= 1024 && index < units.length - 1) { value /= 1024; index += 1; }
-    return (index === 0 ? value : value.toFixed(1)) + ' ' + units[index];
+  /* ---------- Which platform is this? ---------- */
+  function detectOs() {
+    var ua = navigator.userAgent || '';
+    var plat = (navigator.userAgentData && navigator.userAgentData.platform) || '';
+    if (/Android/i.test(ua)) return 'android';
+    if (/iPhone|iPad|iPod/i.test(ua)) return 'macos';   // nearest useful answer
+    if (/Mac|Darwin/i.test(plat + ua)) return 'macos';
+    if (/Win/i.test(plat + ua)) return 'windows';
+    if (/Linux|X11|CrOS/i.test(plat + ua)) return 'linux';
+    return 'linux';
   }
 
   function escapeHtml(s) {
-    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
 
-  function ticks(s) {
-    return s.replace(/`([^`]+)`/g, '<code>$1</code>');
+  var apkMeta = { ok: false, size: 0, unmeasured: false, sha256: '' };
+
+  function humanSize(bytes) {
+    if (!bytes) return '';
+    var units = ['B', 'KB', 'MB', 'GB'];
+    var i = 0, v = bytes;
+    while (v >= 1024 && i < units.length - 1) { v /= 1024; i += 1; }
+    return (i === 0 ? v : v.toFixed(1)) + ' ' + units[i];
   }
 
-  function render(entry, meta) {
-    var available = !!(meta && meta.ok);
-    var badge = entry.file
-      ? (available
-          ? (meta.unmeasured
-              ? '<span class="dl-badge ready">Latest release</span>'
-              : '<span class="dl-badge ready">Ready</span>')
-          : '<span class="dl-badge source">Not built</span>')
-      : '<span class="dl-badge ' + (entry.badgeKind || 'source') + '">' +
-        (entry.badge || 'Build it') + '</span>';
+  function downloadBlock() {
+    if (!apkMeta.ok) {
+      return '<div class="dl-missing">This build is not on the server yet. ' +
+             'Build it with <code>cd android &amp;&amp; ./gradlew :app:assembleDebug</code>, ' +
+             'or check the <a href="' + REPO + '/releases" rel="noopener">releases page</a>.</div>';
+    }
+    return '<div class="dl-row">' +
+      '<a class="dl-btn" href="' + resolveDownload(APK) + '" download>Download the apk</a>' +
+      '<span class="dl-size">' +
+        (apkMeta.size ? humanSize(apkMeta.size) : 'from the latest release') +
+        ' &middot; arm64, armv7, x86, x86_64' +
+      '</span></div>' +
+      (apkMeta.sha256
+        ? '<div class="dl-sum">sha256 ' + apkMeta.sha256 + '</div>'
+        : '');
+  }
 
-    var body = entry.file && !available
-      ? entry.missing
-      : ticks(entry.blurb);
-
-    // A card whose file is missing should not go on giving instructions for
-    // installing it, or print a caveat about a build that is not there.
-    var usable = !entry.file || available;
-
-    var commands = '';
-    if (usable && entry.commands) {
-      commands = entry.commands.map(function (c, i) {
-        var id = entry.id + '-cmd-' + i;
-        return '<div class="cmdbox">' +
-                 '<pre id="' + id + '">' + escapeHtml(c.cmd) + '</pre>' +
+  function renderPanel(os) {
+    var p = PLATFORMS[os];
+    var i = 0;
+    var blocks = p.blocks.map(function (b) {
+      i += 1;
+      var body;
+      if (b.body.kind === 'download') {
+        body = downloadBlock();
+      } else {
+        var id = 'cmd-' + os + '-' + i;
+        body = '<div class="cmdbox">' +
+                 '<pre id="' + id + '">' + escapeHtml(b.body.cmd) + '</pre>' +
                  '<button class="gbtn mini-copy" type="button" data-copy="' + id + '">Copy</button>' +
                '</div>';
-      }).join('');
-    }
-
-    var steps = '';
-    if (usable && entry.steps) {
-      steps = '<ol class="dl-steps">' +
-        entry.steps.map(function (s) { return '<li>' + s + '</li>'; }).join('') +
-        '</ol>';
-    }
-
-    var caveat = '';
-    if (usable && entry.note) {
-      var digest = '';
-      if (meta && meta.sha256) {
-        digest = '<span class="dl-sum">sha256 ' + meta.sha256 + '</span>';
-      } else if (meta && meta.unmeasured) {
-        digest = '<span class="dl-sum">digest published with the release</span>';
       }
-      caveat = '<div class="dl-note">' + entry.note + digest + '</div>';
-    }
-
-    var foot = '';
-    if (entry.file && available) {
-      foot = '<div class="dl-foot">' +
-               '<a class="dl-btn" href="' + resolveDownload(entry.file) +
-                 '" download>Download</a>' +
-               (meta.size ? '<span class="dl-size">' + humanSize(meta.size) + '</span>' : '') +
+      return '<div class="step">' +
+               '<div class="step-n" aria-hidden="true">' + i + '</div>' +
+               '<div class="step-body">' +
+                 '<h4>' + b.title + '</h4>' + body +
+                 (b.note ? '<p class="step-note">' + b.note + '</p>' : '') +
+               '</div>' +
              '</div>';
-    }
+    }).join('');
 
-    return '' +
-      '<article class="dl' + (entry.wide ? ' wide' : '') + '">' +
-        '<div class="dl-top">' +
-          '<span class="dl-ico" aria-hidden="true">' + entry.icon + '</span>' +
-          '<div><h3>' + entry.name + '</h3>' +
-          '<div class="plat">' + entry.platform + '</div></div>' +
-          '<div style="margin-left:auto">' + badge + '</div>' +
-        '</div>' +
-        '<p>' + body + '</p>' +
-        (commands || steps
-          ? '<div class="dl-body">' + commands + steps + '</div>'
-          : '') +
-        caveat +
-        foot +
-      '</article>';
+    return '<div class="plat-panel">' +
+             '<p class="needs"><b>What you need:</b> ' + p.needs + '</p>' +
+             blocks +
+             '<ul class="after"><li>' + p.steps.join('</li><li>') + '</li></ul>' +
+           '</div>';
   }
 
-  // Copy on the per-card command blocks. Delegated, because the cards are
-  // rendered after this runs.
+  var panels = $('#plat-panels');
+  var hint = $('#plat-hint');
+
+  function selectOs(os, fromUser) {
+    $$('.plat-tab').forEach(function (t) {
+      var on = t.dataset.os === os;
+      t.classList.toggle('on', on);
+      t.setAttribute('aria-selected', String(on));
+    });
+    if (panels) panels.innerHTML = renderPanel(os);
+    if (hint) {
+      hint.textContent = fromUser ? '' : 'detected — pick another if that is wrong';
+    }
+    try { localStorage.setItem('nira-site-os', os); } catch (e) { /* not fatal */ }
+  }
+
+  $$('.plat-tab').forEach(function (t) {
+    t.addEventListener('click', function () { selectOs(t.dataset.os, true); });
+  });
+
+  /* ---------- The table of everything ---------- */
+  function renderTable() {
+    var rows = [
+      { file: 'install.sh', what: 'Server installer',
+        plat: 'macOS &middot; Linux &middot; WSL2', arch: 'x86_64, arm64',
+        size: '', href: ORIGIN + '/install.sh', cta: 'View' },
+      { file: 'nira-android.apk', what: 'Android app',
+        plat: 'Android 8.0+', arch: 'arm64, armv7, x86, x86_64',
+        size: apkMeta.ok ? (apkMeta.size ? humanSize(apkMeta.size) : 'latest release') : 'not built',
+        href: apkMeta.ok ? resolveDownload(APK) : REPO + '/releases',
+        cta: apkMeta.ok ? 'Download' : 'Releases' },
+      { file: 'Source', what: 'Everything, to build yourself',
+        plat: 'any', arch: '—', size: '',
+        href: REPO, cta: 'GitHub' }
+    ];
+    var body = $('#dl-table-body');
+    if (!body) return;
+    body.innerHTML = rows.map(function (r) {
+      return '<tr>' +
+        '<td><b>' + r.file + '</b><span class="td-sub">' + r.what + '</span></td>' +
+        '<td>' + r.plat + '</td>' +
+        '<td class="mono">' + r.arch + '</td>' +
+        '<td>' + (r.size || '&mdash;') + '</td>' +
+        '<td class="ta-r"><a class="tbl-link" href="' + r.href + '"' +
+          (r.cta === 'Download' ? ' download' : ' rel="noopener"') + '>' + r.cta + '</a></td>' +
+      '</tr>';
+    }).join('');
+  }
+
+  /* ---------- Copy, delegated, because panels re-render ---------- */
   function copyText(text, button) {
     var done = function () {
       var was = button.textContent;
@@ -327,64 +374,42 @@
     if (pre) copyText(pre.textContent, button);
   });
 
-  var grid = $('#downloads');
-  if (grid) {
-    // Resolved before the cards render, so a card never points at the wrong
-    // origin for a moment and then corrects itself.
-    var configured = fetch('config.json')
+  /* ---------- Ask the server what is actually there ---------- */
+  if (panels) {
+    var stored = null;
+    try { stored = localStorage.getItem('nira-site-os'); } catch (e) { /* ignore */ }
+
+    fetch('config.json')
       .then(function (r) { return r.ok ? r.json() : {}; })
       .then(function (c) { downloadsBase = (c && c.downloadsBase) || ''; })
-      .catch(function () { downloadsBase = ''; });
-    // checksums.json is written when the image is built, by hashing
-    // whatever was copied in. Hard-coding a digest here would be a digest
-    // of whichever file happened to be present the day it was written,
-    // which is worse than none: it would keep matching in the reader's eye
-    // long after it stopped matching the file.
-    var sums = configured
-      .then(function () { return fetch(resolveDownload('downloads/checksums.json')); })
-      .then(function (r) { return r.ok ? r.json() : {}; })
-      .catch(function () { return {}; });
-
-    // Ask the server whether each file is actually there, with HEAD so a
-    // 44 MB apk is not pulled down just to render a card.
-    var heads = configured.then(function () {
-      return Promise.all(CATALOG.map(function (entry) {
-      if (!entry.file) return Promise.resolve(null);
-      return fetch(resolveDownload(entry.file), { method: 'HEAD' })
-        .then(function (response) {
-          return {
-            ok: response.ok,
-            size: parseInt(response.headers.get('content-length') || '0', 10)
-          };
-        })
-        .catch(function () {
-          // A thrown fetch and a 404 mean different things, and conflating
-          // them was about to make a working download say "Not built".
-          //
-          // Release assets are served from another origin with no CORS
-          // headers, so the probe throws before it can read a status --
-          // which says nothing about whether the file is there. A real
-          // 404 resolves, with ok false, and is handled above.
-          //
-          // So: thrown means unknown. Show the card as available with no
-          // size rather than claiming a build is missing.
-          return { ok: true, size: 0, unmeasured: true };
-        });
-      }));
-    });
-
-    Promise.all([configured, heads, sums]).then(function (both) {
-      var results = both[1];
-      var digests = both[2] || {};
-      grid.innerHTML = CATALOG.map(function (entry, index) {
-        var meta = results[index];
-        if (meta && entry.file) {
-          var name = entry.file.split('/').pop();
-          if (digests[name]) meta.sha256 = digests[name];
-        }
-        return render(entry, meta);
-      }).join('');
-    });
+      .catch(function () { downloadsBase = ''; })
+      .then(function () {
+        // HEAD, so a 42 MiB apk is not pulled down just to size a button.
+        return fetch(resolveDownload(APK), { method: 'HEAD' })
+          .then(function (r) {
+            apkMeta.ok = r.ok;
+            apkMeta.size = parseInt(r.headers.get('content-length') || '0', 10);
+          })
+          .catch(function () {
+            // A thrown fetch and a 404 mean different things. A release lives
+            // on an origin with no CORS headers, so the probe throws before it
+            // can read a status -- which says nothing about whether the file
+            // is there. Treating the two alike made a working download render
+            // as missing.
+            apkMeta.ok = true;
+            apkMeta.unmeasured = true;
+          });
+      })
+      .then(function () {
+        return fetch(resolveDownload('downloads/checksums.json'))
+          .then(function (r) { return r.ok ? r.json() : {}; })
+          .then(function (d) { apkMeta.sha256 = d['nira-android.apk'] || ''; })
+          .catch(function () { /* published with the release instead */ });
+      })
+      .then(function () {
+        selectOs(stored || detectOs(), !!stored);
+        renderTable();
+      });
   }
 
   /* ---------- Where this page is being served from ----------

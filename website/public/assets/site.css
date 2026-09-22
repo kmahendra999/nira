@@ -181,93 +181,139 @@ code {
 }
 .col li:last-child { border-bottom: 0; }
 
-/* ---------- Downloads ---------- */
-.dl-grid { display: grid; gap: 14px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.dl.wide { grid-column: 1 / -1; }
-/* Inside the wide card, the command and the steps sit side by side rather
-   than making one very long column. */
-.dl.wide .dl-body { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr); gap: 16px; align-items: start; }
-.dl.wide .dl-body > * { margin: 0; }
-.dl {
-  position: relative; display: flex; flex-direction: column; gap: 10px;
-  min-width: 0;
-  padding: 22px; border-radius: 22px;
+/* ---------- Install ----------
+   A picker, then one set of steps for the machine the reader is on. The old
+   three-card grid asked everyone to work out which card applied to them. */
+.plat-pick {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+  margin-bottom: 20px;
+}
+.plat-tab {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 10px 18px; border-radius: 999px;
+  font-size: 14px; font-weight: 600; color: var(--muted);
+  background: var(--row); border: 1px solid var(--glass-border);
+  transition: color .25s var(--ease), background .25s var(--ease),
+              border-color .25s var(--ease);
+}
+.plat-tab:hover { color: var(--text); background: var(--tile-hover); }
+.plat-tab.on {
+  color: #fff; border-color: transparent;
+  background: linear-gradient(135deg, var(--acc-lt), var(--acc));
+  box-shadow: 0 8px 20px rgba(var(--acc-rgb), .32);
+}
+.plat-tab .pi { font-size: 15px; line-height: 1; }
+.plat-hint { font-size: 12px; color: var(--muted); font-weight: 500; margin-left: 4px; }
+
+.plat-panel {
+  padding: 24px; border-radius: 24px;
   background: var(--tile); border: 1px solid var(--glass-border);
   box-shadow: var(--inner), var(--lift);
-  backdrop-filter: blur(30px) saturate(160%); -webkit-backdrop-filter: blur(30px) saturate(160%);
-  transition: transform var(--dur) var(--ease), background var(--dur) var(--ease);
+  backdrop-filter: blur(30px) saturate(160%);
+  -webkit-backdrop-filter: blur(30px) saturate(160%);
 }
-.dl:hover { transform: translateY(-3px); background: var(--tile-hover); }
-.dl-top { display: flex; align-items: center; gap: 12px; }
-.dl-ico {
-  width: 40px; height: 40px; border-radius: 13px; display: grid; place-items: center;
-  font-size: 19px; background: var(--row); border: 1px solid var(--glass-border);
+.needs {
+  margin-bottom: 20px; padding: 12px 14px; border-radius: 14px;
+  background: var(--row); border: 1px solid var(--glass-border);
+  font-size: 13.5px; line-height: 1.6; color: var(--muted); font-weight: 500;
 }
-.dl h3 { font-size: 16px; }
-.dl .plat { font-size: 12px; color: var(--muted); font-weight: 600; }
-.dl p { font-size: 13.5px; line-height: 1.6; color: var(--muted); font-weight: 500; }
-.dl-foot { display: flex; align-items: center; gap: 10px; margin-top: auto; padding-top: 6px; }
-.dl-btn {
-  padding: 10px 18px; border-radius: 999px; font-size: 13.5px; font-weight: 700;
-  color: #fff; background: linear-gradient(135deg, var(--acc-lt), var(--acc));
-  box-shadow: 0 10px 22px rgba(var(--acc-rgb), .32);
-}
-.dl-btn.ghost {
-  color: var(--text); background: var(--row); box-shadow: none;
-  border: 1px solid var(--glass-border);
-}
-.dl-size { font-size: 12px; color: var(--muted); font-weight: 600; }
+.needs b { color: var(--text); }
 
-/* ---------- Instructions inside a card ----------
-   The command someone needs is the thing they came for, so it gets a block
-   of its own rather than a link to a repository where it might be found. */
+/* Numbered steps, with the number in the gutter so the instruction itself
+   starts at a consistent left edge. */
+.step { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 14px; }
+.step + .step { margin-top: 20px; }
+.step-n {
+  width: 30px; height: 30px; border-radius: 50%;
+  display: grid; place-items: center;
+  font-size: 13px; font-weight: 800; color: #fff;
+  background: linear-gradient(135deg, var(--acc-lt), var(--acc));
+}
+.step-body { min-width: 0; }
+.step-body h4 { font-size: 15px; margin-bottom: 9px; }
+.step-note {
+  margin-top: 8px; font-size: 12.5px; line-height: 1.6;
+  color: var(--muted); font-weight: 500;
+}
+.step-note b { color: var(--text); }
+
+.after {
+  margin-top: 22px; padding: 16px 18px 16px 34px; border-radius: 16px;
+  background: var(--row); border: 1px solid var(--glass-border);
+}
+.after li {
+  font-size: 13px; line-height: 1.65; color: var(--muted); font-weight: 500;
+}
+.after li + li { margin-top: 7px; }
+.after li::marker { color: var(--acc); }
+
 .cmdbox { position: relative; }
 .cmdbox pre {
-  padding: 12px 58px 12px 13px; border-radius: 13px;
-  background: var(--row); border: 1px solid var(--glass-border);
+  padding: 12px 62px 12px 14px; border-radius: 13px;
+  background: rgba(10, 10, 14, .55); border: 1px solid var(--glass-border);
   font-family: ui-monospace, "SF Mono", Menlo, monospace;
-  font-size: 12px; line-height: 1.75; color: var(--text);
+  font-size: 12.5px; line-height: 1.8; color: var(--text);
   white-space: pre-wrap; overflow-wrap: anywhere; word-break: normal;
 }
+body:not(.dark) .cmdbox pre { background: rgba(255, 255, 255, .5); }
 .mini-copy {
   position: absolute; top: 8px; right: 8px;
-  padding: 4px 10px; border-radius: 9px; font-size: 11px; font-weight: 700;
-}
-.dl-steps {
-  margin: 2px 0 0; padding-left: 19px;
-  font-size: 12.5px; line-height: 1.65; color: var(--muted); font-weight: 500;
-}
-.dl-steps li { margin-bottom: 5px; }
-.dl-steps li::marker { color: var(--acc); font-weight: 700; }
-.dl-steps a, .dl-note a, .split-copy a, .fineprint a, .sec-lead a {
-  color: var(--acc); font-weight: 600; text-decoration: underline;
-  text-underline-offset: 2px;
+  padding: 5px 11px; border-radius: 9px; font-size: 11px; font-weight: 700;
 }
 
-/* The install command in the terminal names this host; it is part of the
-   command, so it reads as command text rather than as a highlight. */
-.cmd .host { color: inherit; }
-
-/* The build caveat and the checksum. Small, but on the card rather than
-   in a footnote: someone about to install a debug-signed apk should read
-   it there, not after scrolling past the button. */
-.dl-note {
-  margin-top: 2px; padding: 9px 11px; border-radius: 12px;
-  background: var(--row); border: 1px solid var(--glass-border);
-  font-size: 11.5px; line-height: 1.55; color: var(--muted); font-weight: 500;
+.dl-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.dl-btn {
+  padding: 11px 22px; border-radius: 999px; font-size: 14px; font-weight: 700;
+  color: #fff; background: linear-gradient(135deg, var(--acc-lt), var(--acc));
+  box-shadow: 0 10px 22px rgba(var(--acc-rgb), .32);
+  transition: transform var(--dur) var(--ease);
 }
-.dl-note b { color: var(--text); font-weight: 700; }
+.dl-btn:hover { transform: translateY(-2px); }
+.dl-size { font-size: 12.5px; color: var(--muted); font-weight: 600; }
 .dl-sum {
-  display: block; margin-top: 5px; font-size: 10.5px; letter-spacing: .2px;
+  margin-top: 9px; font-size: 10.5px; letter-spacing: .2px;
   font-family: ui-monospace, "SF Mono", Menlo, monospace;
   color: var(--muted); word-break: break-all; opacity: .85;
 }
-.dl-badge {
-  padding: 3px 9px; border-radius: 999px; font-size: 10.5px; font-weight: 800;
-  letter-spacing: .6px; text-transform: uppercase;
+.dl-missing {
+  padding: 12px 14px; border-radius: 13px;
+  background: var(--row); border: 1px solid var(--glass-border);
+  font-size: 12.5px; line-height: 1.6; color: var(--muted); font-weight: 500;
 }
-.dl-badge.ready { color: var(--acc); background: rgba(var(--acc-rgb), .16); }
-.dl-badge.source { color: var(--muted); background: var(--row); }
+
+/* ---------- The table of everything ----------
+   A picker hides the options it did not pick. This does not. */
+.tbl-head { margin: 34px 0 14px; font-size: 17px; }
+.tbl-wrap {
+  border-radius: 20px; overflow: hidden;
+  border: 1px solid var(--glass-border); background: var(--tile);
+}
+.dl-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.dl-table th {
+  text-align: left; padding: 12px 16px;
+  font-size: 11px; font-weight: 800; letter-spacing: 1.2px;
+  text-transform: uppercase; color: var(--acc);
+  border-bottom: 1px solid var(--glass-border);
+}
+.dl-table td {
+  padding: 14px 16px; font-weight: 500; color: var(--muted);
+  border-bottom: 1px solid var(--glass-border); vertical-align: middle;
+}
+.dl-table tr:last-child td { border-bottom: 0; }
+.dl-table td b { display: block; color: var(--text); font-size: 14px; }
+.td-sub { display: block; margin-top: 2px; font-size: 12px; }
+.dl-table .mono {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 11.5px;
+}
+.dl-table .ta-r { text-align: right; }
+.tbl-link {
+  display: inline-block; padding: 7px 15px; border-radius: 999px;
+  font-size: 12.5px; font-weight: 700; color: var(--text);
+  background: var(--row); border: 1px solid var(--glass-border);
+  transition: background .25s var(--ease), color .25s var(--ease);
+}
+.tbl-link:hover { color: #fff; background: var(--acc); border-color: transparent; }
+
 .fineprint { margin-top: 20px; font-size: 12.5px; color: var(--muted); font-weight: 500; }
 
 /* ---------- Cards ---------- */
@@ -298,8 +344,11 @@ a:focus-visible, button:focus-visible {
 
 /* ---------- Narrow screens ---------- */
 @media (max-width: 900px) {
-  .dl-grid { grid-template-columns: 1fr; }
-  .dl.wide .dl-body { grid-template-columns: minmax(0, 1fr); }
+  .tbl-wrap { overflow-x: auto; }
+  .dl-table { min-width: 560px; }
+  .step { grid-template-columns: 28px minmax(0, 1fr); gap: 11px; }
+  .plat-panel { padding: 18px 15px; }
+  .plat-hint { width: 100%; margin: 4px 0 0; }
   .hero { grid-template-columns: 1fr; gap: 28px; padding: 48px 0 40px; }
   .hero-art { max-width: 320px; }
   .split { grid-template-columns: 1fr; }
