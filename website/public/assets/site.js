@@ -126,8 +126,13 @@
 
   // Where this page is being served from, which is also where install.sh
   // is. Not hard-coded: localhost while the container is on your desk, the
-  // tailnet name once `tailscale serve` is on, and both are correct.
-  var ORIGIN = location.origin;
+  // tailnet name once `tailscale serve` is on, a project Pages site under
+  // /nira/, a custom domain at the root -- all correct.
+  //
+  // The directory of this document, not location.origin: a project Pages
+  // site is served from a subpath, and origin alone printed a command
+  // pointing at kmahendra999.github.io/install.sh, which does not exist.
+  var ORIGIN = new URL('.', location.href).href.replace(/\/$/, '');
 
   // Downloads may not live beside the page. The self-hosted container serves
   // them from /downloads/; the hosted site cannot, because a 42 MiB apk
@@ -219,7 +224,9 @@
     var available = !!(meta && meta.ok);
     var badge = entry.file
       ? (available
-          ? '<span class="dl-badge ready">Ready</span>'
+          ? (meta.unmeasured
+              ? '<span class="dl-badge ready">Latest release</span>'
+              : '<span class="dl-badge ready">Ready</span>')
           : '<span class="dl-badge source">Not built</span>')
       : '<span class="dl-badge ' + (entry.badgeKind || 'source') + '">' +
         (entry.badge || 'Build it') + '</span>';
