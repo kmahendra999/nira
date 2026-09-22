@@ -4,6 +4,10 @@ The front page, and the place the Android build is downloaded from. Static
 files on nginx in a container — there is no application here, and nothing
 in the image can execute a request.
 
+The public copy is published to **https://kmahendra999.github.io/nira/** by
+`.github/workflows/docs.yml`. This container is the local copy: the same
+files, served from your own machine.
+
 ## Run it
 
 ```bash

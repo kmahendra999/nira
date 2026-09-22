@@ -87,12 +87,6 @@ jobs:
           # files and directories whose names start with an underscore.
           touch _site/.nojekyll
 
-          # _headers is Cloudflare/Netlify syntax and does nothing here.
-          # Pages cannot send custom headers at all; the page carries a
-          # meta CSP instead. Shipping a file that looks like a security
-          # policy but is inert is worse than not shipping one.
-          rm -f _site/_headers
-
           # The apk is not in the repository, and should not be: it is 42 MiB
           # of build output. It is published as a release asset, which has no
           # size or bandwidth limit and does not count against the repo.
