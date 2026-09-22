@@ -152,17 +152,13 @@ Browse the [Roadmap](https://github.com/kmahendra999/nira/blob/main/docs/develop
 
 ## About
 
-Nira is a fork of [OpenJarvis](https://github.com/open-jarvis/OpenJarvis), the local-first personal
-AI framework developed at [Hazy Research](https://hazyresearch.stanford.edu/) and the
-[Scaling Intelligence Lab](https://scalingintelligence.stanford.edu/) at
-[Stanford SAIL](https://ai.stanford.edu/) as part of
-[Intelligence Per Watt](https://www.intelligence-per-watt.ai/). The five-primitive architecture,
-the energy-aware evaluation harness, and the trace-driven learning loop are all their work, and
-Nira continues to track their security fixes.
+Nira is a personal assistant you run across your own machines. A device mesh over Tailscale, an
+Android client, a conversational voice runtime, and autonomous work on your own projects with
+live progress you can watch from your phone. Models, agents, tools and memory all run on hardware
+you own; the cloud is an option, not a dependency.
 
-Nira diverges in what it is *for*: a personal assistant you run across your own machines — a
-device mesh over Tailscale, an Android client, a conversational voice runtime, and autonomous
-work on your own projects with live progress you can watch from your phone.
+Built on [OpenJarvis](https://github.com/open-jarvis/OpenJarvis), an Apache-2.0 local-first AI
+framework from Stanford SAIL, whose security fixes Nira tracks.
 
 ## Citation
 
