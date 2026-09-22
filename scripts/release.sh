@@ -65,7 +65,12 @@ print(json.dumps({
     "name": "Nira " + sys.argv[1],
     "body": sys.argv[2],
     "draft": False,
-    "prerelease": True,
+    # NOT prerelease. /releases/latest excludes prereleases, and the site
+    # links at releases/latest/download/nira-android.apk -- marking this
+    # true makes that URL 404 while the asset is present and healthy.
+    # The build being a debug build is stated in the notes and on the
+    # page; it does not also need a flag that breaks the download.
+    "prerelease": False,
 }))' "$TAG" "$NOTES")")
 
 ID=$(printf '%s' "$RESP" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d.get("id") or ""); sys.stderr.write((d.get("message") or "") + "\n")')
