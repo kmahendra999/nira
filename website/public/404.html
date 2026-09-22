@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Not here — Nira</title>
+<meta name="robots" content="noindex">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; script-src 'none'; base-uri 'none'; form-action 'none'">
+<link rel="icon" href="/assets/nira-mark.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/assets/fonts.css">
+<link rel="stylesheet" href="/assets/glass.css">
+<link rel="stylesheet" href="/assets/site.css">
+<style>
+  /* One screen, centred. The shared stylesheet lays out a scrolling
+     document, which a four-line page does not need. */
+  .oops { min-height: 82vh; display: grid; place-items: center; text-align: center; }
+  .oops .code { font-size: clamp(72px, 14vw, 150px); line-height: 1; letter-spacing: -4px;
+                background: linear-gradient(135deg, var(--text), var(--acc));
+                -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .oops p { margin-top: 14px; font-size: 15.5px; color: var(--muted); font-weight: 500; }
+  .oops .links { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 26px; }
+</style>
+</head>
+<body>
+
+<!-- Same background as the front page, so a wrong URL still looks like the
+     same site rather than a server's default error page. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
+  <filter id="goo">
+    <feGaussianBlur in="SourceGraphic" stdDeviation="40" result="blur"/>
+    <feColorMatrix in="blur" mode="matrix"
+                   values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 24 -10" result="goo"/>
+    <feBlend in="SourceGraphic" in2="goo"/>
+  </filter>
+</defs></svg>
+<div class="liquid" aria-hidden="true">
+  <div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div>
+  <div class="blob b4"></div><div class="blob b5"></div>
+</div>
+<div class="grain" aria-hidden="true"></div>
+
+<div class="page">
+  <main class="oops">
+    <div>
+      <div class="code">404</div>
+      <p>That page is not here. It may have moved, or never existed.</p>
+      <div class="links">
+        <a class="btn-primary" href="/">Front page</a>
+        <a class="gbtn pill lg" href="/docs/">Documentation</a>
+        <a class="gbtn pill lg" href="https://github.com/kmahendra999/nira" rel="noopener">Source</a>
+      </div>
+    </div>
+  </main>
+</div>
+
+</body>
+</html>
