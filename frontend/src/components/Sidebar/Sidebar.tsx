@@ -78,15 +78,17 @@ export function Sidebar() {
 
       <aside
         className={`
+          glass-chrome
           flex flex-col h-full shrink-0 transition-all duration-200 ease-in-out overflow-hidden
           fixed md:relative z-30
           ${sidebarOpen ? 'w-[260px]' : 'w-0'}
         `}
         style={{
-          background: 'var(--color-sidebar)',
-          backdropFilter: 'blur(20px)',
-          WebkitBackdropFilter: 'blur(20px)',
-          borderRight: sidebarOpen ? '1px solid var(--color-border)' : 'none',
+          // The blur and its saturation come from --glass-* now, so the
+          // sidebar, the system rail and every panel frost identically. This
+          // was a hand-rolled blur(20px) with no saturation, which greys out
+          // whatever passes behind it.
+          borderRight: sidebarOpen ? '1px solid var(--glass-border)' : 'none',
         }}
       >
         <div className="flex flex-col h-full w-[260px]">

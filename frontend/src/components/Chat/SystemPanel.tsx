@@ -77,12 +77,11 @@ export function SystemPanel() {
 
   return (
     <div
-      className="flex flex-col h-full overflow-y-auto"
+      className="glass-chrome flex flex-col h-full overflow-y-auto"
       style={{
         width: 280,
         minWidth: 280,
-        background: 'var(--color-bg)',
-        borderLeft: '1px solid var(--color-border)',
+        borderLeft: '1px solid var(--glass-border)',
       }}
     >
       {/* Header */}
@@ -285,17 +284,20 @@ function MiniStat({
   unit?: string;
 }) {
   return (
-    <div
-      className="rounded-lg px-2.5 py-2"
-      style={{ background: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)' }}
-    >
+    // A gauge, not a box: glass housing with bezel ticks, and the figure in
+    // tabular mono so a value that changes every second does not shuffle the
+    // one beside it.
+    <div className="hud-panel hud-panel--ticked px-2.5 py-2">
       <div className="flex items-center gap-1 mb-0.5">
         <Icon size={10} style={{ color: 'var(--color-accent)' }} />
-        <span className="text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>
+        <span
+          className="text-[10px] uppercase tracking-wider"
+          style={{ color: 'var(--color-text-tertiary)' }}
+        >
           {label}
         </span>
       </div>
-      <div className="text-sm font-semibold" style={{ color: 'var(--color-text)' }}>
+      <div className="readout text-sm font-semibold" style={{ color: 'var(--color-text)' }}>
         {value}
         {unit && (
           <span className="text-[10px] font-normal ml-0.5" style={{ color: 'var(--color-text-tertiary)' }}>
