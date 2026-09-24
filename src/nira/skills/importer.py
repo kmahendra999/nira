@@ -3,7 +3,8 @@
 Steps performed by ``import_skill``:
 
 1. Parse the source SKILL.md through SkillParser (strict + tolerant).
-2. Reject symlinks in directories that would be copied into the install.
+2. Verify the manifest signature, when a public key is supplied.
+3. Reject symlinks in directories that would be copied into the install.
 3. Translate tool references in the markdown body via ToolTranslator.
 4. Decide on scripts (default-skip; opt-in via with_scripts=True).
 5. Write to disk at <target_root>/<source>/<name>/:
@@ -20,7 +21,7 @@ import shutil
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 import yaml
 
@@ -33,6 +34,15 @@ from nira.skills.security import (
 )
 from nira.skills.sources.base import ResolvedSkill
 from nira.skills.tool_translator import ToolTranslator
+
+
+@dataclass(slots=True)
+class _SignatureRefusal:
+    """Why a signature check did not pass, and whether that stops the install."""
+
+    message: str
+    fatal: bool
+
 
 # Subdirectories of a skill that are always copied (never gated by --with-scripts)
 COPIED_SUBDIRS = ("references", "assets", "templates")
@@ -76,8 +86,20 @@ class SkillImporter:
         with_scripts: bool = False,
         force: bool = False,
         confirm_dangerous: bool = False,
+        public_key: Optional[bytes] = None,
+        allow_unsigned: bool = False,
     ) -> ImportResult:
         """Install *resolved* into ``<target_root>/<source>/<name>/``.
+
+        When *public_key* is given, the skill's signature is verified before
+        anything is written. Verification used to happen only at load time,
+        which meant an unverifiable skill installed cleanly and then failed to
+        load later, with nothing connecting the failure to the install that
+        caused it.
+
+        *allow_unsigned* downgrades a **missing** signature to a warning. It
+        deliberately does not cover an **invalid** one: something signed that
+        manifest and the configured key does not match it.
 
         Returns an :class:`ImportResult` with status, paths, translated
         tools, untranslated tools, and warnings.
@@ -124,6 +146,20 @@ class SkillImporter:
             has_signature=bool(manifest.signature),
         )
         result.dangerous_capabilities = has_dangerous_capabilities(manifest)
+
+        # 1b. Signature, before capabilities: "who wrote this" is the more
+        # fundamental question, so it is the one reported first when a skill
+        # fails both gates.
+        if public_key is not None:
+            refusal = self._signature_refusal(
+                manifest, public_key, allow_unsigned=allow_unsigned
+            )
+            if refusal is not None:
+                if refusal.fatal:
+                    result.success = False
+                    result.warnings.append(refusal.message)
+                    return result
+                result.warnings.append(refusal.message)
 
         if result.dangerous_capabilities and result.trust_tier == TrustTier.UNREVIEWED:
             result.requires_confirmation = True
@@ -209,6 +245,57 @@ class SkillImporter:
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
+
+    @staticmethod
+    def _signature_refusal(
+        manifest, public_key: bytes, *, allow_unsigned: bool
+    ) -> Optional["_SignatureRefusal"]:
+        """Check *manifest*'s signature, returning None when it is good.
+
+        The bytes signed are ``manifest.manifest_bytes()`` -- the parsed
+        fields, not the file -- so this is the same check the loader makes, and
+        it holds for a SKILL.md frontmatter and a skill.toml alike. It attests
+        to the manifest's metadata and steps; the markdown body and any
+        scripts/ are outside it.
+        """
+        if not manifest.signature:
+            if allow_unsigned:
+                return _SignatureRefusal(
+                    "Installed unsigned while signature verification is "
+                    "enabled -- this skill will not load until it is signed.",
+                    fatal=False,
+                )
+            return _SignatureRefusal(
+                "Refusing to install: signature verification is enabled "
+                "(security.signing_key_path) and this skill is not signed. "
+                "Re-run with allow_unsigned=True (or `--allow-unsigned` on "
+                "the CLI) to install it anyway.",
+                fatal=True,
+            )
+
+        try:
+            from nira.security.signing import verify_b64
+
+            valid = verify_b64(
+                manifest.manifest_bytes(), manifest.signature, public_key
+            )
+        except ImportError:
+            return _SignatureRefusal(
+                "Refusing to install: signature verification requires the "
+                "'cryptography' package. Install it with: "
+                "uv sync --extra security-signing",
+                fatal=True,
+            )
+
+        if not valid:
+            # Not the same as unsigned, so --allow-unsigned does not reach it:
+            # something signed this and the configured key does not match.
+            return _SignatureRefusal(
+                f"Refusing to install: skill '{manifest.name}' has a "
+                "signature that the configured key does not verify.",
+                fatal=True,
+            )
+        return None
 
     @staticmethod
     def _find_symlinks(root: Path) -> list[Path]:

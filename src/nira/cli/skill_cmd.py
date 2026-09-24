@@ -277,7 +277,23 @@ def _sync_resolver(resolver, console: Console) -> None:
         "capabilities (shell/network-listen/filesystem-write)."
     ),
 )
-def install(query: str, with_scripts: bool, force: bool, url: str, yes_dangerous: bool):
+@click.option(
+    "--allow-unsigned",
+    is_flag=True,
+    default=False,
+    help=(
+        "Install a skill that carries no signature even though "
+        "security.signing_key_path is set. It will not load until signed."
+    ),
+)
+def install(
+    query: str,
+    with_scripts: bool,
+    force: bool,
+    url: str,
+    yes_dangerous: bool,
+    allow_unsigned: bool,
+):
     """Install a skill from a source.
 
     Example: ``nira skill install hermes:apple-notes``
@@ -307,6 +323,10 @@ def install(query: str, with_scripts: bool, force: bool, url: str, yes_dangerous
         raise SystemExit(1)
 
     from nira.skills.importer import SkillImporter
+
+    # The same key the loader verifies against, so a skill that installs is a
+    # skill that will load. None when the user never opted into signing.
+    from nira.skills.manager import _configured_public_key
     from nira.skills.parser import SkillParser
     from nira.skills.tool_translator import ToolTranslator
 
@@ -316,6 +336,8 @@ def install(query: str, with_scripts: bool, force: bool, url: str, yes_dangerous
         with_scripts=with_scripts,
         force=force,
         confirm_dangerous=yes_dangerous,
+        public_key=_configured_public_key(),
+        allow_unsigned=allow_unsigned,
     )
 
     if result.success:
@@ -809,22 +831,47 @@ def keygen(out_dir: str, force: bool):
     default="",
     help="Private key to sign with (default: ~/.nira/skill-signing.key).",
 )
-def sign(target: str, key_path: str):
+@click.option(
+    "--all",
+    "sign_all",
+    is_flag=True,
+    default=False,
+    help="Sign every skill.toml beneath TARGET, recursively.",
+)
+def sign(target: str, key_path: str, sign_all: bool):
     """Sign a skill manifest so a verifying install will load it.
 
     TARGET is a skill directory or a ``skill.toml``. The signature is written
-    into the manifest's ``[skill]`` table, replacing any existing one.
+    into the manifest's ``[skill]`` table, replacing any existing one. With
+    ``--all``, every ``skill.toml`` beneath TARGET is signed -- which is what
+    maintaining a set of them needs, because the manifest that gets forgotten
+    is the one that stops loading.
     """
     console = Console()
-    from nira.skills.signing import manifest_path_for, sign_manifest_file
+    from nira.skills.signing import (
+        manifest_path_for,
+        manifest_paths_under,
+        sign_manifest_file,
+    )
 
-    manifest_path = manifest_path_for(Path(target))
-    if manifest_path is None:
-        console.print(
-            f"[red]No skill.toml found at {target}.[/red]\n"
-            "[dim]A SKILL.md has no field to carry a signature.[/dim]"
-        )
-        raise SystemExit(1)
+    if sign_all:
+        manifests = manifest_paths_under(Path(target))
+        if not manifests:
+            console.print(
+                f"[red]No skill.toml found under {target}.[/red]\n"
+                "[dim]A SKILL.md has no field to carry a signature.[/dim]"
+            )
+            raise SystemExit(1)
+    else:
+        manifest_path = manifest_path_for(Path(target))
+        if manifest_path is None:
+            console.print(
+                f"[red]No skill.toml found at {target}.[/red]\n"
+                "[dim]A SKILL.md has no field to carry a signature. "
+                "Pass --all to sign a tree of skills.[/dim]"
+            )
+            raise SystemExit(1)
+        manifests = [manifest_path]
 
     private_path = (
         Path(key_path).expanduser()
@@ -837,20 +884,36 @@ def sign(target: str, key_path: str):
             "Create one with: nira skill keygen"
         )
         raise SystemExit(1)
+    private_key = private_path.read_bytes()
 
-    try:
-        signature = sign_manifest_file(manifest_path, private_path.read_bytes())
-    except ImportError:
+    failures = 0
+    for manifest_path in manifests:
+        try:
+            signature = sign_manifest_file(manifest_path, private_key)
+        except ImportError:
+            # Missing for every manifest, not just this one; stop rather than
+            # print the same install hint once per skill.
+            console.print(
+                "[red]Signing requires the 'cryptography' package.[/red]\n"
+                "Install it with: uv sync --extra security-signing"
+            )
+            raise SystemExit(1)
+        except (ValueError, OSError) as exc:
+            # One unreadable manifest in a tree does not abandon the rest --
+            # a half-signed directory is the state that fails confusingly.
+            console.print(f"[red]Could not sign {manifest_path}: {exc}[/red]")
+            failures += 1
+            continue
+        console.print(f"[green]Signed:[/green] {manifest_path}")
+        # The first 16 characters are enough to tell two signatures apart at a
+        # glance, and the whole thing is in the file anyway.
+        console.print(f"[dim]{signature[:16]}\u2026[/dim]")
+
+    if failures:
         console.print(
-            "[red]Signing requires the 'cryptography' package.[/red]\n"
-            "Install it with: uv sync --extra security-signing"
+            f"\n[yellow]Signed {len(manifests) - failures} of "
+            f"{len(manifests)}; {failures} failed.[/yellow]"
         )
         raise SystemExit(1)
-    except (ValueError, OSError) as exc:
-        console.print(f"[red]Could not sign: {exc}[/red]")
-        raise SystemExit(1)
-
-    console.print(f"[green]Signed:[/green] {manifest_path}")
-    # The first 16 characters are enough to tell two signatures apart at a
-    # glance, and the whole thing is in the file anyway.
-    console.print(f"[dim]{signature[:16]}…[/dim]")
+    if len(manifests) > 1:
+        console.print(f"\n[green]Signed {len(manifests)} manifests.[/green]")

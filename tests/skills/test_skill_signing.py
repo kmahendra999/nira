@@ -16,6 +16,7 @@ import pytest
 from nira.skills.signing import (
     apply_signature,
     manifest_path_for,
+    manifest_paths_under,
     sign_manifest_file,
 )
 
@@ -274,3 +275,114 @@ class TestTheCommands:
 
         assert result.exit_code != 0
         assert "skill.toml" in result.output
+
+
+class TestFindingEveryManifest:
+    """`manifest_paths_under` -- what `nira skill sign --all` walks."""
+
+    def test_finds_manifests_at_any_depth(self, tmp_path) -> None:
+        for relative in ("a/skill.toml", "b/nested/skill.toml", "skill.toml"):
+            path = tmp_path / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(MANIFEST, encoding="utf-8")
+
+        found = manifest_paths_under(tmp_path)
+
+        assert len(found) == 3
+        # Stable order, so output and exit status do not depend on the
+        # filesystem's iteration order.
+        assert found == sorted(found)
+
+    def test_ignores_markdown_only_skills(self, tmp_path) -> None:
+        (tmp_path / "md-only").mkdir()
+        (tmp_path / "md-only" / "SKILL.md").write_text("# x\n", encoding="utf-8")
+
+        assert manifest_paths_under(tmp_path) == []
+
+    def test_a_file_argument_comes_back_as_itself(self, tmp_path) -> None:
+        path = tmp_path / "skill.toml"
+        path.write_text(MANIFEST, encoding="utf-8")
+
+        assert manifest_paths_under(path) == [path]
+
+    def test_a_missing_path_is_empty_not_an_error(self, tmp_path) -> None:
+        assert manifest_paths_under(tmp_path / "absent") == []
+
+
+class TestSigningATree:
+    """`nira skill sign --all`.
+
+    Signing one skill at a time means the manifest that gets forgotten is the
+    one that stops loading -- and it stops at the moment someone else uses it.
+    """
+
+    @pytest.fixture
+    def run(self, tmp_path, monkeypatch):
+        pytest.importorskip("nira.security.signing")
+        from click.testing import CliRunner
+
+        from nira.cli import skill_cmd
+
+        monkeypatch.setattr(skill_cmd, "get_config_dir", lambda: tmp_path)
+        runner = CliRunner()
+        return lambda *args: runner.invoke(skill_cmd.skill, list(args))
+
+    @pytest.fixture
+    def tree(self, tmp_path):
+        root = tmp_path / "skills"
+        for name in ("alpha", "beta", "gamma"):
+            directory = root / name
+            directory.mkdir(parents=True)
+            (directory / "skill.toml").write_text(
+                MANIFEST.replace('name = "greet"', f'name = "{name}"'),
+                encoding="utf-8",
+            )
+        return root
+
+    def test_signs_every_manifest_in_the_tree(self, run, tree) -> None:
+        run("keygen")
+
+        result = run("sign", str(tree), "--all")
+
+        assert result.exit_code == 0, result.output
+        for name in ("alpha", "beta", "gamma"):
+            text = (tree / name / "skill.toml").read_text(encoding="utf-8")
+            assert "signature = " in text
+
+    def test_the_signatures_actually_verify(self, run, tree, tmp_path) -> None:
+        from nira.security.signing import verify_b64
+        from nira.skills.loader import load_skill
+
+        run("keygen")
+        run("sign", str(tree), "--all")
+
+        public_key = (tmp_path / "skill-signing.pub").read_bytes()
+        for name in ("alpha", "beta", "gamma"):
+            manifest = load_skill(tree / name / "skill.toml")
+            assert verify_b64(manifest.manifest_bytes(), manifest.signature, public_key)
+
+    def test_one_bad_manifest_does_not_abandon_the_rest(self, run, tree) -> None:
+        run("keygen")
+        broken = tree / "delta"
+        broken.mkdir()
+        (broken / "skill.toml").write_text("not a skill manifest\n", encoding="utf-8")
+
+        result = run("sign", str(tree), "--all")
+
+        # Non-zero, because something the user asked for did not happen...
+        assert result.exit_code != 0
+        # ...but the three that could be signed were, rather than leaving the
+        # tree in whichever half-signed state the walk happened to reach.
+        for name in ("alpha", "beta", "gamma"):
+            text = (tree / name / "skill.toml").read_text(encoding="utf-8")
+            assert "signature = " in text
+
+    def test_a_tree_with_no_manifests_is_an_error(self, run, tmp_path) -> None:
+        empty = tmp_path / "empty"
+        empty.mkdir()
+        run("keygen")
+
+        result = run("sign", str(empty), "--all")
+
+        assert result.exit_code != 0
+        assert "No skill.toml" in result.output

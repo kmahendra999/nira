@@ -48,6 +48,11 @@ FIELD_MAPPING: Dict[str, tuple[str, str]] = {
     "tags": ("field", "tags"),
     "depends": ("field", "depends"),
     "required_capabilities": ("field", "required_capabilities"),
+    # Without this the field is swept into original_frontmatter and
+    # ``manifest.signature`` is empty for every SKILL.md ever parsed -- so a
+    # signed skill is indistinguishable from an unsigned one, and the
+    # importer's signature gate could never pass.
+    "signature": ("field", "signature"),
     "user_invocable": ("field", "user_invocable"),
     "disable_model_invocation": ("field", "disable_model_invocation"),
     "platforms": ("nira_meta", "platforms"),

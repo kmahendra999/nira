@@ -22,6 +22,7 @@ __all__ = [
     "SIGNATURE_KEY",
     "apply_signature",
     "manifest_path_for",
+    "manifest_paths_under",
     "sign_manifest_file",
 ]
 
@@ -45,6 +46,24 @@ def manifest_path_for(target: Path) -> Optional[Path]:
         return target if target.suffix == ".toml" else None
     candidate = target / "skill.toml"
     return candidate if candidate.exists() else None
+
+
+def manifest_paths_under(root: Path) -> list[Path]:
+    """Every ``skill.toml`` at or below *root*, in a stable order.
+
+    Someone maintaining a set of skills signs a directory, not a file at a
+    time: the one that gets forgotten is the one that stops loading, and it
+    stops loading at the moment somebody else tries to use it.
+
+    A file argument is returned as-is when it is TOML, so callers can pass
+    either without branching.
+    """
+    root = Path(root).expanduser()
+    if root.is_file():
+        return [root] if root.suffix == ".toml" else []
+    if not root.is_dir():
+        return []
+    return sorted(p for p in root.rglob("skill.toml") if p.is_file())
 
 
 def _skill_table_span(text: str) -> Optional[Tuple[int, int]]:
