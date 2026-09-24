@@ -343,8 +343,24 @@ jobs:
             echo "APPLE_TEAM_ID=$A_TEAM" >> "$GITHUB_ENV"
             echo "Apple signing configured"
           else
-            if [[ "${{ github.ref }}" == refs/tags/* ]]; then
-              echo "::error::Apple signing secrets are required for release builds"
+            # Hard-fail only for a build that is actually a stable release.
+            #
+            # This used to key off `refs/tags/*`, which is every tag -- and
+            # autotag.yml mints a `v<version>.devNNN` tag on every push to
+            # main and dispatches this workflow at it. The step above already
+            # classifies those as rolling builds bound for `desktop-edge`
+            # with prerelease=true, so the guard was failing the macOS job on
+            # every single push for lacking release credentials on a build
+            # that was never a release. Linux and Windows published their
+            # unsigned edge bundles alongside it.
+            #
+            # `prerelease=false` is the workflow's own definition of a stable
+            # release, set fifty lines up, and it is only ever false for an
+            # explicit `desktop-v*` tag.
+            if [[ "${{ steps.release-info.outputs.prerelease }}" == "false" ]]; then
+              echo "::error::Apple signing secrets are required for a stable desktop release"
+              echo "::error::(tag ${{ github.ref_name }}). Set APPLE_CERTIFICATE and its"
+              echo "::error::companions, or cut the release from an edge build instead."
               exit 1
             fi
             echo "No Apple certificate configured, skipping code signing"
