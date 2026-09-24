@@ -32,6 +32,12 @@ echo "[$(date -u +%FT%TZ)] bg-orchestrator started, pid=$$" >> "$LOG"
 ) &
 RUST_PID=$!
 
+# Parallel: the web UI. Independent of the Rust chain, and `npm ci` is slow
+# enough that running it after would delay nothing but itself.
+if [[ -x "$SCRIPTS_DIR/build-frontend.sh" ]]; then
+    "$SCRIPTS_DIR/build-frontend.sh" >> "$LOG" 2>&1 &
+fi
+
 # Parallel: each model pull.
 MODEL_PIDS=()
 for model in "$@"; do

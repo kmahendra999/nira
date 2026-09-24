@@ -540,7 +540,13 @@ create_venv() {
 
 editable_install() {
     cd "$SRC_DIR"
-    uv pip install --python "$VENV_DIR/bin/python" -e .
+    # With the server extra. `nira serve` is the documented way in — the
+    # quickstart, the install guide and the index all end with "open
+    # http://localhost:8000" — and without these five packages it exits with
+    # "Server dependencies not installed" on a fresh install. They are
+    # fastapi, uvicorn, pydantic, python-multipart and qrcode: a few MB
+    # beside the gigabytes this script already downloads for a model.
+    uv pip install --python "$VENV_DIR/bin/python" -e ".[server]"
 }
 
 install_ollama() {

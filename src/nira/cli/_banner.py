@@ -5,16 +5,18 @@ from __future__ import annotations
 # "Nira" rendered in the figlet "standard" font. Stored as plain text
 # (no inline Rich markup) so the backslashes in the glyphs don't collide with
 # Rich's [tag] markup or Python raw-string escaping — colour is applied at
-# print time via a style argument. The "standard" font renders a clearly
-# readable capital J (the bottom-left \___/ hook), unlike the cramped prior
-# art where the J read as an I.
+# print time via a style argument.
+#
+# This said "OpenJarvis" until 2026-09-24. The rename rewrote the comment
+# above it — which described "a clearly readable capital J", a letter Nira
+# does not contain — and left the glyphs alone, because a find-replace cannot
+# see a word drawn in slashes. It is the first thing the CLI prints.
 _WORDMARK = (
-    "  ___                       _                  _     ",
-    " / _ \\ _ __   ___ _ __     | | __ _ _ ____   _(_)___ ",
-    "| | | | '_ \\ / _ \\ '_ \\ _  | |/ _` | '__\\ \\ / / / __|",
-    "| |_| | |_) |  __/ | | | |_| | (_| | |   \\ V /| \\__ \\",
-    " \\___/| .__/ \\___|_| |_|\\___/ \\__,_|_|    \\_/ |_|___/",
-    "      |_|                                            ",
+    " _   _ _           ",
+    "| \\ | (_)_ __ __ _ ",
+    "|  \\| | | '__/ _` |",
+    "| |\\  | | | | (_| |",
+    "|_| \\_|_|_|  \\__,_|",
 )
 
 _TAGLINE = "Personal AI, On Personal Devices"
