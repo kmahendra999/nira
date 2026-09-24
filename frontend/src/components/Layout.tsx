@@ -3,6 +3,7 @@ import { Outlet, useNavigate } from 'react-router';
 import { ApprovalBell } from './ApprovalBell';
 import { SoundToggle } from './SoundToggle';
 import { sound } from '../lib/sound';
+import { installSoundDelegate } from '../lib/sound-delegate';
 import { Sidebar } from './Sidebar/Sidebar';
 import { SystemPulse } from './SystemPulse';
 import { useAppStore } from '../lib/store';
@@ -109,9 +110,12 @@ function SoundUnlock() {
     const unlock = () => sound.unlock();
     window.addEventListener('pointerdown', unlock, { once: true });
     window.addEventListener('keydown', unlock, { once: true });
+    // Every button and link in the app, from one place.
+    const uninstall = installSoundDelegate();
     return () => {
       window.removeEventListener('pointerdown', unlock);
       window.removeEventListener('keydown', unlock);
+      uninstall();
     };
   }, []);
   return null;

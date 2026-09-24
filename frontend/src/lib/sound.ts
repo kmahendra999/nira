@@ -36,6 +36,9 @@ export type Cue =
 
 const STORAGE_KEY = 'nira-sound';
 
+/** Served from frontend/public, so it lands beside index.html in the build. */
+const SAMPLE_URL = '/sfx/console.wav';
+
 interface Voice {
   /** Start frequency in Hz. */
   from: number;
@@ -46,6 +49,27 @@ interface Voice {
   /** Peak gain. Everything here is far below 1 on purpose. */
   gain: number;
 }
+
+/**
+ * How the one sample is shaped per cue.
+ *
+ * A single 0.36s recording covers all six by varying playback rate and gain:
+ * rate shortens *and* brightens together, which is exactly how these cues
+ * differ from each other — a hover wants to be quick and thin, an alert slow
+ * and heavy. Six separate files would be six things to keep in tune.
+ */
+const SAMPLED: Record<Cue, { rate: number; gain: number }> = {
+  // Fast and faint. This fires on every pointer crossing, so it has to sit
+  // just at the edge of noticing.
+  hover: { rate: 2.6, gain: 0.1 },
+  tap: { rate: 1.6, gain: 0.22 },
+  blip: { rate: 2.0, gain: 0.16 },
+  sweep: { rate: 0.85, gain: 0.14 },
+  // Full length and unhurried: the only cue that means "that worked".
+  confirm: { rate: 1.0, gain: 0.26 },
+  // Slowest, so it reads as lower and more serious without being louder.
+  alert: { rate: 0.7, gain: 0.26 },
+};
 
 const VOICES: Record<Cue, Voice> = {
   // A short downward tick: the sound of a switch, not a chime.
@@ -76,6 +100,8 @@ function readStored(): boolean {
 class Console {
   private ctx: AudioContext | null = null;
   private master: GainNode | null = null;
+  private sample: AudioBuffer | null = null;
+  private sampleFailed = false;
   private on = readStored();
   private unlocked = false;
   private listeners = new Set<(on: boolean) => void>();
@@ -108,6 +134,28 @@ class Console {
     if (this.unlocked) return;
     this.unlocked = true;
     void this.context();
+    void this.loadSample();
+  }
+
+  /**
+   * Fetch and decode the console sample once.
+   *
+   * Failure is not an error: `play` falls back to the synthesised voices, so
+   * a missing or undecodable file costs the character of the sound and
+   * nothing else. Decoding here rather than on first use means the first
+   * hover is not the one that pays for it.
+   */
+  private async loadSample(): Promise<void> {
+    if (this.sample || this.sampleFailed) return;
+    const ctx = this.context();
+    if (!ctx) return;
+    try {
+      const res = await fetch(SAMPLE_URL);
+      if (!res.ok) throw new Error(String(res.status));
+      this.sample = await ctx.decodeAudioData(await res.arrayBuffer());
+    } catch {
+      this.sampleFailed = true;
+    }
   }
 
   private context(): AudioContext | null {
@@ -143,9 +191,26 @@ class Console {
     if (!ctx || !this.master) return;
     if (ctx.state === 'suspended') void ctx.resume();
 
-    const voice = VOICES[cue];
     const t = ctx.currentTime;
 
+    if (this.sample) {
+      const shape = SAMPLED[cue];
+      const src = ctx.createBufferSource();
+      src.buffer = this.sample;
+      src.playbackRate.value = shape.rate;
+      const gain = ctx.createGain();
+      gain.gain.value = shape.gain;
+      src.connect(gain).connect(this.master);
+      src.start(t);
+      src.onended = () => {
+        src.disconnect();
+        gain.disconnect();
+      };
+      return;
+    }
+
+    // No sample: the synthesised voices, which is also what the tests drive.
+    const voice = VOICES[cue];
     const osc = ctx.createOscillator();
     osc.type = voice.type;
     osc.frequency.setValueAtTime(voice.from, t);

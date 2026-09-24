@@ -155,6 +155,8 @@ interface AppState {
   models: ModelInfo[];
   modelsLoading: boolean;
   selectedModel: string;
+  /** True while the selection is a fallback rather than the reader's choice. */
+  modelWasAutoPicked: boolean;
   serverInfo: ServerInfo | null;
   savings: SavingsData | null;
 
@@ -279,6 +281,7 @@ export const useAppStore = create<AppState>((set, get) => {
     models: [],
     modelsLoading: true,
     selectedModel: '',
+    modelWasAutoPicked: true,
     serverInfo: null,
     savings: null,
 
@@ -484,10 +487,24 @@ export const useAppStore = create<AppState>((set, get) => {
         // embedder and every chat failed with HTTP 400 "does not support
         // chat". Prefer a real chat model for selection / fallback.
         const chatModels = models.filter((m) => !isEmbedOnlyModel(m.id));
+        // The server's model, before the first thing in an arbitrary list.
+        //
+        // `nira init` detects the hardware and writes a default the machine
+        // can actually run; the server reports it at /v1/info, and the UI
+        // fetched that and then ignored it — falling through to
+        // `chatModels[0]`, which is whatever order Ollama happened to return.
+        // On a CPU-only box that picked qwen3.5:27b: 18 GB, 100% CPU, minutes
+        // per reply, and a chat that looks hung rather than slow.
+        const serverModel =
+          state.serverInfo?.model &&
+          chatModels.some((m) => m.id === state.serverInfo?.model)
+            ? state.serverInfo.model
+            : '';
         const preferred =
           (state.settings.defaultModel &&
             chatModels.some((m) => m.id === state.settings.defaultModel) &&
             state.settings.defaultModel) ||
+          serverModel ||
           chatModels[0]?.id ||
           models.find((m) => !isEmbedOnlyModel(m.id))?.id ||
           '';
@@ -499,18 +516,35 @@ export const useAppStore = create<AppState>((set, get) => {
           !models.some((m) => m.id === state.selectedModel);
 
         if (!state.selectedModel || currentIsBad || currentMissing) {
+          // Auto-picked, so a later /v1/info may still correct it.
           // Prefer a real chat model. If none exist, clear a bad/missing
           // selection rather than keeping an embed-only id that 400s on chat.
           return {
             models,
             selectedModel: preferred,
+            modelWasAutoPicked: true,
           };
         }
         return { models };
       }),
     setModelsLoading: (loading: boolean) => set({ modelsLoading: loading }),
-    setSelectedModel: (model: string) => set({ selectedModel: model }),
-    setServerInfo: (info: ServerInfo | null) => set({ serverInfo: info }),
+    // An explicit choice is never overridden by a later server response.
+    setSelectedModel: (model: string) =>
+      set({ selectedModel: model, modelWasAutoPicked: false }),
+    setServerInfo: (info: ServerInfo | null) =>
+      set((state) => {
+        // /v1/info and /v1/models race. If the list landed first we picked a
+        // fallback; now that the server has said which model it is configured
+        // for, correct it — but only if the reader has not chosen one.
+        const shouldAdopt =
+          !!info?.model &&
+          state.modelWasAutoPicked &&
+          state.models.some((m) => m.id === info.model) &&
+          state.selectedModel !== info.model;
+        return shouldAdopt
+          ? { serverInfo: info, selectedModel: info!.model }
+          : { serverInfo: info };
+      }),
     setSavings: (data: SavingsData | null) => set({ savings: data }),
     incrementSavings: (usage: TokenUsage) => {
       const cur = get().savings;

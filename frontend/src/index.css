@@ -684,6 +684,48 @@
   }
 
   /* ------------------------------------------------------------------
+   * The chamfer, everywhere
+   *
+   * 145 surfaces carry `rounded-lg` or `rounded-xl`, across 22 files. Adding
+   * a class to each would be 145 chances to break JSX nesting for a change
+   * that is the same everywhere — so it is one rule instead, and new code
+   * gets the look without knowing this file exists.
+   *
+   * `rounded-full` is deliberately untouched: avatars, status dots and pills
+   * are round because they are round, not because of a house style, and a
+   * chamfered avatar is just a broken circle. `rounded-md` is left alone too
+   * — at that size a cut corner is bigger than the corner.
+   *
+   * The border survives. clip-path cuts the corners off a bordered box and
+   * leaves the straight runs, so each surface ends up framed on its edges
+   * and open at the diagonals, which is the console look and costs no extra
+   * element to draw.
+   * ------------------------------------------------------------------ */
+  .rounded-lg,
+  .rounded-xl {
+    --chamfer: 7px;
+    border-radius: 0;
+    clip-path: polygon(
+      var(--chamfer) 0,
+      100% 0,
+      100% calc(100% - var(--chamfer)),
+      calc(100% - var(--chamfer)) 100%,
+      0 100%,
+      0 var(--chamfer)
+    );
+  }
+
+  /* An opt-out, for anything that has to draw outside its own box: a menu,
+   * a popover, a tooltip. clip-path clips descendants too, so a chamfered
+   * container silently amputates whatever it opens. */
+  .no-chamfer,
+  .no-chamfer.rounded-lg,
+  .no-chamfer.rounded-xl {
+    clip-path: none;
+    border-radius: var(--radius-lg);
+  }
+
+  /* ------------------------------------------------------------------
    * Console
    *
    * The departure from the card look. A card is rounded, evenly bordered and
