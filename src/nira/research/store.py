@@ -200,6 +200,35 @@ class ResearchStore:
         ).fetchall()
         return [self._row(row) for row in rows]
 
+    def search(self, term: str, limit: int = 20) -> List[ResearchReport]:
+        """Reports whose query or body contains *term*, newest first.
+
+        A scan, not an index. The table is capped at a couple of hundred rows
+        by ``_prune``, so ``LIKE`` over it costs microseconds -- and an FTS5
+        virtual table would mean triggers to keep in step, a migration for
+        every existing install, and tokeniser rules to explain, to search a
+        corpus that fits in memory several times over. If the cap ever rises
+        by an order of magnitude, that is the moment to reach for FTS.
+
+        An empty term returns the most recent rather than everything, so a
+        cleared search box behaves like the listing it replaced.
+        """
+        term = (term or "").strip()
+        if not term:
+            return self.recent(limit=limit)
+        # LIKE's own wildcards have to be neutralised, or a query containing
+        # % matches every report and looks like the search is broken.
+        escaped = term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        pattern = f"%{escaped}%"
+        rows = self._conn.execute(
+            "SELECT id, query, report, channel, created_at, metadata "
+            "FROM research_reports "
+            "WHERE query LIKE ? ESCAPE '\\' OR report LIKE ? ESCAPE '\\' "
+            "ORDER BY created_at DESC LIMIT ?",
+            (pattern, pattern, max(1, limit)),
+        ).fetchall()
+        return [self._row(row) for row in rows]
+
     def delete(self, report_id: str) -> bool:
         cursor = self._conn.execute(
             "DELETE FROM research_reports WHERE id = ?", (report_id,)

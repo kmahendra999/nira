@@ -220,12 +220,16 @@ def test_research_route_passes_live_engine_and_selected_model(
 
         return gen()
 
+    # A stub store, so the route does not build a real ResearchStore against
+    # the user's config directory just to satisfy this assertion.
+    research_store = object()
     request = SimpleNamespace(
         app=SimpleNamespace(
             state=SimpleNamespace(
                 engine=active_engine,
                 engine_name="lmstudio",
                 model="server-model",
+                research_store=research_store,
             )
         )
     )
@@ -249,6 +253,8 @@ def test_research_route_passes_live_engine_and_selected_model(
         "active_engine_key": "lmstudio",
         "active_model": "server-model",
         "request_model": "selected-model",
+        # The stream persists the finished report, so it is handed the store.
+        "store": research_store,
     }
 
 

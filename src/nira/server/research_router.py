@@ -25,6 +25,7 @@ import logging
 import re
 import threading
 import time
+import uuid
 from typing import Any, AsyncGenerator, Callable, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException, Request
@@ -375,9 +376,41 @@ def _chunk_synthesis(text: str, window_chars: int = 40) -> list[str]:
 # ---------------------------------------------------------------------------
 
 
+def _persist_report(
+    store: Any,
+    report_id: str,
+    query: str,
+    report: str,
+    sources: List[Dict[str, Any]],
+) -> bool:
+    """Save a finished run, mirroring ``channel_agent._remember``.
+
+    A run started from the web UI streamed to the browser and was gone the
+    moment the tab closed, while the same run started from a channel was
+    kept -- so ``nira://research/<id>`` only ever resolved for half the
+    product. Storage failing must not cost the user the answer they already
+    have on screen, so this reports rather than raises.
+    """
+    if store is None or not report:
+        return False
+    try:
+        store.save(
+            query=query,
+            report=report,
+            report_id=report_id,
+            channel="web",
+            metadata={"sources": sources} if sources else None,
+        )
+        return True
+    except Exception:  # noqa: BLE001 - never lose the answer over storage
+        logger.exception("could not store research report %s", report_id)
+        return False
+
+
 async def _stream_research(
     query: str,
     *,
+    store: Any = None,
     active_engine: InferenceEngine | None = None,
     active_engine_key: str = "",
     active_model: str = "",
@@ -503,6 +536,10 @@ async def _stream_research(
     final_answer: Optional[str] = None
     final_usage: Dict[str, int] = {}
     final_sources: List[Dict[str, Any]] = []
+    # Minted up front so the id in the done frame is the id the report is
+    # saved under. 16 hex chars matches ResearchStore's own default.
+    report_id = uuid.uuid4().hex[:16]
+    stored = False
     try:
         while True:
             event = await queue.get()
@@ -524,6 +561,11 @@ async def _stream_research(
             if etype == "final_answer":
                 final_answer = event.get("text", "")
                 final_sources = list(event.get("sources") or [])
+                # Before chunking: the text exists now, and a client that
+                # disconnects mid-synthesis should still leave a report behind.
+                stored = _persist_report(
+                    store, report_id, query, final_answer or "", final_sources
+                )
                 for piece in _chunk_synthesis(final_answer or ""):
                     yield _sse({"type": "synthesis", "text": piece})
                 if final_sources:
@@ -536,7 +578,16 @@ async def _stream_research(
         # client still gets the error frame (emitted above) followed by done.
         # The done frame also carries the deduped sources so a client that
         # only listens for ``done`` still gets the canonical citation list.
-        yield _sse({"type": "done", "usage": final_usage, "sources": final_sources})
+        yield _sse(
+            {
+                "type": "done",
+                "usage": final_usage,
+                "sources": final_sources,
+                # Empty unless the run was actually saved, so a client never
+                # renders a link to a report that is not there.
+                "report_id": report_id if stored else "",
+            }
+        )
     except Exception as exc:  # noqa: BLE001
         # Consumer loop crashed unexpectedly (e.g. JSON serialization fault,
         # logic bug). Surface a clean error frame rather than letting the
@@ -583,6 +634,7 @@ async def research(req: ResearchRequest, request: Request) -> StreamingResponse:
     return StreamingResponse(
         _stream_research(
             req.query,
+            store=_store(request),
             active_engine=active_engine,
             active_engine_key=active_engine_key,
             active_model=active_model,
@@ -635,21 +687,28 @@ async def get_research(report_id: str, request: Request) -> dict:
 
 @router.get("/research")
 async def list_research(request: Request) -> dict:
-    """Recent reports, as previews.
+    """Recent reports, as previews, or the ones matching ``?q=``.
 
     Previews rather than full text: a report runs to thousands of words, and
     a listing that carried every one of them would make the common case pay
     for the rare one.
+
+    Two hundred reports is a scroll, not a corpus. ``q`` searches the query
+    and the body; an empty one is the plain listing, so a cleared search box
+    behaves the way a reader expects rather than returning nothing.
     """
     limit = request.query_params.get("limit", "20")
     try:
         count = max(1, min(100, int(limit)))
     except ValueError:
         count = 20
-    reports = _store(request).recent(limit=count)
+    term = (request.query_params.get("q") or "").strip()
+    store = _store(request)
+    reports = store.search(term, limit=count) if term else store.recent(limit=count)
     return {
         "reports": [report.to_dict(full=False) for report in reports],
         "count": len(reports),
+        "query": term,
     }
 
 
