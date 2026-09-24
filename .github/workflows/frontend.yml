@@ -5,11 +5,17 @@ on:
     branches: [main]
     paths:
       - 'frontend/**'
+      # The website tests live in frontend/tests but read website/public, so
+      # a change to the site has to trigger this job or nothing checks it.
+      - 'website/public/**'
       - '.github/workflows/frontend.yml'
   pull_request:
     branches: [main]
     paths:
       - 'frontend/**'
+      # The website tests live in frontend/tests but read website/public, so
+      # a change to the site has to trigger this job or nothing checks it.
+      - 'website/public/**'
       - '.github/workflows/frontend.yml'
   workflow_dispatch:
 

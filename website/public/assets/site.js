@@ -419,7 +419,12 @@
      their phone should be able to copy a command that works on their
      laptop, not one pointing at a port on whatever machine they are
      holding. */
-  $$('.host').forEach(function (node) { node.textContent = location.origin; });
+  // ORIGIN, not location.origin. A project Pages site is served from a
+  // subpath, so origin alone printed
+  // `curl -fsSL https://kmahendra999.github.io/install.sh | bash` -- the
+  // hosted site's most prominent command, 404ing. The platform panels
+  // were fixed for this; this one was missed.
+  $$('.host').forEach(function (node) { node.textContent = ORIGIN; });
 
   var served = $('#served');
   if (served) served.textContent = 'served from ' + location.host;
