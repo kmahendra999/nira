@@ -107,7 +107,7 @@ nira optimize skills --policy dspy
 nira bench skills --max-samples 5 --seeds 42
 ```
 
-Import from [Hermes Agent](https://github.com/NousResearch/hermes-agent) (~150 skills), OpenClaw (~13,700 community skills), or any GitHub repo. The OpenClaw source is inherited from upstream and its repository (`github.com/openclaw/skills`) currently returns 404, so `nira skill install openclaw:…` will fail at clone time until that URL is corrected. Skills follow the [agentskills.io](https://agentskills.io/specification) open standard.
+Import from [Hermes Agent](https://github.com/NousResearch/hermes-agent) (~150 skills), [OpenClaw](https://github.com/openclaw/agent-skills), or any GitHub repo. Skills follow the [agentskills.io](https://agentskills.io/specification) open standard.
 
 See the [Skills User Guide](https://github.com/kmahendra999/nira/blob/main/docs/user-guide/skills.md) and [Skills Tutorial](https://github.com/kmahendra999/nira/blob/main/docs/tutorials/skills-workflow.md) for details.
 

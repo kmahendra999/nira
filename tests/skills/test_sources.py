@@ -6,6 +6,8 @@ import textwrap
 from pathlib import Path
 from typing import List
 
+import pytest
+
 from nira.skills.sources.base import ResolvedSkill, SourceResolver
 
 
@@ -286,6 +288,64 @@ class TestOpenClawResolver:
         assert len(skills) == 1
         assert skills[0].sidecar_data["owner"] == "alice"
         assert skills[0].sidecar_data["latest"]["version"] == "1.0.0"
+
+    def test_lists_skills_in_flat_layout(self, tmp_path: Path):
+        """The catalogue itself is skills/<skill>/SKILL.md, with no owner level."""
+        from nira.skills.sources.openclaw import OpenClawResolver
+
+        d = tmp_path / "skills" / "autoreview"
+        d.mkdir(parents=True)
+        (d / "SKILL.md").write_text(
+            textwrap.dedent("""\
+                ---
+                name: autoreview
+                description: Structured code review
+                ---
+                Body
+            """)
+        )
+
+        resolver = OpenClawResolver(cache_root=tmp_path)
+        skills = resolver.list_skills()
+        assert len(skills) == 1
+        assert skills[0].name == "autoreview"
+        assert skills[0].category == ""
+
+    def test_mixed_layout_resolves_both(self, tmp_path: Path):
+        """A flat skill and an owner-nested one coexist without shadowing."""
+        from nira.skills.sources.openclaw import OpenClawResolver
+
+        skills_root = tmp_path / "skills"
+        flat = skills_root / "handoff"
+        flat.mkdir(parents=True)
+        (flat / "SKILL.md").write_text("---\nname: handoff\ndescription: x\n---\n")
+
+        nested = skills_root / "alice" / "etherscan"
+        nested.mkdir(parents=True)
+        (nested / "SKILL.md").write_text("---\nname: etherscan\ndescription: y\n---\n")
+
+        resolver = OpenClawResolver(cache_root=tmp_path)
+        by_name = {s.name: s for s in resolver.list_skills()}
+        assert set(by_name) == {"handoff", "etherscan"}
+        assert by_name["handoff"].category == ""
+        assert by_name["etherscan"].category == "alice"
+
+    @pytest.mark.network
+    def test_syncs_the_real_catalogue(self, tmp_path: Path):
+        """The configured URL must actually clone and yield skills.
+
+        The offline tests above build the layout on disk, so they keep passing
+        when the upstream repository disappears -- which is exactly what
+        happened to ``github.com/openclaw/skills``.  This one fails instead.
+        """
+        from nira.skills.sources.openclaw import OpenClawResolver
+
+        resolver = OpenClawResolver(cache_root=tmp_path / "cache")
+        resolver.sync()
+        skills = resolver.list_skills()
+        assert skills, "the OpenClaw catalogue resolved no skills"
+        assert all(s.name for s in skills)
+        assert all((s.path / "SKILL.md").exists() for s in skills)
 
 
 class TestGitHubResolver:

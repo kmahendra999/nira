@@ -239,4 +239,4 @@ Now skills are automatically synced from Hermes on session start, and the optimi
 - Browse the [full skills user guide](../user-guide/skills.md) for all CLI commands and configuration options
 - Read the [skills architecture](../architecture/skills.md) for the technical deep-dive
 - Explore the [Hermes Agent skill library](https://github.com/NousResearch/hermes-agent/tree/main/skills) for more skills to install
-- Try [OpenClaw skills](https://github.com/openclaw/skills) for community-contributed skills
+- Try [OpenClaw skills](https://github.com/openclaw/agent-skills) for community-contributed skills
