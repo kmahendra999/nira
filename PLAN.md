@@ -1283,11 +1283,11 @@ bytes and proved nothing.
 
 ### Still open in Phase 13
 
-- **Signing needs the `security-signing` extra.** `cryptography` is optional, so the 13 signature
+- **Signing needs the `security-signing` extra.** *(CI installs it as of Phase 22.)* `cryptography` is optional, so the 13 signature
   tests skip where it is absent. They ran here because I installed it.
-- **Nothing signs skills yet.** Verification works; there is no `nira skill sign` to produce a
+- **Nothing signs skills yet.** *(Resolved in Phase 14.)* Verification works; there is no `nira skill sign` to produce a
   signature, so today the feature is for someone distributing skills with their own tooling.
-- **`sandbox_dangerous` is still inert.** The dangerous-capability warning it describes does happen,
+- **`sandbox_dangerous` is still inert.** *(Resolved in Phase 22.)* The dangerous-capability warning it describes does happen,
   but gated on a CLI flag rather than the setting. Documented behaviour and actual behaviour agree;
   the setting is simply not the thing controlling it.
 
@@ -1327,11 +1327,11 @@ the one that lets the terminal fold the line while emitting the string intact.
 
 ### Still open in Phase 14
 
-- **One skill at a time.** There is no `nira skill sign --all`, which is what someone maintaining a
+- **One skill at a time.** *(Resolved in Phase 22: `nira skill sign --all`.)* There is no `nira skill sign --all`, which is what someone maintaining a
   skill index would actually want.
 - **Signing still needs the `security-signing` extra.** Without `cryptography` both commands exit
   with instructions, and the 23 tests skip.
-- **Nothing verifies at install time.** `nira skill install` does not check a signature before
+- **Nothing verifies at install time.** *(Resolved in Phase 22.)* `nira skill install` does not check a signature before
   writing a skill to disk; verification happens when skills are loaded.
 
 ### Phase 15 — Splitting the two big pages ✅
@@ -1382,7 +1382,7 @@ the extracted `formatCost`; and the arrow-key tab navigation from Phase 8 still 
   be cutting for the sake of a number.
 - **The pages themselves have no tests.** Only the helpers do. What protects the rest is the
   compiler and a look at the running app, which caught everything here but is not a suite.
-- **KaTeX fonts are blocked by the CSP.** Noticed while verifying: `default-src 'self'` has no
+- **KaTeX fonts are blocked by the CSP.** *(Resolved in Phase 16, below.)* Noticed while verifying: `default-src 'self'` has no
   `font-src`, so KaTeX's data-URI fonts are refused and maths in a markdown reply falls back to
   system glyphs. The app's own typeface loads fine — I checked, having assumed otherwise.
 
@@ -1467,7 +1467,7 @@ them to whatever network the machine is on. A phone reaches it the way it reache
 
 - **Only the Android build is real.** There is no desktop bundle to download, and macOS and Windows
   bundles cannot be cross-compiled from here. Those two cards link to source and say so.
-- **The page has no tests.** Its behaviour was verified in the browser — both themes, mobile width,
+- **The page has no tests.** *(Resolved in Phase 22.)* Its behaviour was verified in the browser — both themes, mobile width,
   the tab panels, the copy button's output, the present and missing download states — but nothing
   re-checks it automatically.
 - **Nothing rebuilds the apk when the image is built.** Copying a fresh build into `downloads/` is
@@ -1517,10 +1517,10 @@ and pushed the card off the screen. `anywhere` wraps identically and does shrink
 
 ### Still open in Phase 18
 
-- **GitHub Pages is still not enabled**, so the docs site does not exist. Everything points at
+- **GitHub Pages is still not enabled** *(it is, as of Phase 22)*, so the docs site does not exist. Everything points at
   rendered Markdown instead, which works but is not the site the workflow was written to publish.
-- **The OpenClaw skills source is broken in code**, not only in the README.
-- **Nothing checks the links.** This audit was a script run once. A CI job that walks the README
+- **The OpenClaw skills source is broken in code** *(resolved in Phase 22)*, not only in the README.
+- **Nothing checks the links.** *(Resolved in Phase 22.)* This audit was a script run once. A CI job that walks the README
   and the page would have caught all seventeen the day the fork was renamed.
 
 ### Phase 19 — What the rename actually left behind ✅
@@ -1657,16 +1657,118 @@ conflict.
 
 ### Still open in Phase 21
 
-- **Pages is still not enabled**, so none of this is live yet.
-- **No release exists**, so the download card will link to a 404 until one is cut.
+- **Pages is still not enabled**, so none of this is live yet. *(It is; see Phase 22.)*
+- **No release exists**, so the download card will link to a 404 until one is cut. *(`v0.1.0` exists.)*
 - **`frame-ancestors` is unavailable on Pages.** Clickjacking protection is header-only, and Pages
-  sends no headers. A custom domain behind Cloudflare could add it back with a Transform Rule.
-- **A 73 MB inherited binary** — `desktop/src-tauri/binaries/ollama-aarch64-apple-darwin` — still
+  sends no headers. *(Phase 22: the container was not sending it either — every location in
+  `nginx.conf` discarded the whole inherited set. The premise below was wrong.)* A custom domain behind Cloudflare could add it back with a Transform Rule.
+- **A 73 MB inherited binary** *(removed from the tree in Phase 22)* — `desktop/src-tauri/binaries/ollama-aarch64-apple-darwin` — still
   draws a warning on every push. It survived the squash because it is in the tree, not the history.
+
+### Phase 22 — Running the things instead of reading them ✅
+
+**Python: 9,222 passing. Frontend: 127. Installer: 29 bats. Lint clean.** Written 2026-09-24,
+after the repository was re-cloned onto a reset machine.
+
+Everything here was found the same way: by executing something the repository only described. The
+pattern is worth naming, because it produced every serious finding below. A configuration file can
+be read a dozen times and still not be doing what it says.
+
+**The site served no security headers at all.** `website/nginx.conf` declares four — CSP with
+`frame-ancestors 'none'`, `X-Frame-Options: DENY`, nosniff, Referrer-Policy — at server level.
+nginx inherits `add_header` *"if and only if there are no add_header directives defined on the
+current level"*, and every location in the file sets one of its own. Measured against the running
+container: `/`, `/index.html`, `/assets/*`, `/install.sh`, `/downloads/checksums.json` and
+`/healthz` returned **zero of the four**. Only `/config.json`, which falls through to the bare
+`location /`, kept them. **This invalidates a premise in Phase 21**, which reasoned about
+`frame-ancestors` being unavailable on Pages and concluded "the container, which still sends the
+header" — it never did, and the container had no clickjacking protection either. Stock nginx
+cannot append to an inherited set, so the four directives moved to a snippet each location
+includes. `website/nginx.conf` had no test of any kind; it has one now that asks the config rather
+than a container, and that fails when the bug is reintroduced.
+
+**The hosted site's most prominent command 404s.** `site.js` computes `ORIGIN` from the document's
+directory precisely because a project Pages site lives on a subpath — then set the hero terminal's
+`.host` span from `location.origin` anyway, printing
+`curl -fsSL https://kmahendra999.github.io/install.sh | bash`. Commit `e0a6cd8` fixed the platform
+panels and missed this one, so the page rendered a correct command and a broken one side by side.
+Found by booting the real page in jsdom at the real URL — the first time that file had ever run
+outside a browser. The page now has the tests Phase 17 recorded as missing, including the one that
+matters most: a thrown probe is an unmeasurable download, not a missing one.
+
+**`cd Nira` never worked.** 34 occurrences across the docs, the examples and `quickstart.sh`.
+`git clone …/nira.git` creates `nira/`, so every documented setup path failed at its second command
+on any case-sensitive filesystem. Upstream cloned to `OpenJarvis/`; the rename capitalised the
+directory while the URL went lowercase. Verified by cloning.
+
+**The rename damaged more prose than Phase 19 found.** The CHANGELOG's Stanford citation had
+"nira" substituted into a third-party URL *slug* — and its date was already wrong before the
+rename, so restoring "openjarvis" alone still 404s. `install.md` claimed `nira.ai` is
+"community-operated and has had intermittent TLS issues": upstream's sentence about
+`openjarvis.ai`, with the name swapped, about a domain that does not resolve. Phase 19's own claim
+that the CHANGELOG "link still points at their article" was never true.
+
+**Links to things that were never published.** Fourteen desktop download links in the docs and
+five more in the app's Get Started page, naming bundles no release has ever carried — every one
+checked, every one a 404. `install.ps1` was a live 404 the docs told Windows users to pipe into
+PowerShell; `docs.yml` published `install.sh` and never the other. All now say what the apk card
+says: not built, here is the command, here is a link that resolves.
+
+**`skills.sandbox_dangerous` controlled nothing.** In the config and the documentation since the
+dangerous-capability gate existed, read by nothing. Setting it false did not disable the gate;
+leaving it true was not why anyone was protected.
+
+**Skill signatures were verified only at load.** An unverifiable skill installed cleanly and failed
+later with nothing connecting the two. Verifying at install found a second defect: the parser
+dropped `signature` from SKILL.md frontmatter, so `manifest.signature` was empty for every SKILL.md
+ever parsed and the gate could never have passed.
+
+**CI was already red, and its security tests were not running.** `ruff format --check` had been
+failing on a line a ruff bump now joins. The test jobs never installed `security-signing`, so
+`cryptography` was absent and every signature test skipped itself; 50 run now.
+
+**The OpenClaw catalogue was gone** and the resolver's tests kept passing, because they build the
+layout on disk and never reach the network. The live catalogue is `openclaw/agent-skills`, laid out
+flat rather than owner-nested, so the URL alone was not the fix.
+
+**73 MiB of binary no build used.** `desktop/` held an `ollama-aarch64-apple-darwin` and a
+byte-identical copy of `overlay.html`. The Tauri project that ships is `frontend/src-tauri`, whose
+`binaries/.gitignore` says these are "not committed" and whose CI downloads them. Removing it does
+not shrink a clone — the blob is reachable from the squashed initial commit.
+
+**Phase 21's two blockers were already resolved.** Pages is enabled and serving; release `v0.1.0`
+exists with the apk attached. Phase 15's KaTeX CSP item was fixed by Phase 16 and never struck out.
+
+**Nothing watched the outside world.** Two audits by hand, months after the breakage, caught 17
+dead links and a vanished catalogue. `scripts/check_links.py` runs both lanes: relative paths and
+anchors on every pull request, external URLs weekly alongside the tests that clone real upstreams.
+It resolves generated paths rather than skipping them — `api-reference/**` back to the module under
+`src/`, the published site's `install.sh` and `/docs/` back to what `docs.yml` assembles them from
+— because skipping those would skip most of the documentation's internal links. First full run: 29
+broken. Now one.
+
+### Still open in Phase 22
+
+- **`CODE_OF_CONDUCT.md` points harassment reports at Discussions**, which 404s until the setting is
+  enabled. Deliberately not repointed at Issues: the line below it promises reporter privacy.
+- **The apk is still copied by hand.** Verified end-to-end here — the build-time digest matches the
+  bytes nginx serves — but nothing rebuilds it when the image is built.
+- **The blob is still in history.** Removing `desktop/` from the tree does not shrink a clone.
 
 ### Next
 
-Nothing on the Phase 6 list remains. The largest unbuilt things are the ones each phase recorded as
-it went: nothing verifies a skill signature at *install* time, `nira skill sign` handles one skill
-rather than a directory, a deep research run from the web UI is still not stored, and the two big
-pages have no tests of their own — only their extracted helpers do.
+Measured rather than estimated, this time.
+
+*Real work, not yet done.* A deep research run from the web UI is still not stored and there is no
+search over reports. "Always allow" is honoured by the bridge and offered by no client. Nothing
+verifies a skill signature at install time — now done — but nothing rebuilds the apk automatically.
+
+*Large, and honestly large.* `AgentsPage.tsx` and `DataSourcesPage.tsx` are still unsplit, the
+inline-style pattern is untouched, and the accessibility pass has not happened. These were
+estimated in Phase 6 and nothing since has made them smaller.
+
+*Cannot be finished on one machine.* Multi-device aggregation and moving a run between machines
+need a second machine. The Android foreground service, its notification actions and its boot
+receiver have never run on hardware. Push still does not exist, so a phone learns about a waiting
+question only while the app is open. There is no demo recording, no desktop bundle, and the mark is
+still an engineer's.
