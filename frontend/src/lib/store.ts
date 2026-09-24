@@ -203,7 +203,9 @@ interface AppState {
 
   // Deep Research toggle
   deepResearch: boolean;
+  agentMode: boolean;
   setDeepResearch: (on: boolean) => void;
+  setAgentMode: (on: boolean) => void;
 
   // Actions: models & server
   setModels: (models: ModelInfo[]) => void;
@@ -477,6 +479,13 @@ export const useAppStore = create<AppState>((set, get) => {
     // ── Deep Research ─────────────────────────────────────────────
     deepResearch: false,
     setDeepResearch: (on: boolean) => set({ deepResearch: on }),
+
+    // Agent mode: tools, memory and the learning loop. Off is a straight
+    // model answer, which is markedly faster and leaves no trace behind —
+    // the right default for "just tell me" and the wrong one for anything
+    // the assistant should get better at.
+    agentMode: true,
+    setAgentMode: (on: boolean) => set({ agentMode: on }),
 
     // ── Models & server ────────────────────────────────────────────
 

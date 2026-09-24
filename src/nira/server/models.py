@@ -28,6 +28,14 @@ class ChatCompletionRequest(BaseModel):
     max_tokens: int = 1024
     stream: bool = False
     tools: Optional[List[Dict[str, Any]]] = None
+    # Whether to answer through the server's agent — tools, memory, and the
+    # learning loop that records the outcome — or to go straight to the model.
+    #
+    # Until now this was inferred from whether the caller sent `tools`, which
+    # meant there was no way to ask for a plain answer: an empty list is falsy,
+    # so "no tools" and "don't use the agent" were the same request and both
+    # got the agent. None keeps the old inference for existing callers.
+    use_agent: Optional[bool] = None
 
 
 # ---------------------------------------------------------------------------

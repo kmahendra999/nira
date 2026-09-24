@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { Send, Square, Paperclip, Search } from 'lucide-react';
+import { Send, Square, Paperclip, Search, Brain, Zap } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAppStore, generateId } from '../../lib/store';
 import { streamChat, streamResearch } from '../../lib/sse';
@@ -99,6 +99,10 @@ export function InputArea() {
   const resetStream = useAppStore((s) => s.resetStream);
   const modelLoading = useAppStore((s) => s.modelLoading);
   const deepResearch = useAppStore((s) => s.deepResearch);
+  const agentMode = useAppStore((s) => s.agentMode);
+  const setAgentMode = useAppStore((s) => s.setAgentMode);
+  const models = useAppStore((s) => s.models);
+  const setSelectedModel = useAppStore((s) => s.setSelectedModel);
   const setDeepResearch = useAppStore((s) => s.setDeepResearch);
   const corpusSync = useResearchCorpusSync(deepResearch);
   const isCurrentChatStreaming = streamState.isStreaming && streamState.conversationId === activeId;
@@ -376,7 +380,14 @@ export function InputArea() {
         }
       } else {
       for await (const sseEvent of streamChat(
-        { model: selectedModel, messages: apiMessages, stream: true, temperature, max_tokens: maxTokens },
+        {
+          model: selectedModel,
+          messages: apiMessages,
+          stream: true,
+          temperature,
+          max_tokens: maxTokens,
+          use_agent: agentMode,
+        },
         controller.signal,
       )) {
         const eventName = sseEvent.event;
@@ -564,7 +575,60 @@ export function InputArea() {
   return (
     <div className="px-4 pb-4 pt-2" style={{ maxWidth: 'var(--chat-max-width)', margin: '0 auto', width: '100%' }}>
       <div className="mb-2 flex flex-col gap-1">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Model, where the message is written rather than behind ⌘K.
+              A native select on purpose: it is keyboard accessible, it opens
+              above the fold on a short window, and its popup is drawn by the
+              browser so no ancestor can clip it. */}
+          <label className="sr-only" htmlFor="chat-model">
+            Model
+          </label>
+          <select
+            id="chat-model"
+            value={selectedModel}
+            onChange={(e) => setSelectedModel(e.target.value)}
+            disabled={streamState.isStreaming}
+            className="hud-focusable readout px-2.5 py-1 rounded-full text-xs cursor-pointer disabled:cursor-default disabled:opacity-50"
+            style={{
+              background: 'transparent',
+              border: '1px solid var(--color-border)',
+              color: 'var(--color-text-secondary)',
+              maxWidth: 180,
+            }}
+            title="Which model answers"
+          >
+            {models.length === 0 && <option value="">No models</option>}
+            {models.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.id}
+              </option>
+            ))}
+          </select>
+
+          {/* Agent vs a straight answer. Named for what the reader gets, not
+              for the flag: "Learning" is the one that uses tools, writes to
+              memory and feeds the learning loop. */}
+          <button
+            type="button"
+            onClick={() => setAgentMode(!agentMode)}
+            disabled={streamState.isStreaming}
+            aria-pressed={agentMode}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs transition-colors cursor-pointer disabled:cursor-default disabled:opacity-50"
+            style={{
+              background: agentMode ? 'var(--color-accent-subtle)' : 'transparent',
+              border: `1px solid ${agentMode ? 'var(--color-accent)' : 'var(--color-border)'}`,
+              color: agentMode ? 'var(--color-accent)' : 'var(--color-text-tertiary)',
+            }}
+            title={
+              agentMode
+                ? 'Learning: uses tools and memory, and remembers the outcome'
+                : 'Just answer: straight from the model, nothing recorded'
+            }
+          >
+            {agentMode ? <Brain size={12} /> : <Zap size={12} />}
+            {agentMode ? 'Learning' : 'Just answer'}
+          </button>
+
           <button
             type="button"
             onClick={() => setDeepResearch(!deepResearch)}

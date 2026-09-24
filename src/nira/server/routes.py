@@ -162,6 +162,10 @@ async def chat_completions(request_body: ChatCompletionRequest, request: Request
     model = request_body.model
     use_server_agent = (
         agent is not None
+        # An explicit `use_agent: false` is a request for a plain answer:
+        # no tools, no memory write-back, no learning. It overrides the
+        # inference below rather than being another input to it.
+        and request_body.use_agent is not False
         and not request_body.tools
         and (not request_body.stream or bool(getattr(agent, "_tools", None)))
     )

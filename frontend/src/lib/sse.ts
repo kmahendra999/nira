@@ -7,6 +7,8 @@ export interface ChatRequest {
   stream: true;
   temperature?: number;
   max_tokens?: number;
+  /** False asks for a plain answer: no tools, no memory, no learning. */
+  use_agent?: boolean;
 }
 
 export async function* streamChat(
