@@ -1777,24 +1777,63 @@ now compares the resolved versions in the two lockfiles directly.
 the right MIME type, `Content-Disposition: attachment`, `no-store`, and a build-time digest that
 matches the bytes nginx sends. Phase 17 had only ever tested the "Not built" state.
 
+**Five more things that nothing was watching.** The macOS desktop job had failed on every push, and
+the reason was not the missing Apple secrets everyone assumed: "Configure Apple signing" hard-failed
+on `refs/tags/*` — every tag — while `autotag.yml` mints a `v<version>.devNNN` tag on every push to
+main and dispatches the workflow at it. The step fifty lines above had already classified that build
+as a rolling one bound for `desktop-edge` with `prerelease=true`. Linux and Windows published their
+unsigned edge bundles from the same run; only macOS treated an edge build as a release. The guard
+keys off `release-info.outputs.prerelease` now, so a stable `desktop-v*` tag still refuses to ship
+unsigned and an edge build does not.
+
+**A deep research run from the web UI is kept.** `channel_agent` saved its reports and answered with
+a `nira://research/<id>` link; the same run from the web UI streamed to the browser and was gone
+when the tab closed, so that link resolved for half the product. The stream saves at the moment the
+text exists — before chunking, so a reader who disconnects mid-synthesis still leaves a report
+behind — and the `done` frame carries the id only when the save really happened.
+
+**Two hundred reports can be searched.** A scan, not an index: `_prune` caps the table at a couple
+of hundred rows, and FTS5 would mean triggers to keep in step and a migration for every install to
+search a corpus that fits in memory several times over. LIKE's wildcards are escaped, because a
+reader's search term is text and not a pattern — unescaped, searching `%` returns everything and
+looks like the feature is broken.
+
+**A client can say "always allow".** The store has held `always_approve` since the permission memory
+existed and the bridge honours it, short-circuiting before anyone is asked; no client could set it,
+so the two halves had never met. The tier gate lives in the route, because `set_permission` takes no
+tier and enforces no policy of its own: `high` is excluded, so one yes on a phone cannot stand in
+for every future `rm`. Tested through the loop rather than at either end.
+
+**The apk is built where the apk comes from.** Not in `website/Dockerfile`, which is where the plan
+item pointed — that would mean a JDK and SDK stage and gigabytes per image build, and it still would
+not reach the public site, which deletes `downloads/` and serves from a release. CI builds it on a
+tag; `release.sh` refuses an apk older than the last commit under `android/` and names both
+timestamps when it does.
+
 ### Still open in Phase 22
 
 - **`CODE_OF_CONDUCT.md` points harassment reports at Discussions**, which 404s until the setting is
   enabled. Deliberately not repointed at Issues: the line below it promises reporter privacy.
-- **The apk is still copied by hand.** Verified end-to-end here — the build-time digest matches the
+- **The apk is still copied by hand for the self-hosted container.** CI builds it on a tag, and
   bytes nginx serves — but nothing rebuilds it when the image is built.
 - **The blob is still in history.** Removing `desktop/` from the tree does not shrink a clone.
-- **macOS desktop builds still fail at "Configure Apple signing."** The secrets are not set, and
-  are not something this session can supply. Linux and Windows build now.
+- **macOS desktop builds are unsigned.** They build now, but without Apple signing secrets there is
+  no notarisation, so Gatekeeper will quarantine them. A stable `desktop-v*` release still refuses
+  to publish unsigned, which is the right refusal.
 - **No desktop release has been cut.** The build works; publishing one is a separate decision.
 
 ### Next
 
 Measured rather than estimated, this time.
 
-*Real work, not yet done.* A deep research run from the web UI is still not stored and there is no
-search over reports. "Always allow" is honoured by the bridge and offered by no client. Nothing
-verifies a skill signature at install time — now done — but nothing rebuilds the apk automatically.
+*Done in this phase.* Install-time signature verification, `nira skill sign --all`,
+`skills.sandbox_dangerous`, web-UI research persistence, report search, "always allow" from a
+client, the apk in CI, and the macOS desktop build. Each one had a server half and no client half,
+or a setting and nothing reading it, or a check that only ran somewhere nobody looked.
+
+*Still real work.* The front end offers no control for "always allow" yet — the API takes
+`remember` and the listing says `can_remember`, but no component renders it. Nothing verifies a
+skill signature at install time from the web UI, only from the CLI.
 
 *Large, and honestly large.* `AgentsPage.tsx` and `DataSourcesPage.tsx` are still unsplit, the
 inline-style pattern is untouched, and the accessibility pass has not happened. These were
@@ -1803,5 +1842,5 @@ estimated in Phase 6 and nothing since has made them smaller.
 *Cannot be finished on one machine.* Multi-device aggregation and moving a run between machines
 need a second machine. The Android foreground service, its notification actions and its boot
 receiver have never run on hardware. Push still does not exist, so a phone learns about a waiting
-question only while the app is open. There is no demo recording, no desktop bundle, and the mark is
-still an engineer's.
+question only while the app is open. There is no demo recording, and the mark is still an
+engineer's. macOS bundles build but cannot be notarised without Apple credentials.
