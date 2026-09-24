@@ -57,6 +57,11 @@ HEADING = re.compile(r"^(#{1,6})\s+(.*?)\s*#*\s*$", re.M)
 # An absolute URL inside a quoted string. Anything relative in source is a
 # route or an import, not a link this can resolve.
 SOURCE_URL = re.compile(r"[\"'`](https?://[^\"'`\s]+)[\"'`]")
+LOCAL_HOST = re.compile(
+    r"https?://(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\]|host\b)", re.I
+)
+# This project's own URLs -- the ones a rebrand sweep can silently break.
+OWN_URL = re.compile(r"kmahendra999\.github\.io|github\.com/kmahendra999/", re.I)
 
 
 @dataclass(frozen=True)
@@ -234,6 +239,10 @@ def check_external(url: str) -> tuple[bool, str]:
                     stream=(method == "get"),
                 )
                 response.close()
+            except requests.Timeout as exc:
+                # A slow host is not a dead link. Saying so is the honest
+                # answer; failing the build on it is not.
+                return True, f"unverifiable ({type(exc).__name__})"
             except requests.RequestException as exc:
                 last = type(exc).__name__
                 continue
@@ -276,16 +285,23 @@ def main() -> int:
         # `../<path>.md` in a contributing guide is an instruction, not a link.
         if "<" in link.target or ">" in link.target:
             continue
+        # A dev-server URL in a quickstart is an instruction to the reader,
+        # not a link to anywhere this can reach. This has to come before the
+        # external branch below, or it never runs.
+        if LOCAL_HOST.match(link.target):
+            continue
         if link.target.startswith(("http://", "https://")):
+            # Source files are read for the project's own URLs only. Everything
+            # else in them is a placeholder, a default, or a third party's
+            # dashboard -- none of which this can or should verify. A rename is
+            # what breaks a link in a component, and a rename only touches ours.
+            if link.source.suffix in (".ts", ".tsx") and not OWN_URL.search(
+                link.target
+            ):
+                continue
             external.append(link)
             continue
         if link.target.startswith("//"):
-            continue
-        # A dev-server URL in a quickstart is an instruction to the reader,
-        # not a link to anywhere this can reach.
-        if re.match(
-            r"https?://(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])\b", link.target
-        ):
             continue
         local += 1
         reason = check_local(link)

@@ -18,8 +18,7 @@ import {
 } from 'lucide-react';
 import { isTauri, checkHealth } from '../lib/api';
 
-const GITHUB_BASE =
-  'https://github.com/kmahendra999/nira/releases/latest/download';
+const RELEASES_URL = 'https://github.com/kmahendra999/nira/releases';
 
 interface Platform {
   id: string;
@@ -315,7 +314,6 @@ function DesktopView() {
 function SelfHostedView() {
   const detectedId = useMemo(() => detectPlatform(), []);
   const primary = PLATFORMS.find((p) => p.id === detectedId) || PLATFORMS[0];
-  const others = PLATFORMS.filter((p) => p.id !== primary.id);
 
   return (
     <>
@@ -358,35 +356,28 @@ function SelfHostedView() {
             </h2>
           </div>
           <p className="text-xs mb-6" style={{ color: 'var(--color-text-tertiary)' }}>
-            One-click install. Bundles Ollama and the server &mdash; no setup required.
+            No desktop build has been published yet. Every bundle this page used
+            to offer &mdash; {primary.label} included &mdash; returned a 404.
           </p>
 
           <a
-            href={`${GITHUB_BASE}/${primary.file}`}
+            href={RELEASES_URL}
+            target="_blank"
+            rel="noopener noreferrer"
             className="inline-flex items-center gap-2.5 px-6 py-3 rounded-xl text-sm
               font-medium transition-opacity cursor-pointer hover:opacity-90"
             style={{ background: 'var(--color-accent)', color: 'var(--color-on-accent)' }}
           >
             <Download size={18} />
-            Download for {primary.label}
+            Open the releases page
           </a>
 
-          <div className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-1">
-            <span className="text-[11px]" style={{ color: 'var(--color-text-tertiary)' }}>
-              Or
-            </span>
-            {others.map((p) => (
-              <a
-                key={p.id}
-                href={`${GITHUB_BASE}/${p.file}`}
-                className="text-[11px] underline underline-offset-2 transition-colors
-                  text-text-secondary hover:text-accent"
-
-              >
-                {p.shortLabel}
-              </a>
-            ))}
-          </div>
+          <p className="mt-4 text-[11px]" style={{ color: 'var(--color-text-tertiary)' }}>
+            To build one yourself:{' '}
+            <code style={{ color: 'var(--color-text-secondary)' }}>
+              cd nira/frontend &amp;&amp; npm install &amp;&amp; npm run tauri build
+            </code>
+          </p>
         </div>
       </div>
 
