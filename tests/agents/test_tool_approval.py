@@ -55,12 +55,32 @@ class Sent:
 class RecordingBus:
     def __init__(self) -> None:
         self.events: list[tuple] = []
+        self._arrived = threading.Condition()
 
     def publish(self, event_type, data) -> None:  # noqa: ANN001
-        self.events.append((event_type, data))
+        with self._arrived:
+            self.events.append((event_type, data))
+            self._arrived.notify_all()
 
     def types(self) -> list:
         return [event for event, _ in self.events]
+
+    def await_type(self, event_type, timeout: float = 5.0):  # noqa: ANN001, ANN202
+        """Block until *event_type* is published, and return its payload.
+
+        The bridge queues the action into the store and publishes afterwards,
+        so waiting for the store to fill -- which is what `_await_queued` does
+        -- can return in the gap between the two. Sampling `bus.types()` at
+        that moment sees an empty list, which is a race the suite lost on CI
+        while passing locally.
+        """
+        with self._arrived:
+            found = self._arrived.wait_for(
+                lambda: any(t == event_type for t, _ in self.events),
+                timeout=timeout,
+            )
+        assert found, f"{event_type} was never published"
+        return next(d for t, d in self.events if t == event_type)
 
 
 def request(**overrides) -> dict:
@@ -269,14 +289,13 @@ class TestEvents:
 
         # A run parked on a prompt is indistinguishable from a stalled one
         # unless the question reaches the client.
-        assert EventType.APPROVAL_REQUESTED in bus.types()
-        asked = next(d for t, d in bus.events if t == EventType.APPROVAL_REQUESTED)
+        asked = bus.await_type(EventType.APPROVAL_REQUESTED)
         assert asked["id"] == action.id
         assert asked["tool"] == "Bash"
 
         store.update_status(action.id, STATUS_APPROVED)
         sent.wait()
-        assert EventType.APPROVAL_DECIDED in bus.types()
+        bus.await_type(EventType.APPROVAL_DECIDED)
 
     def test_a_remembered_answer_still_announces_the_outcome(self, store) -> None:
         store.set_permission("tool:Bash:git", "always_approve")
@@ -286,7 +305,7 @@ class TestEvents:
         bridge.handle(request(input={"command": "git status"}))
         sent.wait()
 
-        decided = next(d for t, d in bus.events if t == EventType.APPROVAL_DECIDED)
+        decided = bus.await_type(EventType.APPROVAL_DECIDED)
         # Otherwise an auto-approved step looks like it was never checked.
         assert decided["remembered"] is True
         assert decided["outcome"] == "approved"
