@@ -1,11 +1,17 @@
 package com.nira.android
 
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.Column
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -13,10 +19,14 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.nira.android.data.DesktopRegistry
+import com.nira.android.data.SecretStore
+import com.nira.android.data.UpdateStatus
 import com.nira.android.ui.ApprovalsViewModel
 import com.nira.android.ui.AskViewModel
 import com.nira.android.ui.DesktopsViewModel
 import com.nira.android.ui.PairingViewModel
+import com.nira.android.ui.UpdateBanner
+import com.nira.android.ui.UpdateViewModel
 import com.nira.android.ui.screens.ApprovalsScreen
 import com.nira.android.ui.screens.AskScreen
 import com.nira.android.ui.screens.DesktopsScreen
@@ -36,20 +46,62 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         val registry = NiraApp.registry(applicationContext)
+        val secrets = NiraApp.secrets(applicationContext)
         // Android may have killed the service for memory while the app was
         // away. Opening the app is the cheapest moment to notice and put it
         // back, and the switch stays honest.
         if (registry.watchesInBackground() && registry.all().isNotEmpty()) {
             runCatching { WatchService.start(this) }
         }
-        setContent { NiraTheme { NiraNav(registry) } }
+        setContent { NiraTheme { NiraRoot(registry, secrets) } }
+    }
+}
+
+/**
+ * The nav host, with the update bar above it when there is one to show.
+ *
+ * Above everything rather than on one screen: the apk is sideloaded from a
+ * GitHub release, so nothing notices a new version on the reader's behalf and
+ * an old install stays old and silent until somebody thinks to go and look.
+ */
+@Composable
+private fun NiraRoot(registry: DesktopRegistry, secrets: SecretStore) {
+    val context = LocalContext.current
+    val updates: UpdateViewModel = viewModel(
+        factory = NiraViewModelFactory(registry, secrets)
+    )
+    val status by updates.status.collectAsStateWithLifecycle()
+
+    Column {
+        (status as? UpdateStatus.Available)?.let { available ->
+            UpdateBanner(
+                release = available.release,
+                installedVersion = BuildConfig.VERSION_NAME,
+                onUpdate = {
+                    // Hand the download to the browser rather than fetching
+                    // and installing it here. Installing an apk in-process
+                    // needs REQUEST_INSTALL_PACKAGES, which is a permission
+                    // worth far more scrutiny than an update prompt deserves
+                    // -- and the reader should see what they are installing.
+                    val url = available.release.apkUrl.ifEmpty {
+                        available.release.pageUrl
+                    }
+                    runCatching {
+                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                    }
+                    updates.dismiss()
+                },
+                onDismiss = updates::dismiss,
+            )
+        }
+        NiraNav(registry)
     }
 }
 
 @Composable
 private fun NiraNav(registry: DesktopRegistry) {
     val nav = rememberNavController()
-    val factory = remember(registry) { NiraViewModelFactory(registry) }
+    val factory = remember(registry) { NiraViewModelFactory(registry, null) }
 
     // Land on the picker when nothing is paired yet: an empty conversation
     // screen with a disabled input gives no hint that pairing is the missing
@@ -110,9 +162,17 @@ private fun NiraNav(registry: DesktopRegistry) {
  */
 private class NiraViewModelFactory(
     private val registry: DesktopRegistry,
+    private val secrets: SecretStore?,
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T = when {
+        modelClass.isAssignableFrom(UpdateViewModel::class.java) ->
+            UpdateViewModel(
+                installedVersion = BuildConfig.VERSION_NAME,
+                store = requireNotNull(secrets) {
+                    "UpdateViewModel needs the secret store"
+                },
+            )
         modelClass.isAssignableFrom(AskViewModel::class.java) -> AskViewModel(registry)
         modelClass.isAssignableFrom(ApprovalsViewModel::class.java) ->
             ApprovalsViewModel(registry)

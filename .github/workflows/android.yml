@@ -52,9 +52,19 @@ jobs:
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
             "platforms;android-36" "build-tools;36.0.0" >/dev/null
 
+      # On a tag, the apk says which release it is. Off a tag it says
+      # 0.0.0-dev, which sorts below every release, so a dev build never
+      # tells its user they are up to date when they are not.
       - name: Build the debug apk
         working-directory: android
-        run: ./gradlew :app:assembleDebug --no-daemon
+        run: |
+          set -eu
+          case "$GITHUB_REF" in
+            refs/tags/*) version="-PniraVersion=${GITHUB_REF#refs/tags/}" ;;
+            *)           version="" ;;
+          esac
+          echo "version arg: ${version:-<none, dev build>}"
+          ./gradlew :app:assembleDebug --no-daemon $version
 
       # The name the site and the release script both expect.
       - name: Name it what everything else calls it
@@ -64,6 +74,8 @@ jobs:
           cp "$src" nira-android.apk
           echo "size:   $(( $(stat -c%s nira-android.apk) / 1024 / 1024 )) MiB"
           echo "sha256: $(sha256sum nira-android.apk | cut -d' ' -f1)"
+          aapt2="$(ls "$ANDROID_HOME"/build-tools/*/aapt2 | tail -1)"
+          "$aapt2" dump badging nira-android.apk | head -1
 
       - name: Upload the apk
         uses: actions/upload-artifact@v7
