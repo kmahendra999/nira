@@ -250,7 +250,6 @@ nira-rust = { path = "rust/crates/nira-python" }
 # Tauri release bundles carry these executables; Python source distributions
 # must not duplicate platform binaries on every PyPI release.
 exclude = [
-    "/desktop/src-tauri/binaries",
     "/frontend/src-tauri/binaries",
 ]
 # The publishing workflow builds this UI before packaging. Keep its generated
