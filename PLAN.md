@@ -1817,9 +1817,10 @@ timestamps when it does.
 - **The apk is still copied by hand for the self-hosted container.** CI builds it on a tag, and
   bytes nginx serves — but nothing rebuilds it when the image is built.
 - **The blob is still in history.** Removing `desktop/` from the tree does not shrink a clone.
-- **macOS desktop builds are unsigned.** They build now, but without Apple signing secrets there is
-  no notarisation, so Gatekeeper will quarantine them. A stable `desktop-v*` release still refuses
-  to publish unsigned, which is the right refusal.
+- **Nothing is code-signed.** All three platforms build and publish now, and none of them are
+  signed: Gatekeeper quarantines the macOS bundle and SmartScreen warns on the Windows one. A
+  stable `desktop-v*` release still refuses to publish unsigned, which is the right refusal — so
+  cutting one needs Apple credentials the repository does not have.
 - **No desktop release has been cut.** The build works; publishing one is a separate decision.
 
 ### Next

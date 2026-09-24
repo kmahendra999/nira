@@ -36,11 +36,15 @@ processing happens on your local machine — the app connects to the backend you
 | Linux (AppImage) | [Nira_1.0.1_amd64.AppImage](https://github.com/kmahendra999/nira/releases/download/desktop-edge/Nira_1.0.1_amd64.AppImage) | Any distro |
 | Windows (64-bit) | [Nira_1.0.1_x64-setup.exe](https://github.com/kmahendra999/nira/releases/download/desktop-edge/Nira_1.0.1_x64-setup.exe) | Windows 10+ |
 | Windows (MSI) | [Nira_1.0.1_x64_en-US.msi](https://github.com/kmahendra999/nira/releases/download/desktop-edge/Nira_1.0.1_x64_en-US.msi) | Windows 10+ |
-| macOS (Universal) | Not built | See below |
+| macOS (Universal) | [Nira_1.0.1_universal.dmg](https://github.com/kmahendra999/nira/releases/download/desktop-edge/Nira_1.0.1_universal.dmg) | Apple Silicon + Intel |
 
-**macOS is not built.** The release job fails at "Configure Apple signing"
-because the signing secrets are not configured on the repository, and an
-unsigned macOS bundle is not worth shipping. Build it yourself:
+**The macOS build is neither signed nor notarised**, because the repository has
+no Apple Developer credentials. Gatekeeper will refuse it on first open — see
+[macOS: "app is damaged"](#macos-app-is-damaged-fix) below for the one command
+that clears the quarantine attribute. That warning is correct and you should
+only clear it for a build you trust.
+
+To build any of these yourself instead:
 
 ```bash
 git clone https://github.com/kmahendra999/nira.git

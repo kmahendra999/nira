@@ -65,7 +65,7 @@ Nira is that stack. It is a framework for local-first personal AI, built around 
     ```
 
     **Step 2.** Open the web UI at `http://localhost:8000`, or install the
-    desktop app — unsigned edge builds for Linux and Windows are on the
+    desktop app — unsigned edge builds for macOS, Linux and Windows are on the
     [`desktop-edge` release](https://github.com/kmahendra999/nira/releases/tag/desktop-edge).
     See [Downloads](downloads.md).
 

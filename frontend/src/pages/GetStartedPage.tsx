@@ -359,9 +359,9 @@ function SelfHostedView() {
             </h2>
           </div>
           <p className="text-xs mb-6" style={{ color: 'var(--color-text-tertiary)' }}>
-            Unsigned edge builds for Linux and Windows, rebuilt from{' '}
-            <code>main</code> on every push. macOS is not built &mdash; the
-            release job has no Apple signing secrets.
+            Unsigned edge builds for macOS, Linux and Windows, rebuilt from{' '}
+            <code>main</code> on every push. Nothing is code-signed, so
+            Gatekeeper and SmartScreen will warn on first open.
           </p>
 
           <a
