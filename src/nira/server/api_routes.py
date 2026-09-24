@@ -735,6 +735,149 @@ async def telemetry_energy(request: Request):
         return {"error": str(exc)}
 
 
+# ---- Network routes ----
+#
+# Which address this machine hands its own devices. Everyone's network is
+# different — a tailnet, a router with a reserved lease, neither — so the
+# choice belongs to the person who owns it rather than to a detector.
+
+network_router = APIRouter(prefix="/v1/network", tags=["network"])
+
+
+class NetworkConfigRequest(BaseModel):
+    """The network settings the UI may change; omitted fields are untouched."""
+
+    mode: Optional[str] = None
+    advertise_host: Optional[str] = None
+    advertise_port: Optional[int] = None
+    advertise_scheme: Optional[str] = None
+    bind_host: Optional[str] = None
+
+
+def _network_state(config: Any, port: int) -> Dict[str, Any]:
+    from nira.server.advertise import candidates, resolve_advertise_url
+
+    options = [
+        {
+            "kind": c.kind,
+            "host": c.host,
+            "url": c.url(port),
+            "reachable_off_machine": c.reachable_off_machine,
+            "secure_context": c.secure_context,
+            "stable": c.stable,
+            "note": c.note,
+        }
+        for c in candidates()
+    ]
+
+    current: Optional[Dict[str, Any]] = None
+    error: Optional[str] = None
+    try:
+        url, chosen = resolve_advertise_url(config, port)
+        current = {
+            "url": url,
+            "kind": chosen.kind,
+            "reachable_off_machine": chosen.reachable_off_machine,
+            "secure_context": chosen.secure_context,
+            "stable": chosen.stable,
+            "note": chosen.note,
+        }
+    except ValueError as exc:
+        # A mode that cannot be satisfied is the user's own setting failing,
+        # not a server fault — report it as state so the panel can say which
+        # setting to change, rather than as a 500.
+        error = str(exc)
+
+    return {
+        "mode": config.network.mode,
+        "advertise_host": config.network.advertise_host,
+        "advertise_port": config.network.advertise_port,
+        "advertise_scheme": config.network.advertise_scheme,
+        "bind_host": config.network.bind_host,
+        "port": port,
+        "candidates": options,
+        "current": current,
+        "error": error,
+    }
+
+
+@network_router.get("/config")
+def network_config(request: Request):
+    """Report the addresses this machine could advertise, and the one in use."""
+    config = _memory_settings(request)
+    port = int(getattr(config.server, "port", 8000))
+    try:
+        return _network_state(config, port)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@network_router.put("/config")
+def network_config_update(req: NetworkConfigRequest, request: Request):
+    """Persist network settings to config.toml and apply them live."""
+    from nira.core.config_writer import update_config_section
+    from nira.server.advertise import MODES
+
+    config = _memory_settings(request)
+
+    if req.mode is not None and req.mode not in MODES:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Unknown mode {req.mode!r}. Use one of: {', '.join(MODES)}",
+        )
+    if req.advertise_scheme not in (None, "", "http", "https"):
+        raise HTTPException(
+            status_code=422, detail="advertise_scheme must be 'http' or 'https'"
+        )
+    if req.advertise_port is not None and not (0 <= req.advertise_port <= 65535):
+        raise HTTPException(
+            status_code=422, detail="advertise_port must be between 0 and 65535"
+        )
+
+    # Naming a host while leaving the mode alone would save the setting and
+    # then ignore it — auto never reads advertise_host. Choosing a host is
+    # choosing manual unless the caller says otherwise.
+    mode = req.mode
+    if mode is None and req.advertise_host:
+        mode = "manual"
+
+    effective_host = (
+        req.advertise_host
+        if req.advertise_host is not None
+        else config.network.advertise_host
+    )
+    if mode == "manual" and not effective_host:
+        raise HTTPException(
+            status_code=422, detail="mode 'manual' needs advertise_host"
+        )
+
+    values = {
+        "mode": mode,
+        "advertise_host": req.advertise_host,
+        "advertise_port": req.advertise_port,
+        "advertise_scheme": req.advertise_scheme,
+        "bind_host": req.bind_host,
+    }
+    values = {k: v for k, v in values.items() if v is not None}
+    if not values:
+        raise HTTPException(status_code=422, detail="Nothing to change")
+
+    try:
+        update_config_section("network", values)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500, detail=f"Could not write config: {exc}"
+        ) from exc
+
+    for key, value in values.items():
+        setattr(config.network, key, value)
+
+    port = int(getattr(config.server, "port", 8000))
+    state = _network_state(config, port)
+    state["status"] = "saved"
+    return state
+
+
 # ---- Skills routes ----
 
 skills_router = APIRouter(prefix="/v1/skills", tags=["skills"])
@@ -1391,6 +1534,7 @@ def include_all_routes(app) -> None:
     app.include_router(approval_router)
     app.include_router(agents_router)
     app.include_router(memory_router)
+    app.include_router(network_router)
     app.include_router(traces_router)
     app.include_router(telemetry_router)
     app.include_router(skills_router)
@@ -1451,6 +1595,7 @@ __all__ = [
     "include_all_routes",
     "agents_router",
     "memory_router",
+    "network_router",
     "traces_router",
     "telemetry_router",
     "skills_router",

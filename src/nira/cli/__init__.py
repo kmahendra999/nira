@@ -134,6 +134,7 @@ if not _DATA_BOUNDARY_BOOTSTRAP:
     from nira.cli.memory_cmd import memory
     from nira.cli.mine_cmd import mine
     from nira.cli.model import model
+    from nira.cli.network_cmd import network
     from nira.cli.operators_cmd import operators
     from nira.cli.optimize_cmd import optimize_group
     from nira.cli.pearl_cmd import pearl
@@ -156,6 +157,7 @@ if not _DATA_BOUNDARY_BOOTSTRAP:
     cli.add_command(serve, "serve")
     cli.add_command(model, "model")
     cli.add_command(memory, "memory")
+    cli.add_command(network, "network")
     cli.add_command(mine, "mine")
     cli.add_command(pearl, "pearl")
     cli.add_command(telemetry, "telemetry")

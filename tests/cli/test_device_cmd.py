@@ -10,6 +10,7 @@ from click.testing import CliRunner
 
 from nira.cli.device_cmd import device
 from nira.devices import DeviceStore
+from nira.server.advertise import AdvertiseCandidate
 
 
 @pytest.fixture(autouse=True)
@@ -131,7 +132,11 @@ class TestPairingPayload:
 
         monkeypatch.setattr("nira.cli.device_cmd._render_qr", _capture)
         monkeypatch.setattr(
-            "nira.cli.device_cmd._tailscale_url", lambda port: f"http://host:{port}"
+            "nira.cli.device_cmd._pairing_target",
+            lambda port: (
+                f"http://host:{port}",
+                AdvertiseCandidate(kind="lan", host="host"),
+            ),
         )
 
         _run("pair", "Pixel 8", "--port", "9000")
@@ -141,17 +146,22 @@ class TestPairingPayload:
         assert payload["token"].startswith("nira_en_")
         assert payload["name"] == "Pixel 8"
 
-    def test_falls_back_to_localhost_without_tailscale(self, monkeypatch) -> None:
-        import subprocess
+    def test_without_a_tailnet_it_uses_the_local_network(self, monkeypatch) -> None:
+        """It used to fall back to localhost — a QR the phone cannot follow.
 
-        def _no_tailscale(*args, **kwargs):
-            raise FileNotFoundError("tailscale")
+        See tests/cli/test_network_cmd.py for the case where there is no
+        network at all, which now says so instead of pretending.
+        """
+        from nira.server import advertise
 
-        monkeypatch.setattr(subprocess, "run", _no_tailscale)
+        monkeypatch.setattr(advertise, "_tailnet_candidates", lambda timeout=5.0: [])
+        monkeypatch.setattr(advertise, "lan_address", lambda: "192.168.1.20")
 
-        from nira.cli.device_cmd import _tailscale_url
+        from nira.cli.device_cmd import _pairing_target
 
-        assert _tailscale_url(8000) == "http://localhost:8000"
+        url, candidate = _pairing_target(8000)
+        assert url == "http://192.168.1.20:8000"
+        assert candidate.reachable_off_machine
 
 
 class TestSecureContextGuidance:
@@ -170,9 +180,11 @@ class TestSecureContextGuidance:
             lambda *a, **k: "https://box.tail0.ts.net",
         )
 
-        from nira.cli.device_cmd import _tailscale_url
+        from nira.cli.device_cmd import _pairing_target
 
-        assert _tailscale_url(8000) == "https://box.tail0.ts.net"
+        url, candidate = _pairing_target(8000)
+        assert url == "https://box.tail0.ts.net"
+        assert candidate.secure_context
 
     def test_pairing_explains_the_limitation_on_http(self, monkeypatch) -> None:
         monkeypatch.setattr(

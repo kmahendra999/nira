@@ -1197,6 +1197,37 @@ class ServerConfig:
 
 
 @dataclass(slots=True)
+class NetworkConfig:
+    """How this machine advertises itself to the user's other devices.
+
+    Pairing a phone needs an address the phone can actually reach, and until
+    now that address was resolved one way: Tailscale, or ``localhost``. On a
+    machine without Tailscale the QR code carried ``http://localhost:8000``,
+    which is the phone talking to itself — pairing could not work and nothing
+    said why.
+
+    Everyone's network is different, so the choice belongs to the person who
+    owns it. ``mode`` picks the strategy and ``advertise_host`` pins an exact
+    address when someone knows better than the detector does — a reserved DHCP
+    lease, a VPN they already run, a hostname their router resolves.
+    """
+
+    # "auto"      — tailscale serve, then tailnet, then LAN, then localhost
+    # "tailscale" — tailnet only; refuse rather than hand out a LAN address
+    #               that leaks when the laptop changes networks
+    # "lan"       — this machine's address on the local network
+    # "manual"    — exactly what advertise_host says
+    mode: str = "auto"
+    advertise_host: str = ""  # hostname or IP; required when mode = "manual"
+    advertise_port: int = 0  # 0 = whatever port the server is on
+    advertise_scheme: str = ""  # "" = infer (https only when TLS is fronting)
+    # Interface to listen on when serving to other devices. Kept separate from
+    # server.host so turning on phone access does not silently rewrite the
+    # bind address a user chose for other reasons.
+    bind_host: str = ""
+
+
+@dataclass(slots=True)
 class TelemetryConfig:
     """Telemetry persistence settings."""
 
@@ -1787,6 +1818,7 @@ class NiraConfig:
     tools: ToolsConfig = field(default_factory=ToolsConfig)
     agent: AgentConfig = field(default_factory=AgentConfig)
     server: ServerConfig = field(default_factory=ServerConfig)
+    network: NetworkConfig = field(default_factory=NetworkConfig)
     telemetry: TelemetryConfig = field(default_factory=TelemetryConfig)
     analytics: AnalyticsConfig = field(default_factory=AnalyticsConfig)
     traces: TracesConfig = field(default_factory=TracesConfig)
@@ -2101,6 +2133,7 @@ def load_config(path: Optional[Path] = None) -> NiraConfig:
             "learning",
             "agent",
             "server",
+            "network",
             "telemetry",
             "analytics",
             "traces",
@@ -2157,6 +2190,23 @@ def load_config(path: Optional[Path] = None) -> NiraConfig:
         apply_security_profile(cfg.security, cfg.server)
 
     return cfg
+
+
+# Captured here, at definition time, rather than looked up through the module
+# when needed. Tests and plugins monkeypatch ``load_config`` with plain wrapper
+# functions that have no ``cache_clear``; going through the module attribute
+# would find the wrapper, silently do nothing, and leave the stale config in
+# place — which is the failure this exists to prevent, not to reproduce.
+_LOAD_CONFIG = load_config
+
+
+def clear_config_cache() -> None:
+    """Forget the cached config so the next ``load_config`` re-reads the file.
+
+    ``load_config`` is ``lru_cache(maxsize=1)``, so a process that writes
+    config.toml keeps reading the values it just replaced until this is called.
+    """
+    _LOAD_CONFIG.cache_clear()
 
 
 # ---------------------------------------------------------------------------

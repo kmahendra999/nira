@@ -173,9 +173,16 @@ def serve(
 
     config = load_config()
 
-    # Resolve host/port from CLI args or config
-    bind_host = host or config.server.host
-    if use_tailscale:
+    # Resolve host/port from CLI args or config.
+    #
+    # Precedence: an explicit --host wins, then --tailscale, then whatever
+    # [network] says. An address is only useful if something is listening on
+    # the interface it names, so the bind follows the advertised address —
+    # otherwise a correct tailnet URL in a pairing QR still refuses the
+    # connection, which is indistinguishable from the phone being broken.
+    if host:
+        bind_host = host
+    elif use_tailscale:
         # Better than 0.0.0.0 for a personal mesh: reachable from the user's
         # own devices and nothing else, with WireGuard encrypting the hop.
         # It still proves nothing about *who* is connecting — a tailnet can be
@@ -190,6 +197,13 @@ def serve(
                 "running and logged in? (`tailscale status`)"
             )
         bind_host = identity.ipv4
+    else:
+        from nira.server.advertise import resolve_bind_host
+
+        try:
+            bind_host = resolve_bind_host(config)
+        except ValueError as exc:
+            raise click.ClickException(str(exc)) from exc
     bind_port = port if port is not None else config.server.port
 
     # Set up engine

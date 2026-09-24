@@ -17,28 +17,20 @@ def _store() -> DeviceStore:
     return DeviceStore(get_config_dir() / "devices.db")
 
 
-def _tailscale_url(port: int) -> str:
-    """Best-effort URL for this machine, for the pairing payload.
+def _pairing_target(port: int):
+    """The URL for the pairing payload, and the candidate it came from.
 
-    A phone needs somewhere to send the enrollment token, and on a tailnet the
-    MagicDNS name is the one address that keeps working as the laptop moves
-    between networks — unlike a LAN IP, which changes with the room.
-
-    Prefers the https origin from ``tailscale serve`` when one is configured,
-    because a plain http MagicDNS origin is an insecure context and a browser
-    will not register a service worker there — so the web app cannot install
-    as a PWA no matter how reachable it is.
+    A phone needs somewhere to send the enrollment token. This used to resolve
+    Tailscale or fall back to ``http://localhost`` — which in a QR code is the
+    phone talking to itself, so pairing could not work and nothing said why.
+    The resolver now covers tailnet, LAN and an address the user pinned
+    themselves, and reports which one it picked so the caller can say what it
+    costs (see ``nira.server.advertise``).
     """
-    from nira.server.tailnet import get_identity, https_serve_target
+    from nira.core.config import load_config
+    from nira.server.advertise import resolve_advertise_url
 
-    secure = https_serve_target()
-    if secure:
-        return secure
-
-    identity = get_identity()
-    if identity is not None and identity.dns_name:
-        return f"http://{identity.dns_name}:{port}"
-    return f"http://localhost:{port}"
+    return resolve_advertise_url(load_config(), port)
 
 
 def _render_qr(payload: str, console: Console) -> bool:
@@ -81,6 +73,17 @@ def pair_device(name: str, port: int, scopes: tuple[str, ...]) -> None:
     expires in ten minutes because it is briefly visible on screen.
     """
     console = Console()
+
+    # Resolve the address first: an enrollment token is single-use and expires
+    # in ten minutes, so burning one before discovering there is no reachable
+    # address would cost the user a token and tell them nothing.
+    try:
+        url, candidate = _pairing_target(port)
+    except ValueError as exc:
+        console.print(f"[red]{exc}[/red]")
+        console.print("[dim]See `nira network status` for what is available.[/dim]")
+        raise SystemExit(1) from exc
+
     store = _store()
     try:
         store.purge_expired_enrollments()
@@ -94,7 +97,7 @@ def pair_device(name: str, port: int, scopes: tuple[str, ...]) -> None:
         store.close()
 
     payload = json.dumps(
-        {"url": _tailscale_url(port), "token": enrollment.token, "name": name},
+        {"url": url, "token": enrollment.token, "name": name},
         separators=(",", ":"),
     )
 
@@ -105,12 +108,25 @@ def pair_device(name: str, port: int, scopes: tuple[str, ...]) -> None:
     if not _render_qr(payload, console):
         console.print("[dim](install `qrcode` to show a scannable code)[/dim]")
     console.print()
-    console.print(f"  URL   {_tailscale_url(port)}")
+    console.print(f"  URL   {url}")
     console.print(f"  Token {enrollment.token}")
     console.print()
     console.print("[dim]Single use, expires in 10 minutes.[/dim]")
 
-    if not _tailscale_url(port).startswith("https://"):
+    if not candidate.reachable_off_machine:
+        console.print()
+        console.print(
+            "[red]This address points at this machine only[/red] — the device "
+            "you are pairing cannot reach it. No tailnet and no local network "
+            "address was found. Set one yourself:"
+        )
+        console.print("    [bold]nira network set --host <address>[/bold]")
+        console.print("[dim]Or see `nira network status` for the options.[/dim]")
+    elif not candidate.stable:
+        console.print()
+        console.print(f"[yellow]{candidate.note}[/yellow]")
+
+    if not candidate.secure_context:
         console.print()
         console.print(
             "[yellow]This is a plain http:// address.[/yellow] A browser treats "

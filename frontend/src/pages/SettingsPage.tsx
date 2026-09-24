@@ -17,6 +17,7 @@ import {
   Search,
   Brain,
   RefreshCw,
+  Wifi,
 } from 'lucide-react';
 import { useAppStore, type ThemeMode } from '../lib/store';
 import {
@@ -37,6 +38,9 @@ import {
   type MemoryStats,
   type MemoryConfigUpdate,
   type MemoryBackendInfo,
+  getNetworkConfig,
+  updateNetworkConfig,
+  type NetworkConfig,
 } from '../lib/api';
 import { isAutoUpdateDisabled, setAutoUpdateDisabled } from '../components/Desktop/UpdateChecker';
 
@@ -284,6 +288,34 @@ export function SettingsPage() {
     { id: 'sqlite', available: true, missing: [] },
   ]);
 
+  // Which address this machine hands your other devices. Nobody's network is
+  // the same, so this reports what is actually available here and lets the
+  // user pin one — pairing used to fall back to http://localhost, which is
+  // the phone talking to itself.
+  const [network, setNetwork] = useState<NetworkConfig | null>(null);
+  const [networkHost, setNetworkHost] = useState('');
+  const [networkError, setNetworkError] = useState<string | null>(null);
+  const [networkSaving, setNetworkSaving] = useState(false);
+
+  const applyNetwork = useCallback((cfg: NetworkConfig) => {
+    setNetwork(cfg);
+    setNetworkHost(cfg.advertise_host || '');
+  }, []);
+
+  const saveNetwork = useCallback(async (update: Record<string, unknown>) => {
+    setNetworkError(null);
+    setNetworkSaving(true);
+    try {
+      applyNetwork(await updateNetworkConfig(update));
+      return true;
+    } catch (e: any) {
+      setNetworkError(e?.message ?? 'Could not save network settings');
+      return false;
+    } finally {
+      setNetworkSaving(false);
+    }
+  }, [applyNetwork]);
+
   // Save through the server, and only move the control once it confirms. A
   // toggle that flips on click and silently fails is exactly the lie this
   // section is being rewritten to stop telling.
@@ -350,7 +382,10 @@ export function SettingsPage() {
         setMemoryMaxTokens(cfg.context_max_tokens);
       })
       .catch(() => setMemoryError('Could not read memory settings from the server'));
-  }, []);
+    getNetworkConfig()
+      .then(applyNetwork)
+      .catch(() => setNetworkError('Could not read network settings from the server'));
+  }, [applyNetwork]);
 
   const showSaved = () => {
     setSaved(true);
@@ -731,6 +766,147 @@ export function SettingsPage() {
                 className="w-32 cursor-pointer accent-[var(--color-accent)]"
               />
             </SettingRow>
+          </Section>
+
+          {/* Network — reaching this machine from your other devices */}
+          <Section title="Network">
+            {networkError && (
+              <div
+                className="text-xs px-3 py-2 rounded-lg mb-2"
+                style={{ color: 'var(--color-error)', border: '1px solid var(--color-error)' }}
+              >
+                {networkError}
+              </div>
+            )}
+            {network?.error && (
+              <div
+                className="text-xs px-3 py-2 rounded-lg mb-2"
+                style={{ color: 'var(--color-warning, var(--color-error))', border: '1px solid var(--color-border)' }}
+              >
+                {network.error}
+              </div>
+            )}
+
+            <SettingRow
+              label="Address given to your devices"
+              description={
+                network?.current
+                  ? network.current.note || `Resolved from: ${network.current.kind}`
+                  : 'Nothing resolved — pick an address below.'
+              }
+            >
+              <div className="flex items-center gap-2">
+                <Wifi
+                  size={14}
+                  style={{
+                    color: network?.current?.reachable_off_machine
+                      ? 'var(--color-accent)'
+                      : 'var(--color-text-tertiary)',
+                  }}
+                />
+                <span className="text-xs font-mono" style={{ color: 'var(--color-text-secondary)' }}>
+                  {network?.current?.url ?? '—'}
+                </span>
+              </div>
+            </SettingRow>
+
+            {network?.current && !network.current.reachable_off_machine && (
+              <div className="text-xs px-3 py-2 rounded-lg my-2" style={{ color: 'var(--color-error)', border: '1px solid var(--color-error)' }}>
+                This address points at this machine only — another device cannot reach
+                it. Pick one below, or type the address your network uses.
+              </div>
+            )}
+
+            <SettingRow label="How to choose it" description="Automatic prefers a Tailscale address, then your local network.">
+              <select
+                value={network?.mode ?? 'auto'}
+                disabled={!network || networkSaving}
+                onChange={(e) => { void saveNetwork({ mode: e.target.value }); }}
+                className="text-sm px-3 py-1.5 rounded-lg cursor-pointer"
+                style={{
+                  background: 'var(--color-bg-secondary)',
+                  color: 'var(--color-text)',
+                  border: '1px solid var(--color-border)',
+                }}
+              >
+                <option value="auto">Automatic</option>
+                <option value="tailscale">Tailscale only</option>
+                <option value="lan">Local network only</option>
+                <option value="manual">A specific address</option>
+              </select>
+            </SettingRow>
+
+            <SettingRow
+              label="Specific address"
+              description="An IP or hostname your other devices can reach. Saving one switches the mode above."
+            >
+              <div className="flex items-center gap-2">
+                <input
+                  value={networkHost}
+                  onChange={(e) => setNetworkHost(e.target.value)}
+                  onBlur={() => {
+                    const next = networkHost.trim();
+                    if (next && next !== (network?.advertise_host ?? '')) {
+                      void saveNetwork({ advertise_host: next });
+                    }
+                  }}
+                  placeholder="192.168.1.20"
+                  className="w-44 px-2 py-1 rounded text-xs font-mono"
+                  style={{
+                    background: 'var(--color-bg)',
+                    border: '1px solid var(--color-border)',
+                    color: 'var(--color-text)',
+                  }}
+                />
+              </div>
+            </SettingRow>
+
+            {(network?.candidates?.length ?? 0) > 0 && (
+              <div className="pt-3">
+                <div className="text-[11px] uppercase tracking-wide mb-2" style={{ color: 'var(--color-text-tertiary)' }}>
+                  Available on this machine
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  {network!.candidates.map((c) => (
+                    <button
+                      key={`${c.kind}:${c.host}`}
+                      disabled={!c.reachable_off_machine || networkSaving}
+                      onClick={() => { void saveNetwork({ advertise_host: c.host, advertise_scheme: c.secure_context ? 'https' : 'http' }); }}
+                      className="flex items-start gap-2 px-3 py-2 rounded-lg text-left transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
+                      style={{
+                        background: 'var(--color-bg-secondary)',
+                        border: '1px solid var(--color-border)',
+                      }}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-mono truncate" style={{ color: 'var(--color-text)' }}>
+                          {c.url}
+                        </div>
+                        <div className="text-[10px] mt-0.5" style={{ color: 'var(--color-text-tertiary)' }}>
+                          {c.note}
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end gap-0.5 shrink-0">
+                        {!c.reachable_off_machine && (
+                          <span className="text-[9px] px-1.5 py-0.5 rounded-full" style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-text-tertiary)' }}>
+                            this machine only
+                          </span>
+                        )}
+                        {c.secure_context && c.reachable_off_machine && (
+                          <span className="text-[9px] px-1.5 py-0.5 rounded-full" style={{ background: 'var(--color-accent-subtle)', color: 'var(--color-accent)' }}>
+                            installable
+                          </span>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+                <div className="text-[10px] mt-2" style={{ color: 'var(--color-text-tertiary)' }}>
+                  Pair a device with <span className="font-mono">nira device pair &lt;name&gt;</span>. Changing
+                  the listening interface needs a server restart.
+                </div>
+              </div>
+            )}
           </Section>
 
           {/* Model defaults */}

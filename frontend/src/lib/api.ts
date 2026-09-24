@@ -1151,6 +1151,66 @@ export async function updateMemoryConfig(
 }
 
 // ---------------------------------------------------------------------------
+// Network — which address this machine hands your other devices
+// ---------------------------------------------------------------------------
+
+export interface NetworkCandidate {
+  kind: string;
+  host: string;
+  url: string;
+  // Whether a device other than this one can reach it at all. The pairing QR
+  // used to fall back to http://localhost, which is the phone talking to
+  // itself, so this is the field that matters most.
+  reachable_off_machine: boolean;
+  secure_context: boolean;
+  stable: boolean;
+  note: string;
+}
+
+export interface NetworkConfig {
+  mode: 'auto' | 'tailscale' | 'lan' | 'manual';
+  advertise_host: string;
+  advertise_port: number;
+  advertise_scheme: string;
+  bind_host: string;
+  port: number;
+  candidates: NetworkCandidate[];
+  current: (NetworkCandidate & { url: string }) | null;
+  // Set when the chosen mode cannot be satisfied — e.g. "tailscale" on a
+  // machine that is not on a tailnet. The setting stands; this says why it
+  // is not producing an address.
+  error: string | null;
+}
+
+export interface NetworkConfigUpdate {
+  mode?: string;
+  advertise_host?: string;
+  advertise_port?: number;
+  advertise_scheme?: string;
+  bind_host?: string;
+}
+
+export async function getNetworkConfig(): Promise<NetworkConfig> {
+  const res = await apiFetch(`/v1/network/config`);
+  if (!res.ok) throw new Error(await memoryErrorDetail(res, 'Failed to read network settings'));
+  return res.json();
+}
+
+export async function updateNetworkConfig(
+  update: NetworkConfigUpdate,
+): Promise<NetworkConfig & { status: string }> {
+  const res = await apiFetch(`/v1/network/config`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(update),
+  });
+  if (!res.ok) {
+    throw new Error(await memoryErrorDetail(res, 'Failed to save network settings'));
+  }
+  return res.json();
+}
+
+// ---------------------------------------------------------------------------
 // Approvals
 // ---------------------------------------------------------------------------
 

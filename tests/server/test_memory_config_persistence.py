@@ -220,3 +220,16 @@ def test_the_real_service_exposes_is_running_as_a_property():
     assert isinstance(MemoryService.__dict__["is_running"], property), (
         "the stats endpoint handles both, but this is the shape it was written for"
     )
+
+
+def test_writing_invalidates_the_cached_config(config_file):
+    """A write the writing process cannot see is worse than no write.
+
+    ``load_config`` is lru_cached, so before this the process that wrote the
+    file kept reading the values it had just replaced.
+    """
+    from nira.core.config import load_config
+
+    assert load_config().network.mode == "auto"
+    update_config_section("network", {"mode": "lan"})
+    assert load_config().network.mode == "lan"

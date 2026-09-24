@@ -102,4 +102,17 @@ def update_config_section(
             pass
         raise
 
+    # load_config is lru_cached, so without this the process that just wrote
+    # the file keeps reading the old values — `nira network set` reported the
+    # setting it had replaced, and every later command in that process worked
+    # from the stale config. Invalidate here rather than at each call site:
+    # a caller that forgets gets a silent wrong answer, not an error.
+    _invalidate_config_cache()
+
     return target
+
+
+def _invalidate_config_cache() -> None:
+    from nira.core.config import clear_config_cache
+
+    clear_config_cache()
