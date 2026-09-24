@@ -155,3 +155,44 @@ class TestContentSecurityPolicy:
 
     def test_everything_still_defaults_to_this_origin(self) -> None:
         assert self.policy().startswith("default-src 'self'")
+
+
+class TestTheRealAppSendsThem:
+    """`create_app` itself, not a FastAPI app assembled by a test.
+
+    The middleware is attached inside a `try/except Exception` that logs at
+    DEBUG and carries on. If that ever swallowed something, every response
+    would go out with no security headers and nothing would say so -- which is
+    exactly how `website/nginx.conf` came to serve none of them for months.
+    The other tests here build their own app and add the middleware by hand,
+    so they cannot see that failure.
+    """
+
+    def test_health_carries_every_security_header(self) -> None:
+        from unittest.mock import MagicMock
+
+        from fastapi.testclient import TestClient
+
+        from nira.server.app import create_app
+        from nira.server.middleware import SECURITY_HEADERS
+
+        client = TestClient(create_app(MagicMock(), "test-model"))
+        response = client.get("/health")
+
+        assert response.status_code == 200
+        missing = [h for h in SECURITY_HEADERS if h not in response.headers]
+        assert not missing, f"create_app() served no {missing}"
+
+    def test_the_values_are_the_ones_declared(self) -> None:
+        from unittest.mock import MagicMock
+
+        from fastapi.testclient import TestClient
+
+        from nira.server.app import create_app
+        from nira.server.middleware import SECURITY_HEADERS
+
+        client = TestClient(create_app(MagicMock(), "test-model"))
+        response = client.get("/health")
+
+        for header, value in SECURITY_HEADERS.items():
+            assert response.headers[header] == value, header
