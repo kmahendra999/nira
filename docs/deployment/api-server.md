@@ -519,7 +519,7 @@ workers = 1
 
 | Key       | Type      | Default         | Description                                                                |
 |-----------|-----------|-----------------|----------------------------------------------------------------------------|
-| `host`    | `string`  | `"127.0.0.1"`   | Network address to bind to. Loopback by default. Binding anywhere else requires an API key — see [Authentication](#authentication). |
+| `host`    | `string`  | `"127.0.0.1"`   | Network address to bind to. Loopback by default. Binding anywhere else requires an API key — see [Starting the Server](#starting-the-server). |
 | `port`    | `integer` | `8000`          | Port number.                                                               |
 | `agent`   | `string`  | `"orchestrator"`| Default agent for non-streaming requests. Set to `""` for direct engine mode. |
 | `model`   | `string`  | `""`            | Default model name. When empty, falls back to `[intelligence] default_model` or the first model discovered on the engine. |

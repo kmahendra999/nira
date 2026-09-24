@@ -1,0 +1,71 @@
+# The things that break without anyone touching the repository.
+#
+# Phase 18 found seventeen dead links in the README by hand, months after the
+# rename that broke them, and the OpenClaw skill catalogue disappeared from
+# under a resolver whose tests kept passing because they never reached the
+# network. Both are the same failure: nothing was watching the outside world.
+#
+# This runs weekly rather than on pull requests, because a URL that went stale
+# on somebody else's schedule should not block a merge.
+name: Link check
+
+on:
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: link-check
+  cancel-in-progress: true
+
+jobs:
+  links:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.1.0
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --extra dev --extra server
+
+      - name: Check every link, including external
+        run: uv run python scripts/check_links.py
+
+  upstreams:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.1.0
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --extra dev --extra server --extra security-signing
+
+      - name: Build Rust extension
+        run: uv run maturin develop --manifest-path rust/crates/nira-python/Cargo.toml
+
+      # The tests that clone a real upstream. Excluded from the default lane
+      # so a network blip cannot fail a PR, but run here so a catalogue that
+      # disappears is noticed by CI rather than by a user.
+      - name: Tests that reach real upstreams
+        run: uv run pytest tests/ -q -m network

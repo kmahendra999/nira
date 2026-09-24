@@ -35,6 +35,12 @@ jobs:
       - name: Ruff format check
         run: uv run ruff format --check src/ tests/
 
+      # Relative links and in-page anchors only -- deterministic and offline,
+      # so a stale URL on somebody else's server cannot fail a pull request.
+      # The external lane runs on a schedule in link-check.yml.
+      - name: Check internal links
+        run: uv run python scripts/check_links.py --offline
+
   test:
     runs-on: ubuntu-latest
     steps:

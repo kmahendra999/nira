@@ -3513,7 +3513,7 @@ Expected: doctor runs, hardware/Docker/Pearl rows print honest ✗ where applica
 
 ```bash
 gh pr create --title "feat(mining): vllm-pearl integration (v1, Spec A)" --body "$(cat <<'EOF'
-Implements [Spec A](docs/design/2026-05-05-vllm-pearl-mining-integration-design.md). Solo mining only, no pool, no fee. v2 seams in place per spec §8.5.
+Implements [Spec A](2026-05-05-vllm-pearl-mining-integration-design.md). Solo mining only, no pool, no fee. v2 seams in place per spec §8.5.
 
 ## Summary
 - New `nira.mining` subsystem with `MiningProvider` ABC + `MinerRegistry`
