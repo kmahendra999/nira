@@ -1747,6 +1747,36 @@ It resolves generated paths rather than skipping them — `api-reference/**` bac
 — because skipping those would skip most of the documentation's internal links. First full run: 29
 broken. Now one.
 
+**Two tests were flaky in a way only a loaded runner shows.** Both failed CI while passing
+locally, and neither was in code this phase had touched.
+
+`_HangingLines.__next__` ended in `return self.__next__()`. That is not an infinite loop; it is a
+stack about a thousand frames deep that raises `RecursionError` roughly fifty seconds in. It runs
+on the agent's daemon pump thread, which outlives the test that started it, so the crash landed in
+whichever unrelated test the xdist worker was holding — a tool-approval test, with nothing to do
+with any of it — and took the whole job down. The local suite finishes in 25 seconds and never
+reaches the limit; CI took 147 and did.
+
+The second waited for an approval to appear in the *store* and then asserted on the *bus*. The
+bridge queues the action first and publishes afterwards — correctly, since the event names the
+action's id — so the wait can return in the gap between the two and `bus.types()` is legitimately
+empty. The bus can be awaited now.
+
+**The desktop build had never completed, for a reason nothing was watching.** `tauri build` refuses
+when a crate and its JS counterpart are on different major/minor releases, and two pairs were:
+`tauri-plugin-notification` 2.3.3 against 2.4.0, `tauri-plugin-updater` 2.10.1 against 2.11.0. Both
+sides declare a caret range and resolve independently, so they drift whenever one lockfile is
+refreshed and the other is not. The same two lines appear in the run for `f013ad7`, so this was not
+introduced here. Moving the crates forward put both pairs level, and `npx tauri build` then
+completed — `nira-desktop`, 31 MB, release profile, 1m10s. The check that catches this only ever
+ran during a release build, which is the one thing nobody runs until they want a release, so a test
+now compares the resolved versions in the two lockfiles directly.
+
+**The Android build works here, and the download path is verified end to end.** The SDK is present,
+`:app:assembleDebug` produces a 42 MiB apk in fourteen seconds, and the site image serves it with
+the right MIME type, `Content-Disposition: attachment`, `no-store`, and a build-time digest that
+matches the bytes nginx sends. Phase 17 had only ever tested the "Not built" state.
+
 ### Still open in Phase 22
 
 - **`CODE_OF_CONDUCT.md` points harassment reports at Discussions**, which 404s until the setting is
@@ -1754,6 +1784,9 @@ broken. Now one.
 - **The apk is still copied by hand.** Verified end-to-end here — the build-time digest matches the
   bytes nginx serves — but nothing rebuilds it when the image is built.
 - **The blob is still in history.** Removing `desktop/` from the tree does not shrink a clone.
+- **macOS desktop builds still fail at "Configure Apple signing."** The secrets are not set, and
+  are not something this session can supply. Linux and Windows build now.
+- **No desktop release has been cut.** The build works; publishing one is a separate decision.
 
 ### Next
 
