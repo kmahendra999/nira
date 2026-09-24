@@ -84,11 +84,16 @@
 
 @layer base {
   :root {
-    --color-bg: #f9f9f9;
-    --color-bg-secondary: #f4f4f5;
-    --color-bg-tertiary: #e4e4e7;
-    --color-surface: #ffffff;
-    --color-sidebar: rgba(250, 250, 250, 0.85);
+    --color-bg: #eeecf3;
+    --color-bg-secondary: rgba(255, 255, 255, 0.38);
+    --color-bg-tertiary: rgba(255, 255, 255, 0.55);
+    /* Translucent, so the ~400 inline `background: var(--color-surface)`
+     * call sites become glass without being touched. Held well above the
+     * reference's 7% because these carry dense forms and code rather than a
+     * headline and a number — the contrast figures in
+     * tests/theme-contrast.test.ts are what set the floor. */
+    --color-surface: rgba(255, 255, 255, 0.55);
+    --color-sidebar: rgba(255, 255, 255, 0.45);
     --color-border: rgba(0, 0, 0, 0.08);
     --color-border-subtle: rgba(0, 0, 0, 0.04);
 
@@ -143,34 +148,43 @@
     --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
     --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
 
-    /* Glass.
+    /* Glass — actually transparent.
      *
-     * Opacity here is a legibility budget, not a taste setting. The text
-     * tokens above were tuned to specific contrast ratios against solid
-     * surfaces; a panel that lets too much of the backdrop through moves the
-     * effective background under every one of them and quietly undoes that
-     * work. 88% is the thinnest that still holds 4.5:1 for
-     * --color-text-tertiary over the busiest part of the HUD backdrop.
+     * The previous values were 88% opaque: frosted, but you could not see
+     * through them, which is the whole point of the material. This is the
+     * recipe from the reference theme — a fill of almost nothing, a bright
+     * edge, and a very large blur. A panel is defined by its border and its
+     * inner highlights, not by a colour.
      *
-     * The blur is what makes the remaining 12% read as glass rather than as
-     * a washed-out panel: it turns whatever is behind into colour and light
-     * instead of legible competing detail. */
-    --glass-bg: color-mix(in srgb, var(--color-surface) 88%, transparent);
-    --glass-bg-strong: color-mix(in srgb, var(--color-surface) 95%, transparent);
-    --glass-blur: 20px;
-    --glass-saturate: 1.6;
-    --glass-border: rgba(0, 0, 0, 0.10);
-    /* The lit top edge. A pane of glass catches light where it turns. */
+     * It only works because the page behind is a smooth gradient. Over busy
+     * detail a 7% fill would leave text sitting on whatever happened to be
+     * underneath; over a gradient the effective background is predictable,
+     * which is what keeps the contrast figures below meaningful.
+     *
+     * 180% saturation is not decoration either: at this transparency an
+     * unsaturated blur turns everything behind the glass grey, and grey is
+     * what a dirty window looks like.
+     */
+    --glass-bg: rgba(255, 255, 255, 0.07);
+    --glass-bg-strong: rgba(255, 255, 255, 0.30);
+    --glass-blur: 44px;
+    --glass-saturate: 1.8;
+    --glass-border: rgba(255, 255, 255, 0.45);
     --glass-highlight: rgba(255, 255, 255, 0.85);
-    --glass-shadow:
-      0 1px 2px rgba(0, 0, 0, 0.04),
-      0 8px 24px -8px rgba(0, 0, 0, 0.12);
-    --glass-shadow-lifted:
-      0 1px 2px rgba(0, 0, 0, 0.05),
-      0 16px 40px -12px rgba(0, 0, 0, 0.18);
-    /* Instrument marks: bezel ticks, graticule, hairline rules. */
-    --grid-line: rgba(0, 0, 0, 0.055);
-    --grid-line-major: rgba(0, 0, 0, 0.09);
+    /* Top and bottom inner edges. On near-invisible glass these do most of
+     * the work of saying where the pane is. */
+    --glass-inner:
+      inset 0 1px 0 rgba(255, 255, 255, 0.6),
+      inset 0 -1px 0 rgba(255, 255, 255, 0.15);
+    /* Large, soft and tinted rather than tight and black: a sheet of glass
+     * held well above the surface, not a card resting on it. */
+    --glass-shadow: 0 40px 100px rgba(60, 50, 110, 0.20);
+    --glass-shadow-lifted: 0 20px 44px rgba(50, 40, 100, 0.16);
+    /* The page itself. Transparency needs something worth seeing through. */
+    --bg-grad-1: #f2ece9;
+    --bg-grad-2: #dcdcea;
+    --grid-line: rgba(60, 50, 110, 0.05);
+    --grid-line-major: rgba(60, 50, 110, 0.08);
     --tick: color-mix(in srgb, var(--color-accent) 55%, transparent);
 
     --radius-sm: 0.375rem;
@@ -200,17 +214,24 @@
    * old brand; the orange rebrand had to touch both. `:root:not(.light)`
    * keeps the explicit-light override working. */
   .dark {
-    --color-bg: #0a0a0b;
-    --color-bg-secondary: #121214;
-    --color-bg-tertiary: #18181b;
-    --color-surface: #121214;
-    --color-sidebar: rgba(12, 12, 14, 0.72);
+    --color-bg: #10101e;
+    --color-bg-secondary: rgba(255, 255, 255, 0.035);
+    --color-bg-tertiary: rgba(255, 255, 255, 0.06);
+    --color-surface: rgba(255, 255, 255, 0.045);
+    --color-sidebar: rgba(255, 255, 255, 0.04);
     --color-border: rgba(255, 255, 255, 0.09);
     --color-border-subtle: rgba(255, 255, 255, 0.05);
 
     --color-text: #ededef;
-    --color-text-secondary: #a3a3ad;
-    --color-text-tertiary: #808088;
+    /* Raised with the page.
+     *
+     * The background moved from near-black to deep indigo so transparency
+     * would read as glass, and a lighter page costs the dimmest text its
+     * margin: #808088 fell to 4.07:1, under the 4.5 these tokens were chosen
+     * to hold. #8f8f9e restores it at 4.9:1 against the surface over the
+     * lighter end of the gradient, which is the worst case. */
+    --color-text-secondary: #adadba;
+    --color-text-tertiary: #8f8f9e;
     --color-text-inverse: #0a0a0b;
 
     --color-accent: #fb923c;
@@ -244,29 +265,32 @@
     --shadow-md: 0 4px 14px -2px rgb(0 0 0 / 0.5), 0 0 0 1px rgba(251, 146, 60, 0.04);
     --shadow-lg: 0 18px 40px -12px rgb(0 0 0 / 0.7), 0 0 0 1px rgba(251, 146, 60, 0.06);
 
-    /* Glass, dark.
+    /* Glass, dark — barely there at all.
      *
-     * Darker surfaces tolerate more transparency than light ones: the
-     * backdrop behind them is itself dark, so letting it through costs less
-     * contrast. 82% clears 4.5:1 for tertiary text over every part of the
-     * HUD backdrop, including the accent bloom in the top-left.
+     * 1.2% white. The reference is right that on a dark page the fill should
+     * be almost nothing: anything more and the pane stops being glass and
+     * becomes a lighter rectangle. What draws it is the border and the inner
+     * top edge.
      *
-     * Saturation above 1 is the difference between glass and grey film — it
-     * keeps the accent glow behind a panel reading as colour. */
-    --glass-bg: color-mix(in srgb, var(--color-surface) 82%, transparent);
-    --glass-bg-strong: color-mix(in srgb, var(--color-surface) 92%, transparent);
-    --glass-blur: 22px;
-    --glass-saturate: 1.7;
+     * The page behind is deep indigo rather than near-black, and that is load
+     * bearing. Transparency over #0a0a0b reads as a hole; over a colour it
+     * reads as glass, because there is something behind to tint.
+     */
+    --glass-bg: rgba(255, 255, 255, 0.012);
+    --glass-bg-strong: rgba(255, 255, 255, 0.06);
+    --glass-blur: 44px;
+    --glass-saturate: 1.8;
     --glass-border: rgba(255, 255, 255, 0.10);
-    --glass-highlight: rgba(255, 255, 255, 0.14);
-    --glass-shadow:
-      0 1px 2px rgba(0, 0, 0, 0.5),
-      0 8px 28px -10px rgba(0, 0, 0, 0.7);
-    --glass-shadow-lifted:
-      0 1px 2px rgba(0, 0, 0, 0.55),
-      0 18px 46px -14px rgba(0, 0, 0, 0.85);
-    --grid-line: rgba(255, 255, 255, 0.045);
-    --grid-line-major: rgba(255, 255, 255, 0.075);
+    --glass-highlight: rgba(255, 255, 255, 0.18);
+    --glass-inner:
+      inset 0 1px 0 rgba(255, 255, 255, 0.18),
+      inset 0 -1px 0 rgba(255, 255, 255, 0.04);
+    --glass-shadow: 0 40px 100px rgba(0, 0, 0, 0.55);
+    --glass-shadow-lifted: 0 20px 44px rgba(0, 0, 0, 0.5);
+    --bg-grad-1: #16152a;
+    --bg-grad-2: #0b0c16;
+    --grid-line: rgba(255, 255, 255, 0.035);
+    --grid-line-major: rgba(255, 255, 255, 0.06);
     --tick: color-mix(in srgb, var(--color-accent) 65%, transparent);
 
     color-scheme: dark;
@@ -289,7 +313,13 @@
     font-weight: 400;
     line-height: 1.5;
     letter-spacing: -0.01em;
-    background-color: var(--color-bg);
+    /* A gradient, not a flat fill. Glass this transparent needs something
+     * behind it worth seeing: over one flat colour the panels vanish, and
+     * over busy detail the text stops being legible. A slow diagonal ramp is
+     * the one background that is both interesting and predictable. */
+    background-color: var(--bg-grad-2);
+    background-image: linear-gradient(135deg, var(--bg-grad-1), var(--bg-grad-2));
+    background-attachment: fixed;
     color: var(--color-text);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -607,7 +637,7 @@
     backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
     border: 1px solid var(--glass-border);
     border-radius: var(--radius-lg);
-    box-shadow: var(--glass-shadow);
+    box-shadow: var(--glass-inner), var(--glass-shadow);
     overflow: hidden;
     transition:
       border-color 240ms ease,
@@ -634,9 +664,16 @@
     pointer-events: none;
   }
 
+  /* Lift, never scale.
+   *
+   * Straight from the reference, and the reason is worth keeping: scaling a
+   * backdrop-filtered panel makes Chrome sample its backdrop from the wrong
+   * place, so the glass visibly tears for the length of the transition. A
+   * translate does not. */
   .hud-panel:hover {
     border-color: color-mix(in srgb, var(--color-accent) 30%, var(--glass-border));
-    box-shadow: var(--glass-shadow-lifted);
+    transform: translateY(-4px);
+    box-shadow: var(--glass-inner), var(--glass-shadow-lifted);
   }
 
   /* Bezel ticks: four corner marks, the way a measuring instrument frames
@@ -668,6 +705,7 @@
    * to it and it spans the full height of whatever is scrolling behind. */
   .glass-chrome {
     background: var(--glass-bg-strong);
+    box-shadow: var(--glass-inner);
     -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
     backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
   }
@@ -703,16 +741,14 @@
    * ------------------------------------------------------------------ */
   .rounded-lg,
   .rounded-xl {
-    --chamfer: 7px;
-    border-radius: 0;
-    clip-path: polygon(
-      var(--chamfer) 0,
-      100% 0,
-      100% calc(100% - var(--chamfer)),
-      calc(100% - var(--chamfer)) 100%,
-      0 100%,
-      0 var(--chamfer)
-    );
+    /* Rounded, not chamfered.
+     *
+     * The console cut was a deliberate departure; the brief since is to match
+     * a reference whose whole language is soft and round. The instrument
+     * character now comes from the graticule, the brackets, the decoding
+     * readouts and the sound rather than from the corner geometry — which is
+     * the better place for it, because those survive a change of shape. */
+    clip-path: none;
   }
 
   /* An opt-out, for anything that has to draw outside its own box: a menu,
@@ -742,42 +778,46 @@
    * the inner is inset by 1px and carries the glass. That inset is the
    * border.
    * ------------------------------------------------------------------ */
+  /* A console panel, rounded.
+   *
+   * This used to be two stacked clip-path layers, because a chamfered box
+   * cannot carry a border. Rounded corners can, so the hack is gone — and it
+   * had to go: the trick depended on the inner layer being opaque enough to
+   * mask the outer one, and glass at 1.2% masks nothing. Panels given an
+   * accent "border" that way turned into solid orange blocks the moment the
+   * fill became transparent.
+   */
   .console-panel {
-    --chamfer: 14px;
     position: relative;
     isolation: isolate;
-    background: var(--glass-border);
-    clip-path: polygon(
-      var(--chamfer) 0,
-      100% 0,
-      100% calc(100% - var(--chamfer)),
-      calc(100% - var(--chamfer)) 100%,
-      0 100%,
-      0 var(--chamfer)
-    );
-    transition: background-color 200ms ease, transform 200ms ease;
-  }
-
-  .console-panel::before {
-    content: '';
-    position: absolute;
-    inset: 1px;
-    z-index: -1;
     background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--glass-inner), var(--glass-shadow);
     -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
     backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-    clip-path: polygon(
-      calc(var(--chamfer) - 1px) 0,
-      100% 0,
-      100% calc(100% - var(--chamfer) + 1px),
-      calc(100% - var(--chamfer) + 1px) 100%,
-      0 100%,
-      0 calc(var(--chamfer) - 1px)
-    );
+    transition:
+      border-color 200ms ease,
+      box-shadow 200ms ease,
+      transform 200ms ease;
   }
 
   .console-panel:hover {
-    background: color-mix(in srgb, var(--color-accent) 45%, var(--glass-border));
+    border-color: color-mix(in srgb, var(--color-accent) 55%, var(--glass-border));
+    /* Lift, never scale: scaling a backdrop-filtered panel makes Chrome
+     * sample its backdrop from the wrong place and the glass visibly tears
+     * for the length of the transition. */
+    transform: translateY(-4px);
+    box-shadow: var(--glass-inner), var(--glass-shadow-lifted);
+  }
+
+  /* Marks a panel as the one that matters, without filling it with accent. */
+  .console-panel--accent {
+    border-color: color-mix(in srgb, var(--color-accent) 60%, transparent);
+    box-shadow:
+      var(--glass-inner),
+      var(--glass-shadow),
+      0 0 24px -6px var(--color-accent-glow);
   }
 
   /* The sweep. A beam crosses the panel once when the pointer arrives — the
@@ -787,8 +827,9 @@
   .console-panel::after {
     content: '';
     position: absolute;
-    inset: 1px;
-    z-index: -1;
+    inset: 0;
+    border-radius: inherit;
+    z-index: 0;
     pointer-events: none;
     opacity: 0;
     background: linear-gradient(
@@ -927,9 +968,12 @@
     inset: 0;
     pointer-events: none;
     z-index: 0;
+    /* Softer than it was. These blooms used to sit behind opaque panels and
+     * only showed in the gaps; through glass at 1.2% they come straight
+     * through everything, and at the old 10% the sidebar glowed orange. */
     background-image:
-      radial-gradient(circle at 20% 0%, color-mix(in srgb, var(--color-accent) 10%, transparent), transparent 42%),
-      radial-gradient(circle at 85% 110%, color-mix(in srgb, var(--color-accent-purple) 8%, transparent), transparent 46%),
+      radial-gradient(circle at 20% 0%, color-mix(in srgb, var(--color-accent) 5%, transparent), transparent 45%),
+      radial-gradient(circle at 85% 110%, color-mix(in srgb, var(--color-accent-purple) 4%, transparent), transparent 48%),
       linear-gradient(to bottom, transparent, transparent);
   }
 

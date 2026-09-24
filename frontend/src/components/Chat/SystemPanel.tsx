@@ -153,8 +153,7 @@ export function SystemPanel() {
 
           {/* Local */}
           <ConsolePanel
-            className="flex items-center gap-2 px-3 py-2 mb-2"
-            style={{ background: 'var(--color-accent)' }}
+            className="console-panel--accent flex items-center gap-2 px-3 py-2 mb-2"
           >
             <HardDrive size={14} style={{ color: 'var(--color-accent)' }} />
             <div className="flex-1 min-w-0">
@@ -178,13 +177,10 @@ export function SystemPanel() {
               return (
                 <ConsolePanel
                   key={provider.name}
-                  className="flex items-center gap-2 px-3 py-2"
+                  className={`flex items-center gap-2 px-3 py-2 ${
+                    provider.primary ? 'console-panel--accent' : ''
+                  }`}
                   brackets={provider.primary}
-                  style={
-                    provider.primary
-                      ? { background: 'var(--color-accent)' }
-                      : undefined
-                  }
                 >
                   <Cloud size={14} style={{ color: 'var(--color-text-tertiary)' }} />
                   <div className="flex-1 min-w-0">

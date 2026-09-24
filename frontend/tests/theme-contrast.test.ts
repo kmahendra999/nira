@@ -54,16 +54,25 @@ function contrast(a: RGB, b: RGB): number {
   return (hi + 0.05) / (lo + 0.05);
 }
 
-/** `over` composited under `top` at `alpha`, which is what a glass panel does. */
+/** `over` composited under `top` at `alpha` — what a translucent panel does. */
 function composite(top: RGB, over: RGB, alpha: number): RGB {
   return top.map((c, i) => Math.round(c * alpha + over[i] * (1 - alpha))) as RGB;
 }
 
-/** Pull a `--token: #value;` out of the `:root` or `.dark` block. */
 function token(block: string, name: string): string {
   const m = new RegExp(`--${name}:\\s*([^;]+);`).exec(block);
   if (!m) throw new Error(`token --${name} not found`);
   return m[1].trim();
+}
+
+/** Either `#rrggbb` or `rgba(r, g, b, a)`. */
+function colour(value: string): { rgb: RGB; alpha: number } {
+  const fn = /rgba?\(([^)]+)\)/.exec(value);
+  if (fn) {
+    const parts = fn[1].split(',').map((p) => parseFloat(p));
+    return { rgb: parts.slice(0, 3) as RGB, alpha: parts[3] ?? 1 };
+  }
+  return { rgb: hexToRgb(value), alpha: 1 };
 }
 
 function blockFor(theme: 'light' | 'dark'): string {
@@ -73,62 +82,53 @@ function blockFor(theme: 'light' | 'dark'): string {
   return CSS.slice(start, CSS.indexOf('\n  }', start));
 }
 
-/** The `NN%` out of `color-mix(in srgb, var(--color-surface) NN%, transparent)`. */
-function glassAlpha(block: string, name: string): number {
-  const value = token(block, name);
-  const m = /(\d+(?:\.\d+)?)%/.exec(value);
-  if (!m) throw new Error(`no percentage in --${name}: ${value}`);
-  return Number(m[1]) / 100;
-}
-
 describe.each(['light', 'dark'] as const)('%s theme', (theme) => {
   const block = blockFor(theme);
-  const surface = hexToRgb(token(block, 'color-surface'));
-  const pageBg = hexToRgb(token(block, 'color-bg'));
 
-  // The worst case a panel ever sits on, not the average one.
-  //
-  // Compositing over --color-bg alone is close to meaningless in the dark
-  // theme: surface and page are both nearly black, so thinning the glass
-  // from 82% to 50% moves the luminance almost not at all and the check
-  // passes on glass nobody could read text through. (Confirmed by doing
-  // exactly that and watching this file stay green.)
-  //
-  // What actually sits behind a panel is .hud-backdrop, whose brightest
-  // region is a radial bloom of the accent at 10%. That is the background to
-  // measure against, because it is the one where the text is dimmest
-  // relative to what is behind it.
-  const accent = hexToRgb(token(block, 'color-accent'));
-  const worstBackdrop = composite(accent, pageBg, 0.1);
+  // The page is a gradient now, so "the background" is two colours. Text has
+  // to clear AA against the worst of them, which is the lighter end — that is
+  // where dark text has least room and where a translucent panel lets most
+  // light through.
+  const ends = [
+    hexToRgb(token(block, 'bg-grad-1')),
+    hexToRgb(token(block, 'bg-grad-2')),
+  ];
+  const page = ends[0];
+  const worstPage =
+    luminance(ends[0]) > luminance(ends[1]) ? ends[0] : ends[1];
 
-  const behindPanel = composite(surface, worstBackdrop, glassAlpha(block, 'glass-bg'));
-  const behindChrome = composite(
-    surface,
-    worstBackdrop,
-    glassAlpha(block, 'glass-bg-strong'),
-  );
+  const surface = colour(token(block, 'color-surface'));
+  const behindPanel = composite(surface.rgb, worstPage, surface.alpha);
+
+  const chrome = colour(token(block, 'color-sidebar'));
+  const behindChrome = composite(chrome.rgb, worstPage, chrome.alpha);
 
   it.each([
     ['text', 4.5],
     ['text-secondary', 4.5],
     ['text-tertiary', 4.5],
-  ])('--color-%s clears AA on a glass panel', (name, min) => {
+  ])('--color-%s clears AA on a translucent surface', (name, min) => {
     const ratio = contrast(hexToRgb(token(block, `color-${name}`)), behindPanel);
-    expect(ratio, `${name} on glass = ${ratio.toFixed(2)}:1`).toBeGreaterThanOrEqual(min);
+    expect(ratio, `${name} on surface = ${ratio.toFixed(2)}:1`).toBeGreaterThanOrEqual(min);
   });
 
-  it('the dimmest text clears AA on glass chrome too', () => {
+  it('the dimmest text clears AA on the sidebar too', () => {
     const ratio = contrast(hexToRgb(token(block, 'color-text-tertiary')), behindChrome);
-    expect(ratio, `tertiary on chrome = ${ratio.toFixed(2)}:1`).toBeGreaterThanOrEqual(4.5);
+    expect(ratio, `tertiary on sidebar = ${ratio.toFixed(2)}:1`).toBeGreaterThanOrEqual(4.5);
   });
 
-  it('glass is translucent enough to be glass at all', () => {
-    // The other direction: fully opaque would pass every contrast check
-    // above and would not be a glass theme.
-    expect(glassAlpha(block, 'glass-bg')).toBeLessThan(1);
-    expect(glassAlpha(block, 'glass-bg')).toBeLessThanOrEqual(
-      glassAlpha(block, 'glass-bg-strong'),
-    );
+  it('the surface is genuinely transparent', () => {
+    // The point of the material. Opaque would pass every check above and
+    // would not be glass — this is the assertion that failing means the
+    // theme quietly reverted to frosted-but-solid.
+    expect(surface.alpha).toBeLessThan(0.8);
+  });
+
+  it('the page is a gradient, not a flat fill', () => {
+    // Transparency over one colour makes panels disappear; the ramp is what
+    // gives the glass something to refract.
+    expect(token(block, 'bg-grad-1')).not.toBe(token(block, 'bg-grad-2'));
+    expect(page).toHaveLength(3);
   });
 });
 
@@ -138,6 +138,9 @@ describe('the glass is actually frosted', () => {
     // behind stays legible and competes with the text in front.
     const panel = CSS.slice(CSS.indexOf('.hud-panel {'), CSS.indexOf('.hud-panel::before'));
     expect(panel).toMatch(/backdrop-filter:\s*blur\(/);
+    // Saturation matters at this transparency: an unsaturated blur turns
+    // everything behind the glass grey, which is what a dirty window is.
+    expect(panel).toMatch(/saturate\(/);
     const chrome = CSS.slice(CSS.indexOf('.glass-chrome {'));
     expect(chrome.slice(0, 400)).toMatch(/backdrop-filter:\s*blur\(/);
   });
