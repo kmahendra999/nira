@@ -41,6 +41,21 @@ class MemoryIndexRequest(BaseModel):
     path: str
 
 
+class MemoryConfigRequest(BaseModel):
+    """Memory settings the UI can change and expect to survive a restart.
+
+    Every field is optional: the UI sends only what the user touched, and an
+    omitted field is left at whatever the config file already says.
+    """
+
+    enabled: Optional[bool] = None
+    context_from_memory: Optional[bool] = None
+    context_top_k: Optional[int] = None
+    context_min_score: Optional[float] = None
+    context_max_tokens: Optional[int] = None
+    default_backend: Optional[str] = None
+
+
 class BudgetLimitsRequest(BaseModel):
     max_tokens_per_day: Optional[int] = None
     max_requests_per_hour: Optional[int] = None
@@ -256,16 +271,115 @@ def memory_search(req: MemorySearchRequest, request: Request):
         raise HTTPException(status_code=500, detail=str(exc))
 
 
+# Each retrieval backend and the third-party import it cannot start without.
+# The UI offered all of these in a dropdown regardless; picking one whose
+# dependency is absent left memory dead with nothing on screen to say why.
+_BACKEND_REQUIREMENTS: Dict[str, tuple[str, ...]] = {
+    "sqlite": (),
+    "bm25": (),
+    "hybrid": (),
+    "faiss": ("faiss",),
+    "colbert": ("torch", "colbert"),
+}
+
+
+def _available_backends() -> List[Dict[str, Any]]:
+    """Report which memory backends this install can actually start.
+
+    Probes with ``find_spec`` rather than importing: importing faiss or torch
+    to answer a settings query would cost hundreds of milliseconds and a lot
+    of memory on a request that just paints a dropdown.
+    """
+    from importlib.util import find_spec
+
+    out: List[Dict[str, Any]] = []
+    for name, requirements in _BACKEND_REQUIREMENTS.items():
+        missing: List[str] = []
+        for module in requirements:
+            try:
+                if find_spec(module) is None:
+                    missing.append(module)
+            except (ImportError, ValueError):
+                missing.append(module)
+        out.append(
+            {
+                "id": name,
+                "available": not missing,
+                "missing": missing,
+            }
+        )
+    return out
+
+
+def _memory_settings(request: Request) -> Any:
+    """Return the live memory/storage config, loading one if the app has none."""
+    config = getattr(request.app.state, "config", None)
+    if config is None:
+        from nira.core.config import load_config
+
+        config = load_config()
+    return config
+
+
 @memory_router.get("/stats")
 def memory_stats(request: Request):
-    """Get memory backend statistics."""
+    """Get memory backend statistics.
+
+    Reports ``enabled`` — whether the server is actually recording memories —
+    alongside the counts. Without it the UI had no way to know, and its toggle
+    defaulted to showing memory ON while the server had it off: a switch that
+    described a state nobody was in.
+    """
+    config = _memory_settings(request)
+    enabled = bool(getattr(config.memory, "enabled", False))
+    context_from_memory = bool(getattr(config.agent, "context_from_memory", False))
+
+    # Two different stores answer to the word "memory", and the UI only ever
+    # showed one of them. `entries` counts documents in the retrieval backend
+    # (what /memory/index and /memory/store write). `facts` counts what the
+    # background memory service has learned from conversations on its own —
+    # which is the thing a user means by "does it remember me". Showing only
+    # the first left the panel reading 0 entries on a server that was in fact
+    # remembering.
+    service = getattr(request.app.state, "memory_service", None)
+    facts: Optional[int] = None
+    service_running: Optional[bool] = None
+    if service is not None:
+        # Read the two independently. Sharing one try meant a failure in
+        # either blanked both, which is how `is_running` being a property
+        # rather than a method (calling a bool raises TypeError) showed up as
+        # "there is no memory service" on a server that had one running.
+        try:
+            facts = service.fact_count()
+        except Exception:
+            # A stats call must not 500 because the fact store is briefly
+            # locked by the extractor thread mid-write.
+            logger.debug("memory fact_count failed", exc_info=True)
+        try:
+            running = service.is_running
+            service_running = bool(running() if callable(running) else running)
+        except Exception:
+            logger.debug("memory is_running failed", exc_info=True)
+
     backend = _get_memory_backend(request)
     if backend is None:
-        return {"entries": 0, "backend": "none", "status": "not_configured"}
+        return {
+            "entries": 0,
+            "backend": "none",
+            "status": "not_configured",
+            "enabled": enabled,
+            "context_from_memory": context_from_memory,
+            "facts": facts,
+            "service_running": service_running,
+        }
     try:
         return {
             "entries": backend.count(),
             "backend": getattr(backend, "backend_id", "unknown"),
+            "enabled": enabled,
+            "context_from_memory": context_from_memory,
+            "facts": facts,
+            "service_running": service_running,
         }
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
@@ -315,9 +429,97 @@ async def memory_config(request: Request):
             "context_min_score": config.memory.context_min_score,
             "context_max_tokens": config.memory.context_max_tokens,
             "context_from_memory": config.agent.context_from_memory,
+            "enabled": bool(getattr(config.memory, "enabled", False)),
+            "default_backend": config.memory.default_backend,
+            "backends": _available_backends(),
         }
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
+
+
+@memory_router.put("/config")
+async def memory_config_update(req: MemoryConfigRequest, request: Request):
+    """Persist memory settings to ``config.toml`` and apply them live.
+
+    The Settings panel used to keep all of this in ``localStorage``, where the
+    server never saw it: the controls moved, nothing changed, and clearing site
+    data erased the "settings". Writing the config file is what makes a choice
+    outlive the tab, the app restart and the machine reboot.
+    """
+    from nira.core.config_writer import update_config_section
+
+    config = _memory_settings(request)
+
+    # [memory] in the file maps onto tools.storage in the dataclass; the two
+    # boolean-ish keys below live in different tables, so split them out.
+    memory_keys = {
+        "enabled": req.enabled,
+        "context_top_k": req.context_top_k,
+        "context_min_score": req.context_min_score,
+        "context_max_tokens": req.context_max_tokens,
+        "default_backend": req.default_backend,
+    }
+    memory_values = {k: v for k, v in memory_keys.items() if v is not None}
+
+    if req.context_top_k is not None and req.context_top_k < 0:
+        raise HTTPException(status_code=422, detail="context_top_k must be >= 0")
+    if req.context_max_tokens is not None and req.context_max_tokens < 0:
+        raise HTTPException(status_code=422, detail="context_max_tokens must be >= 0")
+    if req.context_min_score is not None and not (0.0 <= req.context_min_score <= 1.0):
+        raise HTTPException(
+            status_code=422, detail="context_min_score must be between 0 and 1"
+        )
+    if req.default_backend is not None:
+        known = {b["id"]: b for b in _available_backends()}
+        chosen = known.get(req.default_backend)
+        if chosen is None:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    f"Unknown memory backend '{req.default_backend}'. "
+                    f"Available: {', '.join(sorted(known))}"
+                ),
+            )
+        if not chosen["available"]:
+            # Better a refusal the user can read than a config that saves
+            # cleanly and leaves memory dead on the next start.
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    f"The '{req.default_backend}' backend needs "
+                    f"{', '.join(chosen['missing'])}, which is not installed."
+                ),
+            )
+
+    try:
+        if memory_values:
+            update_config_section("memory", memory_values)
+        if req.context_from_memory is not None:
+            update_config_section(
+                "agent", {"context_from_memory": req.context_from_memory}
+            )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500, detail=f"Could not write config: {exc}"
+        ) from exc
+
+    # Apply to the running server too, so the change takes effect without a
+    # restart. Persisting and applying are separate steps precisely because a
+    # setting that only lives in memory is the bug this endpoint exists to fix.
+    for key, value in memory_values.items():
+        setattr(config.memory, key, value)
+    if req.context_from_memory is not None:
+        config.agent.context_from_memory = req.context_from_memory
+
+    return {
+        "status": "saved",
+        "enabled": bool(getattr(config.memory, "enabled", False)),
+        "context_from_memory": bool(config.agent.context_from_memory),
+        "context_top_k": config.memory.context_top_k,
+        "context_min_score": config.memory.context_min_score,
+        "context_max_tokens": config.memory.context_max_tokens,
+        "default_backend": config.memory.default_backend,
+    }
 
 
 @memory_router.post("/index")

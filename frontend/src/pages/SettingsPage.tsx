@@ -23,6 +23,8 @@ import {
   checkHealth,
   fetchSpeechHealth,
   getMemoryStats,
+  getMemoryConfig,
+  updateMemoryConfig,
   getInferenceSource,
   setInferenceSource,
   getCloudKeyStatus,
@@ -32,6 +34,9 @@ import {
   deleteToolCredential,
   isTauri,
   type InferenceSource,
+  type MemoryStats,
+  type MemoryConfigUpdate,
+  type MemoryBackendInfo,
 } from '../lib/api';
 import { isAutoUpdateDisabled, setAutoUpdateDisabled } from '../components/Desktop/UpdateChecker';
 
@@ -263,22 +268,40 @@ export function SettingsPage() {
     }
   }, []);
 
-  const [memoryStats, setMemoryStats] = useState<{ entries: number; backend: string } | null>(null);
-  const [memoryEnabled, setMemoryEnabled] = useState(() => {
-    try { return localStorage.getItem('nira-memory-enabled') !== 'false'; } catch { return true; }
-  });
-  const [memoryBackend, setMemoryBackend] = useState(() => {
-    try { return localStorage.getItem('nira-memory-backend') || 'sqlite'; } catch { return 'sqlite'; }
-  });
-  const [memoryTopK, setMemoryTopK] = useState(() => {
-    try { return parseInt(localStorage.getItem('nira-memory-top-k') || '5'); } catch { return 5; }
-  });
-  const [memoryMinScore, setMemoryMinScore] = useState(() => {
-    try { return parseFloat(localStorage.getItem('nira-memory-min-score') || '0.1'); } catch { return 0.1; }
-  });
-  const [memoryMaxTokens, setMemoryMaxTokens] = useState(() => {
-    try { return parseInt(localStorage.getItem('nira-memory-max-tokens') || '2048'); } catch { return 2048; }
-  });
+  // Memory settings come from the server, not localStorage. They used to be
+  // stored client-side only: the toggle defaulted to ON while the server had
+  // `[memory] enabled = false`, so the panel described a state nobody was in
+  // and moving any control changed nothing. Start from `null` — "not known
+  // yet" — rather than a guess, and render the real values once they land.
+  const [memoryStats, setMemoryStats] = useState<MemoryStats | null>(null);
+  const [memoryEnabled, setMemoryEnabled] = useState<boolean | null>(null);
+  const [memoryBackend, setMemoryBackend] = useState('sqlite');
+  const [memoryTopK, setMemoryTopK] = useState(5);
+  const [memoryMinScore, setMemoryMinScore] = useState(0.1);
+  const [memoryMaxTokens, setMemoryMaxTokens] = useState(2048);
+  const [memoryError, setMemoryError] = useState<string | null>(null);
+  const [memoryBackends, setMemoryBackends] = useState<MemoryBackendInfo[]>([
+    { id: 'sqlite', available: true, missing: [] },
+  ]);
+
+  // Save through the server, and only move the control once it confirms. A
+  // toggle that flips on click and silently fails is exactly the lie this
+  // section is being rewritten to stop telling.
+  const saveMemory = useCallback(async (update: MemoryConfigUpdate) => {
+    setMemoryError(null);
+    try {
+      const saved = await updateMemoryConfig(update);
+      if (typeof saved.enabled === 'boolean') setMemoryEnabled(saved.enabled);
+      if (typeof saved.context_top_k === 'number') setMemoryTopK(saved.context_top_k);
+      if (typeof saved.context_min_score === 'number') setMemoryMinScore(saved.context_min_score);
+      if (typeof saved.context_max_tokens === 'number') setMemoryMaxTokens(saved.context_max_tokens);
+      getMemoryStats().then(setMemoryStats).catch(() => {});
+      return true;
+    } catch (e: any) {
+      setMemoryError(e?.message ?? 'Could not save memory settings');
+      return false;
+    }
+  }, []);
 
   const [srcKind, setSrcKind] = useState<InferenceSource['kind']>('ollama');
   const [customHost, setCustomHost] = useState('http://localhost:1234/v1');
@@ -317,6 +340,16 @@ export function SettingsPage() {
     getMemoryStats()
       .then(setMemoryStats)
       .catch(() => setMemoryStats(null));
+    getMemoryConfig()
+      .then((cfg) => {
+        setMemoryEnabled(cfg.enabled ?? false);
+        setMemoryBackend(cfg.default_backend || cfg.backend_type || 'sqlite');
+        if (cfg.backends?.length) setMemoryBackends(cfg.backends);
+        setMemoryTopK(cfg.context_top_k);
+        setMemoryMinScore(cfg.context_min_score);
+        setMemoryMaxTokens(cfg.context_max_tokens);
+      })
+      .catch(() => setMemoryError('Could not read memory settings from the server'));
   }, []);
 
   const showSaved = () => {
@@ -575,23 +608,49 @@ export function SettingsPage() {
 
           {/* Memory */}
           <Section title="Memory">
-            <SettingRow label="Memory status" description={memoryStats ? `${memoryStats.backend} backend — ${memoryStats.entries} entries` : 'Unable to reach memory service'}>
+            <SettingRow
+              label="Memory status"
+              description={
+                memoryStats
+                  ? `${memoryStats.backend} backend — ${memoryStats.entries} indexed document${memoryStats.entries === 1 ? '' : 's'}`
+                  : 'Unable to reach memory service'
+              }
+            >
               <div className="flex items-center gap-2">
-                <Brain size={14} style={{ color: memoryStats ? 'var(--color-accent)' : 'var(--color-text-tertiary)' }} />
+                <Brain size={14} style={{ color: memoryStats?.service_running ? 'var(--color-accent)' : 'var(--color-text-tertiary)' }} />
                 <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-                  {memoryStats ? `${memoryStats.entries} entries` : 'Unavailable'}
+                  {memoryStats == null
+                    ? 'Unavailable'
+                    : typeof memoryStats.facts === 'number'
+                      ? `${memoryStats.facts} fact${memoryStats.facts === 1 ? '' : 's'} learned`
+                      : memoryStats.enabled
+                        ? 'Starting…'
+                        : 'Not recording'}
                 </span>
               </div>
             </SettingRow>
-            <SettingRow label="Use memory context" description="Automatically inject relevant memories into conversations">
+            {memoryError && (
+              <div
+                className="text-xs px-3 py-2 rounded-lg mb-2"
+                style={{ color: 'var(--color-error)', border: '1px solid var(--color-error)' }}
+              >
+                {memoryError}
+              </div>
+            )}
+            <SettingRow
+              label="Remember across sessions"
+              description={
+                memoryEnabled === null
+                  ? 'Reading current setting from the server…'
+                  : memoryEnabled
+                    ? 'Facts from your conversations are stored and recalled after a restart'
+                    : 'Off — nothing is carried between sessions'
+              }
+            >
               <button
-                onClick={() => {
-                  const next = !memoryEnabled;
-                  setMemoryEnabled(next);
-                  try { localStorage.setItem('nira-memory-enabled', String(next)); } catch {}
-                  showSaved();
-                }}
-                className="relative w-11 h-6 rounded-full transition-colors cursor-pointer"
+                onClick={() => { void saveMemory({ enabled: !memoryEnabled }); }}
+                disabled={memoryEnabled === null}
+                className="relative w-11 h-6 rounded-full transition-colors cursor-pointer disabled:opacity-50"
                 style={{
                   background: memoryEnabled ? 'var(--color-accent)' : 'var(--color-bg-tertiary)',
                 }}
@@ -605,13 +664,18 @@ export function SettingsPage() {
                 />
               </button>
             </SettingRow>
-            <SettingRow label="Memory backend" description="Which retrieval engine to use">
+            <SettingRow label="Memory backend" description="Which retrieval engine to use — applies on next start">
               <select
                 value={memoryBackend}
                 onChange={(e) => {
-                  setMemoryBackend(e.target.value);
-                  try { localStorage.setItem('nira-memory-backend', e.target.value); } catch {}
-                  showSaved();
+                  const previous = memoryBackend;
+                  const next = e.target.value;
+                  setMemoryBackend(next);
+                  // Put the select back if the server refuses — e.g. the
+                  // backend's dependency is not installed on this machine.
+                  void saveMemory({ default_backend: next }).then((ok) => {
+                    if (!ok) setMemoryBackend(previous);
+                  });
                 }}
                 className="text-sm px-3 py-1.5 rounded-lg cursor-pointer"
                 style={{
@@ -620,11 +684,12 @@ export function SettingsPage() {
                   border: '1px solid var(--color-border)',
                 }}
               >
-                <option value="sqlite">sqlite</option>
-                <option value="faiss">faiss</option>
-                <option value="bm25">bm25</option>
-                <option value="colbert">colbert</option>
-                <option value="hybrid">hybrid</option>
+                {memoryBackends.map((b) => (
+                  <option key={b.id} value={b.id} disabled={!b.available}>
+                    {b.id}
+                    {b.available ? '' : ` — needs ${b.missing.join(', ')}`}
+                  </option>
+                ))}
               </select>
             </SettingRow>
             <SettingRow label="Results to inject" description={`${memoryTopK}`}>
@@ -634,12 +699,9 @@ export function SettingsPage() {
                 max="20"
                 step="1"
                 value={memoryTopK}
-                onChange={(e) => {
-                  const v = parseInt(e.target.value);
-                  setMemoryTopK(v);
-                  try { localStorage.setItem('nira-memory-top-k', String(v)); } catch {}
-                  showSaved();
-                }}
+                onChange={(e) => setMemoryTopK(parseInt(e.target.value))}
+                onPointerUp={(e) => { void saveMemory({ context_top_k: parseInt((e.target as HTMLInputElement).value) }); }}
+                onKeyUp={(e) => { void saveMemory({ context_top_k: parseInt((e.target as HTMLInputElement).value) }); }}
                 className="w-32 cursor-pointer accent-[var(--color-accent)]"
               />
             </SettingRow>
@@ -650,12 +712,9 @@ export function SettingsPage() {
                 max="1"
                 step="0.05"
                 value={memoryMinScore}
-                onChange={(e) => {
-                  const v = parseFloat(e.target.value);
-                  setMemoryMinScore(v);
-                  try { localStorage.setItem('nira-memory-min-score', String(v)); } catch {}
-                  showSaved();
-                }}
+                onChange={(e) => setMemoryMinScore(parseFloat(e.target.value))}
+                onPointerUp={(e) => { void saveMemory({ context_min_score: parseFloat((e.target as HTMLInputElement).value) }); }}
+                onKeyUp={(e) => { void saveMemory({ context_min_score: parseFloat((e.target as HTMLInputElement).value) }); }}
                 className="w-32 cursor-pointer accent-[var(--color-accent)]"
               />
             </SettingRow>
@@ -666,12 +725,9 @@ export function SettingsPage() {
                 max="8192"
                 step="256"
                 value={memoryMaxTokens}
-                onChange={(e) => {
-                  const v = parseInt(e.target.value);
-                  setMemoryMaxTokens(v);
-                  try { localStorage.setItem('nira-memory-max-tokens', String(v)); } catch {}
-                  showSaved();
-                }}
+                onChange={(e) => setMemoryMaxTokens(parseInt(e.target.value))}
+                onPointerUp={(e) => { void saveMemory({ context_max_tokens: parseInt((e.target as HTMLInputElement).value) }); }}
+                onKeyUp={(e) => { void saveMemory({ context_max_tokens: parseInt((e.target as HTMLInputElement).value) }); }}
                 className="w-32 cursor-pointer accent-[var(--color-accent)]"
               />
             </SettingRow>

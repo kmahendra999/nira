@@ -1021,19 +1021,54 @@ export interface MemorySearchResult {
 export interface MemoryStats {
   entries: number;
   backend: string;
+  // Whether the server is actually recording memories. The Settings toggle
+  // used to assume `true` from localStorage and could therefore claim memory
+  // was on while `[memory] enabled` in config.toml was false.
+  enabled?: boolean;
+  context_from_memory?: boolean;
+  // What the background memory service has learned from conversations, as
+  // opposed to `entries`, which counts indexed documents. The panel showed
+  // only the latter, so a server that was remembering read as "0 entries".
+  facts?: number | null;
+  service_running?: boolean | null;
   [key: string]: unknown;
 }
 
+// One retrieval backend and whether this install can actually start it. The
+// dropdown used to offer every backend unconditionally, so picking one whose
+// dependency was absent left memory dead with nothing on screen to say why.
+export interface MemoryBackendInfo {
+  id: string;
+  available: boolean;
+  missing: string[];
+}
+
 export interface MemoryConfig {
-  backend: string;
+  // The server has always sent this as `backend_type`; the field was declared
+  // here as `backend`, so every read of it was undefined.
+  backend_type: string;
+  default_backend?: string;
+  backends?: MemoryBackendInfo[];
   // Set by the server when the native `nira_rust` extension is missing,
   // so the UI can show the real cause instead of a healthy-looking config.
   available?: boolean;
   detail?: string | null;
+  enabled?: boolean;
   context_from_memory: boolean;
   context_top_k: number;
   context_min_score: number;
   context_max_tokens: number;
+}
+
+// The subset of memory settings the UI may change. Every field is optional:
+// send only what the user touched and the server leaves the rest alone.
+export interface MemoryConfigUpdate {
+  enabled?: boolean;
+  context_from_memory?: boolean;
+  context_top_k?: number;
+  context_min_score?: number;
+  context_max_tokens?: number;
+  default_backend?: string;
 }
 
 /**
@@ -1090,6 +1125,28 @@ export async function indexMemoryPath(path: string): Promise<{ chunks_indexed: n
 export async function getMemoryConfig(): Promise<MemoryConfig> {
   const res = await apiFetch(`/v1/memory/config`);
   if (!res.ok) throw new Error('Failed to fetch memory config');
+  return res.json();
+}
+
+/**
+ * Persist memory settings to the server's config.toml.
+ *
+ * These settings used to live only in localStorage, where the server never
+ * saw them: the sliders moved, nothing changed, and clearing site data wiped
+ * the "settings". Going through the server is what makes a choice outlive the
+ * tab and the machine restart.
+ */
+export async function updateMemoryConfig(
+  update: MemoryConfigUpdate,
+): Promise<MemoryConfig & { status: string }> {
+  const res = await apiFetch(`/v1/memory/config`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(update),
+  });
+  if (!res.ok) {
+    throw new Error(await memoryErrorDetail(res, 'Failed to save memory settings'));
+  }
   return res.json();
 }
 
