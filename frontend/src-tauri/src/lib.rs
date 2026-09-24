@@ -750,20 +750,67 @@ async fn ollama_model_names() -> Vec<String> {
     Vec::new()
 }
 
+/// Pull a model, however long it takes.
+///
+/// Two things here were wrong and together made a large model impossible to
+/// download at all.
+///
+/// `.timeout(600)` is a cap on the *whole request*, not on inactivity. Ollama
+/// holds the connection open for the entire transfer, so any model that takes
+/// longer than ten minutes to fetch was guaranteed to fail — and the bigger
+/// the model, the more certain. An 81 GB pull needs roughly two hours on a
+/// fast line. It is a read timeout that is wanted: give up on a socket that
+/// has gone quiet, never on one that is simply still working.
+///
+/// `stream: false` made that worse. With streaming off there is nothing on
+/// the wire between "started" and "finished", so there is no progress to show
+/// and nothing to distinguish a slow download from a hung one. Streaming also
+/// means the read timeout below measures something real.
+///
+/// The bytes themselves were never the problem: Ollama writes each chunk to a
+/// `<blob>-partial-N` sidecar carrying its own offset and completed count, so
+/// an interrupted pull resumes from where it stopped when it is re-issued.
+/// What was missing was ever letting it run to completion, and re-issuing it.
 async fn pull_model(model: &str) -> Result<(), String> {
     let url = format!("http://127.0.0.1:{}/api/pull", OLLAMA_PORT);
     let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(600))
+        // No total timeout. A stalled socket is caught by read_timeout; a
+        // long download is not a fault.
+        .connect_timeout(Duration::from_secs(30))
+        .read_timeout(Duration::from_secs(120))
         .build()
         .map_err(|e| e.to_string())?;
-    let resp = client
+    let mut resp = client
         .post(&url)
-        .json(&serde_json::json!({"name": model, "stream": false}))
+        .json(&serde_json::json!({"name": model, "stream": true}))
         .send()
         .await
         .map_err(|e| format!("Pull request failed: {}", e))?;
     if !resp.status().is_success() {
         return Err(format!("Pull returned status {}", resp.status()));
+    }
+
+    // Drain the stream. Ollama reports an error mid-stream rather than in the
+    // status line, so a 200 alone does not mean the model arrived.
+    let mut last_error: Option<String> = None;
+    while let Some(chunk) = resp
+        .chunk()
+        .await
+        .map_err(|e| format!("Pull stream failed: {}", e))?
+    {
+        for line in chunk.split(|b| *b == b'\n') {
+            if line.is_empty() {
+                continue;
+            }
+            if let Ok(value) = serde_json::from_slice::<serde_json::Value>(line) {
+                if let Some(err) = value.get("error").and_then(|e| e.as_str()) {
+                    last_error = Some(err.to_string());
+                }
+            }
+        }
+    }
+    if let Some(err) = last_error {
+        return Err(err);
     }
     Ok(())
 }

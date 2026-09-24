@@ -431,6 +431,40 @@ def _remember_exchange(
     )
 
 
+def _ollama_engine(engine: Any) -> Any | None:
+    """The OllamaEngine behind whatever wrappers are in front of it.
+
+    `engine_id == "ollama"` is only true of the bare engine. In a normal run
+    it is wrapped — InstrumentedEngine for telemetry, GuardrailsEngine for
+    safety, and MultiEngine as soon as a second backend is discovered, at
+    which point `engine_name` becomes "multi" too. So a guard asking whether
+    the engine *is* Ollama answers no on exactly the installs that have
+    Ollama working, and model pulling 501'd for them.
+
+    Returns None when there is genuinely no Ollama behind the wrappers.
+    """
+    from nira.engine.multi import MultiEngine
+    from nira.security.guardrails import GuardrailsEngine
+    from nira.telemetry.instrumented_engine import InstrumentedEngine
+
+    current = engine
+    while current is not None:
+        if isinstance(current, MultiEngine):
+            for _key, inner in getattr(current, "_engines", []):
+                found = _ollama_engine(inner)
+                if found is not None:
+                    return found
+            return None
+        if isinstance(current, InstrumentedEngine):
+            current = current._inner
+            continue
+        if isinstance(current, GuardrailsEngine):
+            current = current._engine
+            continue
+        return current if getattr(current, "engine_id", "") == "ollama" else None
+    return None
+
+
 def _engine_key_for_model(engine: Any, model: str) -> str | None:
     """Resolve the engine that advertised *model* through wrapper layers."""
     from nira.engine.multi import MultiEngine
@@ -1158,10 +1192,12 @@ async def pull_model(request: Request):
     if not model_name:
         raise HTTPException(status_code=400, detail="'model' field is required")
 
-    engine = request.app.state.engine
-    engine_name = getattr(request.app.state, "engine_name", "")
-    # Only Ollama supports pulling
-    if engine_name != "ollama" and getattr(engine, "engine_id", "") != "ollama":
+    # Resolve Ollama through the wrappers rather than asking whether the
+    # top-level engine is it. With a second backend discovered the engine is a
+    # MultiEngine and `engine_name` is "multi", so the old check refused to
+    # pull on precisely the machines where Ollama was present and working.
+    ollama = _ollama_engine(request.app.state.engine)
+    if ollama is None:
         raise HTTPException(
             status_code=501,
             detail="Model pulling is only supported with the Ollama engine",
@@ -1169,7 +1205,7 @@ async def pull_model(request: Request):
 
     import httpx as _httpx
 
-    host = getattr(engine, "_host", "http://localhost:11434")
+    host = getattr(ollama, "_host", "http://localhost:11434")
     try:
         async with _httpx.AsyncClient(base_url=host, timeout=600.0) as client:
             resp = await client.post(

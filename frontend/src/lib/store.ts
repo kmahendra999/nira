@@ -282,8 +282,15 @@ export const useAppStore = create<AppState>((set, get) => {
 
     models: [],
     modelsLoading: true,
-    selectedModel: '',
-    modelWasAutoPicked: true,
+    // Seeded from the persisted setting, not empty.
+    //
+    // `settings.defaultModel` has been a saved field the whole time and
+    // nothing ever wrote to it, so this started blank on every launch and the
+    // selection fell through to "whatever the server or Ollama listed first".
+    // That is the model apparently vanishing between sessions: it was never
+    // stored, so there was nothing to come back to.
+    selectedModel: loadSettings().defaultModel || '',
+    modelWasAutoPicked: !loadSettings().defaultModel,
     serverInfo: null,
     savings: null,
 
@@ -539,7 +546,18 @@ export const useAppStore = create<AppState>((set, get) => {
     setModelsLoading: (loading: boolean) => set({ modelsLoading: loading }),
     // An explicit choice is never overridden by a later server response.
     setSelectedModel: (model: string) =>
-      set({ selectedModel: model, modelWasAutoPicked: false }),
+      set((state) => {
+        // Persist it. Choosing a model is a preference, not view state, and
+        // the reader expects the next launch to open on what they picked.
+        const settings = { ...state.settings, defaultModel: model };
+        try {
+          saveSettings(settings);
+        } catch {
+          // Storage full or read-only: keep the choice for this session
+          // rather than refusing to switch models over it.
+        }
+        return { selectedModel: model, settings, modelWasAutoPicked: false };
+      }),
     setServerInfo: (info: ServerInfo | null) =>
       set((state) => {
         // /v1/info and /v1/models race. If the list landed first we picked a
