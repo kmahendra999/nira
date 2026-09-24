@@ -1812,8 +1812,9 @@ timestamps when it does.
 
 ### Still open in Phase 22
 
-- **`CODE_OF_CONDUCT.md` points harassment reports at Discussions**, which 404s until the setting is
-  enabled. Deliberately not repointed at Issues: the line below it promises reporter privacy.
+- **`CODE_OF_CONDUCT.md` routes harassment reports to Discussions**, which is enabled now, so the
+  link resolves. Worth revisiting: Discussions are public, and the line below that link promises
+  reporter privacy. A private channel would honour it better.
 - **The apk is still copied by hand for the self-hosted container.** CI builds it on a tag, and
   bytes nginx serves — but nothing rebuilds it when the image is built.
 - **The blob is still in history.** Removing `desktop/` from the tree does not shrink a clone.
