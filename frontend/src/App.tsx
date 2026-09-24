@@ -13,13 +13,38 @@ import { CommandPalette } from './components/CommandPalette';
 import { SetupScreen } from './components/SetupScreen';
 import { Toaster } from './components/ui/sonner';
 import { useAppStore } from './lib/store';
-import { fetchModels, fetchServerInfo, fetchSavings, submitSavings, isTauri } from './lib/api';
+import { fetchModels, fetchServerInfo, fetchSavings, submitSavings, isTauri, onAuthFailure } from './lib/api';
+import { toast } from 'sonner';
 import { OptInModal } from './components/OptInModal';
 import { UpdateChecker } from './components/Desktop/UpdateChecker';
 import { track, hashId } from './lib/analytics';
 import { useDeepLink } from './lib/useDeepLink';
 
 export default function App() {
+  // A 401 used to surface as whatever each caller rendered on failure — most
+  // visibly "No models available", which reads as a broken install rather
+  // than a server asking for a key. One message for the whole app, with the
+  // one action that fixes it.
+  useEffect(
+    () =>
+      onAuthFailure(({ message }) => {
+        toast.error('Not authorized', {
+          description: message,
+          id: 'nira-auth-failure',
+          duration: 10000,
+          action: {
+            label: 'Open Settings',
+            onClick: () => {
+              window.location.hash = '';
+              window.history.pushState({}, '', '/settings');
+              window.dispatchEvent(new PopStateEvent('popstate'));
+            },
+          },
+        });
+      }),
+    [],
+  );
+
   const [setupDone, setSetupDone] = useState(!isTauri());
   const handleSetupReady = useCallback(() => {
     setSetupDone(true);

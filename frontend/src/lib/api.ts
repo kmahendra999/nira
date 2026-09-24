@@ -110,15 +110,72 @@ export const authHeaders = (
 // guarantees no /v1 or /api request is sent without auth — the bug in #266 was
 // that direct fetch() calls omitted the header and 401'd. `path` is the
 // server-relative path (e.g. "/v1/savings").
-export const apiFetch = (
+export const apiFetch = async (
   path: string,
   init: RequestInit = {},
 ): Promise<Response> => {
   const headers = authHeaders(
     (init.headers as Record<string, string> | undefined) ?? {},
   );
-  return fetch(`${getBase()}${path}`, { ...init, headers });
+  const res = await fetch(`${getBase()}${path}`, { ...init, headers });
+  if (res.status === 401 || res.status === 403) notifyAuthFailure(res.status);
+  return res;
 };
+
+// ---------------------------------------------------------------------------
+// Auth failures
+// ---------------------------------------------------------------------------
+
+// A 401 reaches each caller as a rejected promise, and each caller renders its
+// own fallback: "No models available", an empty chart, a silent catch. So a
+// server that simply wants an API key looked like a dozen unrelated features
+// being broken, and nothing anywhere said "add your key in Settings".
+//
+// This fires one notification for the whole app, no matter how many requests
+// fail at once — a fresh page load makes about a dozen, and a dozen identical
+// toasts is its own kind of unreadable.
+
+export type AuthFailureListener = (detail: {
+  status: number;
+  hasKey: boolean;
+  message: string;
+}) => void;
+
+const authFailureListeners = new Set<AuthFailureListener>();
+let lastAuthNotice = 0;
+
+// Long enough that one burst of parallel requests produces one message, short
+// enough that a user who fixes the key and retries hears about it again.
+const AUTH_NOTICE_INTERVAL_MS = 10_000;
+
+export function onAuthFailure(listener: AuthFailureListener): () => void {
+  authFailureListeners.add(listener);
+  return () => authFailureListeners.delete(listener);
+}
+
+/** Exported for tests; resets the de-duplication window. */
+export function resetAuthFailureThrottle(): void {
+  lastAuthNotice = 0;
+}
+
+function notifyAuthFailure(status: number): void {
+  const now = Date.now();
+  if (now - lastAuthNotice < AUTH_NOTICE_INTERVAL_MS) return;
+  lastAuthNotice = now;
+
+  const hasKey = !!getApiKey();
+  const message = hasKey
+    ? 'The server rejected this API key. Check it in Settings → API key.'
+    : 'This server needs an API key. Add it in Settings → API key.';
+
+  for (const listener of authFailureListeners) {
+    try {
+      listener({ status, hasKey, message });
+    } catch {
+      // One bad listener must not stop the others, or suppress the response.
+    }
+  }
+}
 
 async function tauriInvoke<T>(command: string, args: Record<string, unknown> = {}): Promise<T> {
   const { invoke } = await import('@tauri-apps/api/core');
