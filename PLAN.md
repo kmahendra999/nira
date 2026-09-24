@@ -1817,6 +1817,12 @@ timestamps when it does.
 - **The apk is still copied by hand for the self-hosted container.** CI builds it on a tag, and
   bytes nginx serves — but nothing rebuilds it when the image is built.
 - **The blob is still in history.** Removing `desktop/` from the tree does not shrink a clone.
+- **PyPI publishing has never worked.** `v0.1.1` built `nira-0.1.1-py3-none-any.whl` and PyPI
+  refused the upload with `invalid-publisher` (422): trusted publishing is not registered on PyPI's
+  side. The name `nira` is free — the JSON API 404s for it — so this is a pending publisher to
+  create at pypi.org/manage/account/publishing, for owner `kmahendra999`, repository `nira`,
+  workflow `pypi-publish.yml`, environment `pypi`. Dev-tag runs passed because they only ever
+  reached the TestPyPI step, which skips itself when `TEST_PYPI_API_TOKEN` is unset.
 - **Nothing is code-signed.** All three platforms build and publish now, and none of them are
   signed: Gatekeeper quarantines the macOS bundle and SmartScreen warns on the Windows one. A
   stable `desktop-v*` release still refuses to publish unsigned, which is the right refusal — so
