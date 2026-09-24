@@ -645,10 +645,7 @@ class TestSecuritySettingsAreHonest:
         from pathlib import Path
 
         doc = (
-            Path(__file__).resolve().parents[2]
-            / "docs"
-            / "user-guide"
-            / "security.md"
+            Path(__file__).resolve().parents[2] / "docs" / "user-guide" / "security.md"
         ).read_text(encoding="utf-8")
 
         for field in self.ALWAYS_ON:

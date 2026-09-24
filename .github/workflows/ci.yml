@@ -27,7 +27,7 @@ jobs:
           enable-cache: true
 
       - name: Install dependencies
-        run: uv sync --extra dev --extra framework-comparison --extra server
+        run: uv sync --extra dev --extra framework-comparison --extra server --extra security-signing
 
       - name: Ruff check
         run: uv run ruff check src/ tests/
@@ -64,7 +64,7 @@ jobs:
           enable-cache: true
 
       - name: Install dependencies
-        run: uv sync --extra dev --extra framework-comparison --extra server
+        run: uv sync --extra dev --extra framework-comparison --extra server --extra security-signing
 
       - name: Build Rust extension
         run: uv run maturin develop --manifest-path rust/crates/nira-python/Cargo.toml
@@ -76,7 +76,7 @@ jobs:
         env:
           COVERAGE_CORE: sysmon
         run: |
-          uv run pytest tests/ -n auto -q --tb=short -m "not live and not cloud and not hub" \
+          uv run pytest tests/ -n auto -q --tb=short -m "not live and not cloud and not hub and not network" \
             --cov=nira \
             --cov-report=term-missing \
             --cov-report=xml \
@@ -123,7 +123,7 @@ jobs:
           enable-cache: true
 
       - name: Install dependencies
-        run: uv sync --extra dev --extra server
+        run: uv sync --extra dev --extra server --extra security-signing
 
       # Pure-Python check — runs before the Rust build so a flaky toolchain
       # install can never mask the actual RAM-detection verification.
