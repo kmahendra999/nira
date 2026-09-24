@@ -1,3 +1,4 @@
+import { ConsolePanel, Decode } from '../ui/Console';
 import { useState, useEffect, useCallback } from 'react';
 import {
   Zap,
@@ -151,18 +152,23 @@ export function SystemPanel() {
           </h4>
 
           {/* Local */}
-          <div
-            className="flex items-center gap-2 rounded-lg px-3 py-2 mb-2"
-            style={{ background: 'var(--color-accent-subtle)', border: '1px solid var(--color-accent)' }}
+          <ConsolePanel
+            className="flex items-center gap-2 px-3 py-2 mb-2"
+            style={{ background: 'var(--color-accent)' }}
           >
             <HardDrive size={14} style={{ color: 'var(--color-accent)' }} />
             <div className="flex-1 min-w-0">
-              <div className="text-xs font-medium truncate" style={{ color: 'var(--color-text)' }}>Local</div>
+              <div className="text-xs font-medium truncate" style={{ color: 'var(--color-text)' }}>
+                Local
+              </div>
             </div>
-            <div className="text-sm font-semibold" style={{ color: 'var(--color-success)' }}>
-              ${(savings?.local_cost ?? 0).toFixed(4)}
+            <div
+              className="readout text-sm font-semibold"
+              style={{ color: 'var(--color-success)' }}
+            >
+              $<Decode value={(savings?.local_cost ?? 0).toFixed(4)} />
             </div>
-          </div>
+          </ConsolePanel>
 
           {/* Cloud providers */}
           <div className="flex flex-col gap-1.5">
@@ -170,13 +176,15 @@ export function SystemPanel() {
               const cost = (promptK * provider.input) / 1000 + (completionK * provider.output) / 1000;
               const saved = cost - (savings?.local_cost ?? 0);
               return (
-                <div
+                <ConsolePanel
                   key={provider.name}
-                  className="flex items-center gap-2 rounded-lg px-3 py-2"
-                  style={{
-                    background: provider.primary ? 'var(--color-bg-secondary)' : 'var(--color-bg-secondary)',
-                    border: provider.primary ? '1px solid var(--color-border-accent, var(--color-accent))' : '1px solid transparent',
-                  }}
+                  className="flex items-center gap-2 px-3 py-2"
+                  brackets={provider.primary}
+                  style={
+                    provider.primary
+                      ? { background: 'var(--color-accent)' }
+                      : undefined
+                  }
                 >
                   <Cloud size={14} style={{ color: 'var(--color-text-tertiary)' }} />
                   <div className="flex-1 min-w-0">
@@ -201,7 +209,7 @@ export function SystemPanel() {
                       </div>
                     )}
                   </div>
-                </div>
+                </ConsolePanel>
               );
             })}
           </div>
@@ -284,10 +292,11 @@ function MiniStat({
   unit?: string;
 }) {
   return (
-    // A gauge, not a box: glass housing with bezel ticks, and the figure in
-    // tabular mono so a value that changes every second does not shuffle the
-    // one beside it.
-    <div className="hud-panel hud-panel--ticked px-2.5 py-2">
+    // A gauge in a console bezel: chamfered housing, framing brackets that
+    // lock on when the pointer arrives, and the figure resolving rather than
+    // appearing. Tabular mono so a value that changes every second does not
+    // shuffle the one beside it.
+    <ConsolePanel className="px-2.5 py-2">
       <div className="flex items-center gap-1 mb-0.5">
         <Icon size={10} style={{ color: 'var(--color-accent)' }} />
         <span
@@ -298,14 +307,14 @@ function MiniStat({
         </span>
       </div>
       <div className="readout text-sm font-semibold" style={{ color: 'var(--color-text)' }}>
-        {value}
+        <Decode value={value} />
         {unit && (
           <span className="text-[10px] font-normal ml-0.5" style={{ color: 'var(--color-text-tertiary)' }}>
             {unit}
           </span>
         )}
       </div>
-    </div>
+    </ConsolePanel>
   );
 }
 

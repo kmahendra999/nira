@@ -683,6 +683,163 @@
       0 1px 0 var(--glass-highlight);
   }
 
+  /* ------------------------------------------------------------------
+   * Console
+   *
+   * The departure from the card look. A card is rounded, evenly bordered and
+   * sits still; a console bezel is cut at the corners, framed by brackets
+   * rather than an outline, and acknowledges being touched.
+   *
+   * The chamfer is the whole move. One CSS property changes the character of
+   * every surface from "app" to "instrument housing", and it is why this is
+   * clip-path rather than border-radius — you cannot cut a corner off with a
+   * radius.
+   *
+   * Because clip-path removes the border along with the corners, the edge is
+   * drawn by stacking two clipped layers: the outer one is the border colour,
+   * the inner is inset by 1px and carries the glass. That inset is the
+   * border.
+   * ------------------------------------------------------------------ */
+  .console-panel {
+    --chamfer: 14px;
+    position: relative;
+    isolation: isolate;
+    background: var(--glass-border);
+    clip-path: polygon(
+      var(--chamfer) 0,
+      100% 0,
+      100% calc(100% - var(--chamfer)),
+      calc(100% - var(--chamfer)) 100%,
+      0 100%,
+      0 var(--chamfer)
+    );
+    transition: background-color 200ms ease, transform 200ms ease;
+  }
+
+  .console-panel::before {
+    content: '';
+    position: absolute;
+    inset: 1px;
+    z-index: -1;
+    background: var(--glass-bg);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    clip-path: polygon(
+      calc(var(--chamfer) - 1px) 0,
+      100% 0,
+      100% calc(100% - var(--chamfer) + 1px),
+      calc(100% - var(--chamfer) + 1px) 100%,
+      0 100%,
+      0 calc(var(--chamfer) - 1px)
+    );
+  }
+
+  .console-panel:hover {
+    background: color-mix(in srgb, var(--color-accent) 45%, var(--glass-border));
+  }
+
+  /* The sweep. A beam crosses the panel once when the pointer arrives — the
+   * screen acknowledging attention, the way a scope retraces. Once, not on a
+   * loop: a permanent animation is a distraction, a single pass is a
+   * response. */
+  .console-panel::after {
+    content: '';
+    position: absolute;
+    inset: 1px;
+    z-index: -1;
+    pointer-events: none;
+    opacity: 0;
+    background: linear-gradient(
+      100deg,
+      transparent 40%,
+      color-mix(in srgb, var(--color-accent) 22%, transparent) 50%,
+      transparent 60%
+    );
+    background-size: 300% 100%;
+  }
+
+  .console-panel:hover::after {
+    animation: console-sweep 620ms ease-out 1;
+  }
+
+  @keyframes console-sweep {
+    0%   { opacity: 0;    background-position: 120% 0; }
+    18%  { opacity: 1; }
+    100% { opacity: 0;    background-position: -60% 0; }
+  }
+
+  /* Framing brackets. Four corner marks that extend outward on hover, the
+   * way a targeting reticle locks on. Two elements, each drawing two
+   * corners, so a panel costs no extra DOM for them. */
+  .console-brackets > .bracket {
+    position: absolute;
+    width: 11px;
+    height: 11px;
+    border: 1px solid var(--tick);
+    opacity: 0.75;
+    pointer-events: none;
+    transition: inset 180ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 180ms ease;
+  }
+
+  .console-brackets > .bracket-tl { top: 5px; left: 5px; border-right: 0; border-bottom: 0; }
+  .console-brackets > .bracket-tr { top: 5px; right: 5px; border-left: 0; border-bottom: 0; }
+  .console-brackets > .bracket-bl { bottom: 5px; left: 5px; border-right: 0; border-top: 0; }
+  .console-brackets > .bracket-br { bottom: 5px; right: 5px; border-left: 0; border-top: 0; }
+
+  .console-panel:hover .bracket-tl { top: 2px; left: 2px; }
+  .console-panel:hover .bracket-tr { top: 2px; right: 2px; }
+  .console-panel:hover .bracket-bl { bottom: 2px; left: 2px; }
+  .console-panel:hover .bracket-br { bottom: 2px; right: 2px; }
+  .console-panel:hover > .console-brackets > .bracket { opacity: 1; }
+
+  /* A value resolving. Used while a readout is still settling: the glyphs
+   * flicker between candidates before locking, which is what a decoder
+   * looks like and what makes an arriving number feel measured rather than
+   * simply rendered. */
+  .decoding {
+    color: var(--color-accent);
+    animation: decode-flicker 90ms steps(2, end) infinite;
+  }
+
+  @keyframes decode-flicker {
+    0%   { opacity: 0.55; }
+    100% { opacity: 1; }
+  }
+
+  /* A live channel. Slow, so it reads as a heartbeat rather than a warning. */
+  .status-pulse {
+    position: relative;
+  }
+
+  .status-pulse::before {
+    content: '';
+    position: absolute;
+    inset: -4px;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: 0.35;
+    animation: status-ping 2.4s cubic-bezier(0, 0, 0.2, 1) infinite;
+  }
+
+  @keyframes status-ping {
+    0%   { transform: scale(0.6); opacity: 0.45; }
+    70%  { transform: scale(1.9); opacity: 0; }
+    100% { transform: scale(1.9); opacity: 0; }
+  }
+
+  /* A rule that draws itself in when its section appears. */
+  .rule-draw {
+    height: 1px;
+    background: linear-gradient(90deg, var(--color-accent), transparent);
+    transform-origin: left center;
+    animation: rule-in 520ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+
+  @keyframes rule-in {
+    from { transform: scaleX(0); opacity: 0; }
+    to   { transform: scaleX(1); opacity: 0.55; }
+  }
+
   /* A measured value. Tabular figures so a changing number does not shuffle
    * the ones beside it, and slightly tracked out, the way a readout is. */
   .readout {
@@ -863,8 +1020,18 @@
     .hud-heartbeat,
     .hud-caret,
     .hud-panel > h3::after,
-    .hud-panel-head::after {
+    .hud-panel-head::after,
+    .console-panel:hover::after,
+    .decoding,
+    .status-pulse::before,
+    .rule-draw {
       animation: none !important;
+    }
+
+    /* The brackets still move, but instantly — the state change is
+     * meaningful, the travel is what someone asked not to see. */
+    .console-brackets > .bracket {
+      transition: none !important;
     }
   }
 }

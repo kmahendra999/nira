@@ -1,0 +1,192 @@
+/**
+ * The console's voice.
+ *
+ * Synthesised, not sampled. Five oscillators and a filter weigh nothing in
+ * the bundle, tune by editing a number, and — the actual reason — a recorded
+ * blip always sounds like a recording of somebody else's machine. An
+ * instrument that makes its own tones sounds like the instrument.
+ *
+ * Three rules this follows, because UI audio is easy to get wrong:
+ *
+ *   1. Nothing plays until the reader has interacted with the page. Browsers
+ *      enforce this for autoplay anyway; doing it deliberately means the
+ *      AudioContext is only ever created on a real gesture, so a tab that is
+ *      opened and never touched allocates no audio hardware.
+ *   2. Everything is short and quiet. These are acknowledgements, not
+ *      notifications — under 120ms, peaking around -24dBFS.
+ *   3. It can always be turned off, in one click, and that choice persists.
+ *
+ * Sound is on by default because it is the point of the feature, and off is
+ * one obvious control away.
+ */
+
+export type Cue =
+  /** A control was pressed. */
+  | 'tap'
+  /** A value changed / data arrived. */
+  | 'blip'
+  /** A panel opened, a view swept in. */
+  | 'sweep'
+  /** Something completed successfully. */
+  | 'confirm'
+  /** Something needs attention. */
+  | 'alert'
+  /** Pointer crossed an interactive edge. Deliberately almost inaudible. */
+  | 'hover';
+
+const STORAGE_KEY = 'nira-sound';
+
+interface Voice {
+  /** Start frequency in Hz. */
+  from: number;
+  /** End frequency; a glide reads as movement where a flat tone reads as a beep. */
+  to: number;
+  duration: number;
+  type: OscillatorType;
+  /** Peak gain. Everything here is far below 1 on purpose. */
+  gain: number;
+}
+
+const VOICES: Record<Cue, Voice> = {
+  // A short downward tick: the sound of a switch, not a chime.
+  tap: { from: 880, to: 520, duration: 0.05, type: 'triangle', gain: 0.05 },
+  // Upward, so arriving data feels like arriving rather than departing.
+  blip: { from: 1180, to: 1560, duration: 0.045, type: 'sine', gain: 0.035 },
+  // Longer glide for a panel or view transition.
+  sweep: { from: 320, to: 900, duration: 0.14, type: 'sawtooth', gain: 0.03 },
+  // A rising interval — the only one that reads as "good".
+  confirm: { from: 660, to: 990, duration: 0.11, type: 'sine', gain: 0.05 },
+  // Falling and harsher. Not a klaxon; this still has to be usable at 2am.
+  alert: { from: 540, to: 300, duration: 0.16, type: 'square', gain: 0.045 },
+  // At the threshold of noticing. Any louder and moving the mouse is torture.
+  hover: { from: 2100, to: 2100, duration: 0.018, type: 'sine', gain: 0.012 },
+};
+
+function readStored(): boolean {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw === null ? true : raw === 'on';
+  } catch {
+    // Private windows throw on access. Default to on rather than silently
+    // disabling a feature because storage is unavailable.
+    return true;
+  }
+}
+
+class Console {
+  private ctx: AudioContext | null = null;
+  private master: GainNode | null = null;
+  private on = readStored();
+  private unlocked = false;
+  private listeners = new Set<(on: boolean) => void>();
+  /** Coalesces hover cues so sweeping a list is one tick, not forty. */
+  private lastHover = 0;
+
+  get enabled(): boolean {
+    return this.on;
+  }
+
+  setEnabled(next: boolean): void {
+    this.on = next;
+    try {
+      localStorage.setItem(STORAGE_KEY, next ? 'on' : 'off');
+    } catch {
+      /* the setting is still live for this session */
+    }
+    if (!next) this.ctx?.suspend();
+    else void this.ctx?.resume();
+    this.listeners.forEach((fn) => fn(next));
+  }
+
+  subscribe(fn: (on: boolean) => void): () => void {
+    this.listeners.add(fn);
+    return () => this.listeners.delete(fn);
+  }
+
+  /** Call from a real user gesture. Idempotent. */
+  unlock(): void {
+    if (this.unlocked) return;
+    this.unlocked = true;
+    void this.context();
+  }
+
+  private context(): AudioContext | null {
+    if (this.ctx) return this.ctx;
+    const Ctor: typeof AudioContext | undefined =
+      window.AudioContext ??
+      (window as unknown as { webkitAudioContext?: typeof AudioContext })
+        .webkitAudioContext;
+    if (!Ctor) return null;
+    try {
+      this.ctx = new Ctor();
+      this.master = this.ctx.createGain();
+      // A ceiling the individual cues sit under, so no combination of them
+      // can add up to something startling.
+      this.master.gain.value = 0.6;
+      this.master.connect(this.ctx.destination);
+    } catch {
+      return null;
+    }
+    return this.ctx;
+  }
+
+  play(cue: Cue): void {
+    if (!this.on || !this.unlocked) return;
+
+    if (cue === 'hover') {
+      const now = Date.now();
+      if (now - this.lastHover < 90) return;
+      this.lastHover = now;
+    }
+
+    const ctx = this.context();
+    if (!ctx || !this.master) return;
+    if (ctx.state === 'suspended') void ctx.resume();
+
+    const voice = VOICES[cue];
+    const t = ctx.currentTime;
+
+    const osc = ctx.createOscillator();
+    osc.type = voice.type;
+    osc.frequency.setValueAtTime(voice.from, t);
+    if (voice.to !== voice.from) {
+      osc.frequency.exponentialRampToValueAtTime(voice.to, t + voice.duration);
+    }
+
+    // A lowpass takes the edge off the square and sawtooth voices; without it
+    // `alert` is genuinely unpleasant through laptop speakers.
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = 2600;
+
+    const gain = ctx.createGain();
+    // Attack over 8ms rather than instantly: a hard start is a click, and a
+    // click is what a broken audio path sounds like.
+    gain.gain.setValueAtTime(0.0001, t);
+    gain.gain.exponentialRampToValueAtTime(voice.gain, t + 0.008);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + voice.duration);
+
+    osc.connect(filter).connect(gain).connect(this.master);
+    osc.start(t);
+    osc.stop(t + voice.duration + 0.02);
+    // Let the graph be collected rather than leaking a node per cue.
+    osc.onended = () => {
+      osc.disconnect();
+      filter.disconnect();
+      gain.disconnect();
+    };
+  }
+}
+
+export const sound = new Console();
+
+/** Convenience for JSX: `onClick={cue('tap', handler)}`. */
+export function cue<T extends unknown[]>(
+  name: Cue,
+  then?: (...args: T) => void,
+): (...args: T) => void {
+  return (...args: T) => {
+    sound.play(name);
+    then?.(...args);
+  };
+}

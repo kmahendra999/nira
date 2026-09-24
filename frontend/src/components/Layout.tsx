@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Outlet, useNavigate } from 'react-router';
 import { ApprovalBell } from './ApprovalBell';
+import { SoundToggle } from './SoundToggle';
+import { sound } from '../lib/sound';
 import { Sidebar } from './Sidebar/Sidebar';
 import { SystemPulse } from './SystemPulse';
 import { useAppStore } from '../lib/store';
@@ -39,7 +41,12 @@ export function Layout() {
   return (
     <div className="flex flex-col h-full w-full overflow-hidden relative" style={{ paddingTop: '3px' }}>
       <div className="hud-backdrop" aria-hidden="true" />
+      <SoundUnlock />
       <SystemPulse apiReachable={apiReachable} />
+      {/* Fixed beside the bell, which is also fixed top-right. */}
+      <div className="fixed top-2 right-12 z-40">
+        <SoundToggle />
+      </div>
       <ApprovalBell />
 
       {/* Health check banner */}
@@ -88,4 +95,24 @@ export function Layout() {
       </div>
     </div>
   );
+}
+
+/**
+ * Creates the AudioContext on the first gesture and then gets out of the way.
+ *
+ * Browsers refuse to start audio without one, so this is not optional — but
+ * doing it explicitly means a tab that is opened and never touched allocates
+ * no audio hardware at all.
+ */
+function SoundUnlock() {
+  useEffect(() => {
+    const unlock = () => sound.unlock();
+    window.addEventListener('pointerdown', unlock, { once: true });
+    window.addEventListener('keydown', unlock, { once: true });
+    return () => {
+      window.removeEventListener('pointerdown', unlock);
+      window.removeEventListener('keydown', unlock);
+    };
+  }, []);
+  return null;
 }
