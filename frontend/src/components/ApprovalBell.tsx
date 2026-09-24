@@ -23,6 +23,9 @@ function timeAgo(iso: string): string {
 
 export function ApprovalBell() {
   const [approvals, setApprovals] = useState<PendingApproval[]>([]);
+  // Per action, and never sticky across actions: a standing decision is
+  // not something to carry over from the last thing you happened to allow.
+  const [remember, setRemember] = useState<Record<string, boolean>>({});
   const [open, setOpen] = useState(false);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [processing, setProcessing] = useState<Record<string, boolean>>({});
@@ -73,7 +76,7 @@ export function ApprovalBell() {
   const handleApprove = async (id: string) => {
     setProcessing(p => ({ ...p, [id]: true }));
     try {
-      await approveAction(id);
+      await approveAction(id, !!remember[id]);
       setApprovals(prev => prev.filter(a => a.id !== id));
     } finally {
       setProcessing(p => ({ ...p, [id]: false }));
@@ -83,7 +86,7 @@ export function ApprovalBell() {
   const handleDeny = async (id: string) => {
     setProcessing(p => ({ ...p, [id]: true }));
     try {
-      await denyAction(id);
+      await denyAction(id, !!remember[id]);
       setApprovals(prev => prev.filter(a => a.id !== id));
     } finally {
       setProcessing(p => ({ ...p, [id]: false }));
@@ -239,6 +242,30 @@ export function ApprovalBell() {
                       >
                         {JSON.stringify(action.payload, null, 2)}
                       </pre>
+                    )}
+
+                    {/* Remember this answer.
+                        Only offered when the server would honour it: the
+                        `high` tier is never remembered, and rendering the
+                        control anyway would be a choice silently ignored. */}
+                    {action.can_remember && (
+                      <label
+                        className="flex items-center gap-1.5 text-[11px] mb-2 cursor-pointer select-none"
+                        style={{ color: 'var(--color-text-secondary)' }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={!!remember[action.id]}
+                          onChange={e =>
+                            setRemember(r => ({ ...r, [action.id]: e.target.checked }))
+                          }
+                          disabled={isLoading}
+                        />
+                        Remember this answer for{' '}
+                        <code style={{ color: 'var(--color-text)' }}>
+                          {action.permission_key}
+                        </code>
+                      </label>
                     )}
 
                     {/* Approve / Deny */}

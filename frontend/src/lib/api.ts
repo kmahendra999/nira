@@ -1107,6 +1107,12 @@ export interface PendingApproval {
   status: string;
   created_at: string;
   expires_at: string;
+  /** Whether the server will honour `remember` for this action.
+   *
+   * False for the `high` tier, which the bridge assigns to anything that
+   * changes the world. Offering the control anyway would render a choice the
+   * server silently ignores. */
+  can_remember?: boolean;
 }
 
 /** A research report stored when a long answer was escalated to a link. */
@@ -1146,13 +1152,26 @@ export async function fetchPendingApprovals(): Promise<PendingApproval[]> {
   return data.actions || [];
 }
 
-export async function approveAction(actionId: string): Promise<void> {
-  const res = await apiFetch(`/v1/approvals/${actionId}/approve`, { method: 'POST' });
+/** Answer once, or — with `remember` — set a standing decision.
+ *
+ * A remembered answer short-circuits the bridge before anyone is asked
+ * again. The server refuses to remember a `high`-tier action whatever is
+ * sent, so `can_remember` decides whether to offer the choice at all. */
+export async function approveAction(actionId: string, remember = false): Promise<void> {
+  const res = await apiFetch(`/v1/approvals/${actionId}/approve`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ remember }),
+  });
   if (!res.ok) throw new Error(`Failed: ${res.status}`);
 }
 
-export async function denyAction(actionId: string): Promise<void> {
-  const res = await apiFetch(`/v1/approvals/${actionId}/deny`, { method: 'POST' });
+export async function denyAction(actionId: string, remember = false): Promise<void> {
+  const res = await apiFetch(`/v1/approvals/${actionId}/deny`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ remember }),
+  });
   if (!res.ok) throw new Error(`Failed: ${res.status}`);
 }
 
