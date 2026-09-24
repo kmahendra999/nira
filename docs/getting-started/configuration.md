@@ -535,7 +535,7 @@ sandbox_dangerous = true
 | `auto_discover` | bool | `true` | Whether to scan `skills_dir` for skills on startup. |
 | `auto_sync` | bool | `false` | Whether to pull from configured sources on session start (checks freshness every 24h). |
 | `max_depth` | int | `5` | Maximum sub-skill nesting depth for composed skills. |
-| `sandbox_dangerous` | bool | `true` | Whether to warn about skills with dangerous capabilities (`shell:execute`, `network:listen`, `filesystem:write`). |
+| `sandbox_dangerous` | bool | `true` | Whether installing a skill that requests dangerous capabilities (`shell:execute`, `network:listen`, `filesystem:write`) requires confirmation. When `true`, `nira skill install` refuses such a skill unless `--yes-dangerous` is passed; when `false`, it installs with a warning. |
 
 #### `[[skills.sources]]` — Skill Import Sources
 

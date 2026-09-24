@@ -326,7 +326,10 @@ def install(
 
     # The same key the loader verifies against, so a skill that installs is a
     # skill that will load. None when the user never opted into signing.
-    from nira.skills.manager import _configured_public_key
+    from nira.skills.manager import (
+        _configured_public_key,
+        _sandbox_dangerous_enabled,
+    )
     from nira.skills.parser import SkillParser
     from nira.skills.tool_translator import ToolTranslator
 
@@ -338,6 +341,7 @@ def install(
         confirm_dangerous=yes_dangerous,
         public_key=_configured_public_key(),
         allow_unsigned=allow_unsigned,
+        sandbox_dangerous=_sandbox_dangerous_enabled(),
     )
 
     if result.success:

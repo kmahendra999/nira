@@ -308,6 +308,40 @@ class TestDangerousCapabilityGate:
         assert 'trust_tier = "unreviewed"' in content
         assert 'dangerous_capabilities = ["shell:execute"]' in content
 
+    def test_sandbox_dangerous_false_warns_instead_of_refusing(self, tmp_path: Path):
+        """`skills.sandbox_dangerous = false` is the user turning the gate off.
+
+        The setting was in the config and the documentation from the start and
+        was read by nothing, so it protected nobody and disabled nothing.
+        """
+        importer = self._make_importer(tmp_path)
+        resolved = self._make_resolved_with_caps(tmp_path, ["shell:execute"])
+
+        result = importer.import_skill(resolved, sandbox_dangerous=False)
+
+        assert result.success
+        # Still recorded, and still said out loud -- off means ungated, not
+        # silent about what was installed.
+        assert result.dangerous_capabilities == ["shell:execute"]
+        assert any("sandbox_dangerous" in w for w in result.warnings)
+
+    def test_sandbox_dangerous_defaults_to_gating(self, tmp_path: Path):
+        importer = self._make_importer(tmp_path)
+        resolved = self._make_resolved_with_caps(tmp_path, ["shell:execute"])
+
+        result = importer.import_skill(resolved)
+
+        assert not result.success
+
+    def test_sandbox_dangerous_false_does_not_touch_benign_skills(self, tmp_path: Path):
+        importer = self._make_importer(tmp_path)
+        resolved = self._make_resolved_with_caps(tmp_path, ["network:fetch"])
+
+        result = importer.import_skill(resolved, sandbox_dangerous=False)
+
+        assert result.success
+        assert not any("sandbox_dangerous" in w for w in result.warnings)
+
     def test_benign_capabilities_need_no_confirmation(self, tmp_path: Path):
         importer = self._make_importer(tmp_path)
         resolved = self._make_resolved_with_caps(tmp_path, ["network:fetch"])
@@ -319,3 +353,43 @@ class TestDangerousCapabilityGate:
         content = (tmp_path / "skills" / "hermes" / "my-skill" / ".source").read_text()
         assert 'trust_tier = "unreviewed"' in content
         assert "dangerous_capabilities = []" in content
+
+
+class TestSandboxDangerousSetting:
+    """`_sandbox_dangerous_enabled` -- how the config reaches the gate."""
+
+    def test_defaults_to_on_when_unset(self, monkeypatch):
+        from types import SimpleNamespace
+
+        from nira.skills.manager import _sandbox_dangerous_enabled
+
+        monkeypatch.setattr(
+            "nira.core.config.load_config",
+            lambda: SimpleNamespace(skills=SimpleNamespace()),
+        )
+
+        assert _sandbox_dangerous_enabled() is True
+
+    def test_reads_false_from_the_config(self, monkeypatch):
+        from types import SimpleNamespace
+
+        from nira.skills.manager import _sandbox_dangerous_enabled
+
+        monkeypatch.setattr(
+            "nira.core.config.load_config",
+            lambda: SimpleNamespace(skills=SimpleNamespace(sandbox_dangerous=False)),
+        )
+
+        assert _sandbox_dangerous_enabled() is False
+
+    def test_an_unreadable_config_keeps_the_guard_on(self, monkeypatch):
+        """Failing to read a config is not permission to install a shell skill."""
+
+        def boom():
+            raise RuntimeError("config is a directory")
+
+        from nira.skills.manager import _sandbox_dangerous_enabled
+
+        monkeypatch.setattr("nira.core.config.load_config", boom)
+
+        assert _sandbox_dangerous_enabled() is True

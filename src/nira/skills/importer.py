@@ -88,6 +88,7 @@ class SkillImporter:
         confirm_dangerous: bool = False,
         public_key: Optional[bytes] = None,
         allow_unsigned: bool = False,
+        sandbox_dangerous: bool = True,
     ) -> ImportResult:
         """Install *resolved* into ``<target_root>/<source>/<name>/``.
 
@@ -100,6 +101,10 @@ class SkillImporter:
         *allow_unsigned* downgrades a **missing** signature to a warning. It
         deliberately does not cover an **invalid** one: something signed that
         manifest and the configured key does not match it.
+
+        *sandbox_dangerous* is ``skills.sandbox_dangerous``. False turns the
+        dangerous-capability gate into a warning, which is what the setting
+        has always been documented to do.
 
         Returns an :class:`ImportResult` with status, paths, translated
         tools, untranslated tools, and warnings.
@@ -163,7 +168,19 @@ class SkillImporter:
 
         if result.dangerous_capabilities and result.trust_tier == TrustTier.UNREVIEWED:
             result.requires_confirmation = True
-            if not confirm_dangerous:
+            if not sandbox_dangerous:
+                # skills.sandbox_dangerous = false. The user turned the guard
+                # off, so this warns rather than refuses -- which is the
+                # behaviour the setting has always been documented to control,
+                # and which nothing read until now.
+                result.warnings.append(
+                    "Installed with dangerous capabilities "
+                    f"{result.dangerous_capabilities} — skills.sandbox_dangerous "
+                    "is false, so the install was not gated. This skill can run "
+                    "shell commands, open network listeners, and/or write to "
+                    "the filesystem."
+                )
+            elif not confirm_dangerous:
                 result.success = False
                 result.warnings.append(
                     "Refusing to install: this unreviewed skill requests "
@@ -173,12 +190,13 @@ class SkillImporter:
                     "reviewed what it does."
                 )
                 return result
-            result.warnings.append(
-                "Installed with dangerous capabilities "
-                f"{result.dangerous_capabilities} — confirmed by caller. "
-                "This skill can run shell commands, open network listeners, "
-                "and/or write to the filesystem."
-            )
+            else:
+                result.warnings.append(
+                    "Installed with dangerous capabilities "
+                    f"{result.dangerous_capabilities} — confirmed by caller. "
+                    "This skill can run shell commands, open network listeners, "
+                    "and/or write to the filesystem."
+                )
 
         # 2. Validate copied resources and translate tool references
         copied_subdirs = list(COPIED_SUBDIRS)

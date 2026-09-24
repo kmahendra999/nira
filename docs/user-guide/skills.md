@@ -374,7 +374,7 @@ active = "*"                      # which skills to activate ("*" = all)
 auto_discover = true              # scan skills_dir on startup
 auto_sync = false                 # pull from configured sources on startup
 max_depth = 5                     # max sub-skill nesting depth
-sandbox_dangerous = true          # warn about dangerous capabilities
+sandbox_dangerous = true          # confirm before installing dangerous capabilities
 ```
 
 ### `[[skills.sources]]` Section

@@ -58,6 +58,27 @@ def _configured_public_key() -> Optional[bytes]:
         return None
 
 
+def _sandbox_dangerous_enabled() -> bool:
+    """``skills.sandbox_dangerous``, defaulting to on.
+
+    The setting has been in the config and the documentation since the
+    dangerous-capability gate existed, and was read by nothing: the gate was
+    controlled only by ``--yes-dangerous``. So a user who set it to false got
+    the gate anyway, and a user who left it true had no way to know that was
+    not why they were protected.
+
+    Any failure to read the config keeps the guard on. An unreadable config is
+    not permission to install a skill that can run shell commands.
+    """
+    try:
+        from nira.core.config import load_config
+
+        skills = getattr(load_config(), "skills", None)
+        return bool(getattr(skills, "sandbox_dangerous", True))
+    except Exception:  # noqa: BLE001 - an unreadable config is not consent
+        return True
+
+
 class SkillManager:
     """Coordinate skill discovery, resolution, catalog generation, and execution.
 
