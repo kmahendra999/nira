@@ -1,0 +1,89 @@
+# Build the Android apk where the apk is meant to come from.
+#
+# It was a manual step: build locally, copy into website/public/downloads/,
+# then cut a release. Nothing checked that the copied file was current, so a
+# stale apk would be published with an entirely accurate digest of itself --
+# which is worse than no digest, because it looks verified.
+#
+# Deliberately NOT built inside website/Dockerfile. That would mean adding
+# android/ back to the build context, a JDK and SDK stage, and gigabytes of
+# downloads per image build -- and it still would not reach the public site,
+# which deletes downloads/ and serves from a release instead.
+name: Android
+
+on:
+  push:
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'android/**'
+      - '.github/workflows/android.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      # compileSdk is 36; the runner image does not always carry it.
+      - name: Install the compile SDK
+        run: |
+          set -eu
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null 2>&1 || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
+            "platforms;android-36" "build-tools;36.0.0" >/dev/null
+
+      - name: Build the debug apk
+        working-directory: android
+        run: ./gradlew :app:assembleDebug --no-daemon
+
+      # The name the site and the release script both expect.
+      - name: Name it what everything else calls it
+        run: |
+          set -eu
+          src=android/app/build/outputs/apk/debug/app-debug.apk
+          cp "$src" nira-android.apk
+          echo "size:   $(( $(stat -c%s nira-android.apk) / 1024 / 1024 )) MiB"
+          echo "sha256: $(sha256sum nira-android.apk | cut -d' ' -f1)"
+
+      - name: Upload the apk
+        uses: actions/upload-artifact@v7
+        with:
+          name: nira-android-apk
+          path: nira-android.apk
+          if-no-files-found: error
+
+      # On a release tag the apk goes onto the release, so the download the
+      # site links to is the one CI just built rather than whatever happened
+      # to be sitting in someone's working tree.
+      - name: Attach it to the release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -eu
+          tag="${GITHUB_REF#refs/tags/}"
+          if ! gh release view "$tag" >/dev/null 2>&1; then
+            echo "No release for $tag yet; the apk is on this run as an artifact."
+            exit 0
+          fi
+          gh release upload "$tag" nira-android.apk --clobber

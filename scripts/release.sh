@@ -26,6 +26,23 @@ APK="website/public/downloads/nira-android.apk"
     echo "  cp app/build/outputs/apk/debug/app-debug.apk ../$APK" >&2
     exit 1; }
 
+# An apk older than the Android sources it is supposed to contain would be
+# published with an entirely accurate digest of the wrong build -- which is
+# worse than no digest, because it looks verified. CI builds this on a tag
+# (.github/workflows/android.yml); this is the guard for a local one.
+APK_TIME=$(stat -c%Y "$APK")
+SRC_TIME=$(git log -1 --format=%ct -- android/ 2>/dev/null || echo 0)
+if [ "$APK_TIME" -lt "$SRC_TIME" ] && [ "${ALLOW_STALE:-}" != "1" ]; then
+    echo "$APK is older than the last change under android/:" >&2
+    echo "  apk:     $(date -d "@$APK_TIME" '+%Y-%m-%d %H:%M:%S')" >&2
+    echo "  android: $(date -d "@$SRC_TIME" '+%Y-%m-%d %H:%M:%S')" >&2
+    echo "Rebuild it:" >&2
+    echo "  cd android && ./gradlew :app:assembleDebug" >&2
+    echo "  cp app/build/outputs/apk/debug/app-debug.apk ../$APK" >&2
+    echo "Or set ALLOW_STALE=1 if you really mean to ship this one." >&2
+    exit 1
+fi
+
 SIZE=$(stat -c%s "$APK")
 SUM=$(sha256sum "$APK" | cut -d' ' -f1)
 echo "apk:    $APK  ($((SIZE / 1024 / 1024)) MiB)"
