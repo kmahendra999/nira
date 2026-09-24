@@ -108,7 +108,7 @@ def test_claude_runner_wheel_maps_only_runtime_files() -> None:
     assert f"/{source}" in wheel["exclude"]
 
 
-def test_sdist_omits_desktop_binaries_and_rebuilds_runtime_wheel(tmp_path) -> None:
+def test_sdist_omits_prebuilt_binaries_and_rebuilds_runtime_wheel(tmp_path) -> None:
     uv = shutil.which("uv")
     if uv is None:
         pytest.skip("uv is required for archive-content validation")
@@ -144,7 +144,10 @@ def test_sdist_omits_desktop_binaries_and_rebuilds_runtime_wheel(tmp_path) -> No
         else:
             shutil.copy2(source, destination)
 
-    binary_dirs = ("desktop/src-tauri/binaries", "frontend/src-tauri/binaries")
+    # `desktop/` is gone -- it held a 73 MiB sidecar no build used. The
+    # Tauri project that ships is frontend/src-tauri, whose binaries are
+    # downloaded at build time and must not ride along in a source dist.
+    binary_dirs = ("frontend/src-tauri/binaries",)
     for relative in binary_dirs:
         directory = project / relative
         directory.mkdir(parents=True)
