@@ -17,22 +17,35 @@ processing happens on your local machine — the app connects to the backend you
 !!! info "Backend required"
     Start the backend before opening the desktop app. The quickstart script handles everything:
     ```bash
-    git clone https://github.com/kmahendra999/nira.git && cd Nira
+    git clone https://github.com/kmahendra999/nira.git && cd nira
     ./scripts/quickstart.sh
     ```
 
 ### Download
 
-| Platform | Download | Notes |
-|----------|----------|-------|
-| macOS (Universal) | [:material-download: **Nira.dmg**](https://github.com/kmahendra999/nira/releases/download/desktop-v1.0.2/Nira_1.0.1_universal.dmg) | Apple Silicon + Intel |
-| Windows (64-bit) | [:material-download: **Nira-setup.exe**](https://github.com/kmahendra999/nira/releases/download/desktop-v1.0.2/Nira_1.0.1_x64-setup.exe) | Windows 10+ |
-| Linux (DEB) | [:material-download: **Nira.deb**](https://github.com/kmahendra999/nira/releases/download/desktop-v1.0.2/Nira_1.0.1_amd64.deb) | Ubuntu, Debian |
-| Linux (RPM) | [:material-download: **Nira.rpm**](https://github.com/kmahendra999/nira/releases/download/desktop-v1.0.2/Nira-1.0.1-1.x86_64.rpm) | Fedora, RHEL |
-| Linux (AppImage) | [:material-download: **Nira.AppImage**](https://github.com/kmahendra999/nira/releases/download/desktop-v1.0.2/Nira_1.0.1_amd64.AppImage) | Any distro |
+**No desktop build has been published yet.** The [releases
+page](https://github.com/kmahendra999/nira/releases) carries the Android apk and
+nothing else — no desktop release has ever completed. Build it yourself:
 
-!!! tip "All releases"
-    Browse all versions on the [GitHub Releases](https://github.com/kmahendra999/nira/releases) page.
+```bash
+git clone https://github.com/kmahendra999/nira.git
+cd nira/frontend
+npm install
+npm run tauri build
+```
+
+The bundles land in `frontend/src-tauri/target/release/bundle/`.
+
+| Platform | What the build produces | Status |
+|----------|-------------------------|--------|
+| macOS (Universal) | `.dmg` | Not built |
+| Windows (64-bit) | `.exe` (NSIS) and `.msi` | Not built |
+| Linux (DEB) | `.deb` | Not built |
+| Linux (RPM) | `.rpm` | Not built |
+| Linux (AppImage) | `.AppImage` | Not built |
+
+Tauri bundles for the machine it runs on, so each row is produced on that
+platform — there is no cross-compile here and no notarised build to download.
 
 ### macOS: "app is damaged" fix
 
@@ -70,7 +83,7 @@ The backend (Ollama, Python API server, inference) runs separately on your machi
 
 ```bash
 git clone https://github.com/kmahendra999/nira.git
-cd Nira/desktop
+cd nira/frontend
 npm install
 npm run tauri build
 ```
@@ -88,7 +101,7 @@ your machine and the frontend connects via `localhost`.
 
 ```bash
 git clone https://github.com/kmahendra999/nira.git
-cd Nira
+cd nira
 ./scripts/quickstart.sh
 ```
 
@@ -108,7 +121,7 @@ If you prefer to run each step yourself:
 
     ```bash
     git clone https://github.com/kmahendra999/nira.git
-    cd Nira
+    cd nira
     uv sync --extra desktop
     cd frontend && npm install && cd ..
     ```
@@ -155,7 +168,7 @@ programmatically. Every feature is accessible from the terminal.
 
 ```bash
 git clone https://github.com/kmahendra999/nira.git
-cd Nira
+cd nira
 uv sync
 ```
 
@@ -203,7 +216,7 @@ For programmatic access, the `Nira` class provides a high-level sync API.
 
 ```bash
 git clone https://github.com/kmahendra999/nira.git
-cd Nira
+cd nira
 uv sync
 ```
 

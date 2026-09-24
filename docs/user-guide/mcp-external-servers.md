@@ -80,7 +80,7 @@ When both `include_tools` and `exclude_tools` are specified, the whitelist is ap
 
 ### Home Assistant via Streamable HTTP
 
-Connect to the [ha-mcp](https://github.com/tevonsb/ha-mcp) Home Assistant add-on:
+Connect to the [ha-mcp](https://github.com/homeassistant-ai/ha-mcp) Home Assistant add-on:
 
 ```toml
 [tools.mcp]

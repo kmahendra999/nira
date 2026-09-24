@@ -15,7 +15,7 @@ ollama pull qwen3.5:4b
 
 ```bash
 git clone https://github.com/kmahendra999/nira.git
-cd Nira
+cd nira
 uv sync
 nira init --preset chat-simple --force
 ```

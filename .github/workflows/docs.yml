@@ -9,6 +9,7 @@ on:
       - "src/nira/**"
       - "website/public/**"
       - "scripts/install/install.sh"
+      - "deploy/windows/install.ps1"
       - ".github/workflows/docs.yml"
   pull_request:
     branches: [main]
@@ -18,6 +19,7 @@ on:
       - "src/nira/**"
       - "website/public/**"
       - "scripts/install/install.sh"
+      - "deploy/windows/install.ps1"
       - ".github/workflows/docs.yml"
   workflow_dispatch:
 
@@ -82,6 +84,7 @@ jobs:
           # The installer is served from the site, so the command on the page
           # works. It is copied from the one place it lives.
           cp scripts/install/install.sh _site/install.sh
+          cp deploy/windows/install.ps1 _site/install.ps1
 
           # GitHub Pages runs Jekyll unless told not to, and Jekyll drops
           # files and directories whose names start with an underscore.

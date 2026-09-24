@@ -5,7 +5,7 @@ and dependency issues using an AI-powered ReAct agent.
 
 ## Requirements
 
-- Nira installed (`git clone https://github.com/kmahendra999/nira.git && cd Nira && uv sync` or `uv sync --extra dev`)
+- Nira installed (`git clone https://github.com/kmahendra999/nira.git && cd nira && uv sync` or `uv sync --extra dev`)
 - An inference engine running (Ollama, cloud API, vLLM, etc.)
 
 ## Usage

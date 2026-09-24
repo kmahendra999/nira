@@ -259,7 +259,7 @@ The five-primitive architecture (Intelligence, Engine, Agents,
 Tools & Memory, Learning) is now stable, with efficiency and
 on-device learning as first-class capabilities alongside accuracy.
 Companion blog post:
-[From Minions to OpenJarvis: A Retrospective on Two Years in Local AI](https://hazyresearch.stanford.edu/blog/2026-05-19-minions-to-nira-retrospective).
+[From Minions to OpenJarvis: A Retrospective on Two Years in Local AI](https://hazyresearch.stanford.edu/blog/2026-05-15-minions-to-openjarvis-retrospective).
 
 ### Highlights
 

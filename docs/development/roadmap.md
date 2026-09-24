@@ -31,7 +31,7 @@ Every item carries a maturity tag:
 | Tag | Meaning | Contributor guidance |
 |-----|---------|---------------------|
 | **Ready** | Well-scoped, implementation path is clear | Pick it up — check [issues](https://github.com/kmahendra999/nira/issues) for a spec or write one |
-| **Design Needed** | Concept is clear but needs a spec before code | Start a [design discussion](https://github.com/kmahendra999/nira/discussions) or draft an RFC |
+| **Design Needed** | Concept is clear but needs a spec before code | Open an [issue](https://github.com/kmahendra999/nira/issues) to discuss the design, or draft an RFC |
 | **Research-Stage** | Exploratory, needs investigation before designing | Read the relevant papers, prototype, share findings |
 
 ---

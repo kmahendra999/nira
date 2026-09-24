@@ -37,6 +37,10 @@ SITE_ROOT = ROOT / "website" / "public"
 
 MARKDOWN_GLOBS = ("*.md", "docs/**/*.md")
 HTML_GLOBS = ("website/public/**/*.html",)
+# Source files contribute absolute URLs only. A rename breaks a link in a
+# React component exactly as readily as one in a README, and nothing was
+# looking: two of this project's own Pages URLs were wrong here.
+SOURCE_GLOBS = ("frontend/src/**/*.ts", "frontend/src/**/*.tsx")
 
 # Schemes that name something this script cannot and should not resolve.
 SKIP_SCHEMES = ("mailto:", "tel:", "javascript:", "data:", "#!")
@@ -50,6 +54,9 @@ MD_LINK = re.compile(r"\[[^\]]*\]\(\s*([^)\s]+?)\s*(?:\"[^\"]*\")?\s*\)")
 MD_REF = re.compile(r"^\s*\[[^\]]+\]:\s*(\S+)", re.M)
 HTML_ATTR = re.compile(r"(?:href|src)\s*=\s*[\"']([^\"']+)[\"']", re.I)
 HEADING = re.compile(r"^(#{1,6})\s+(.*?)\s*#*\s*$", re.M)
+# An absolute URL inside a quoted string. Anything relative in source is a
+# route or an import, not a link this can resolve.
+SOURCE_URL = re.compile(r"[\"'`](https?://[^\"'`\s]+)[\"'`]")
 
 
 @dataclass(frozen=True)
@@ -98,9 +105,9 @@ def anchors_of(path: Path) -> set[str]:
 
 
 def _iter_files() -> Iterable[Path]:
-    for pattern in MARKDOWN_GLOBS + HTML_GLOBS:
+    for pattern in MARKDOWN_GLOBS + HTML_GLOBS + SOURCE_GLOBS:
         for path in sorted(ROOT.glob(pattern)):
-            if path.is_file():
+            if path.is_file() and ".test." not in path.name:
                 yield path
 
 
@@ -108,9 +115,12 @@ def collect_links() -> list[Link]:
     links: list[Link] = []
     for path in _iter_files():
         text = path.read_text(encoding="utf-8", errors="replace")
-        patterns = (
-            (HTML_ATTR,) if path.suffix == ".html" else (MD_LINK, MD_REF, HTML_ATTR)
-        )
+        if path.suffix in (".ts", ".tsx"):
+            patterns = (SOURCE_URL,)
+        elif path.suffix == ".html":
+            patterns = (HTML_ATTR,)
+        else:
+            patterns = (MD_LINK, MD_REF, HTML_ATTR)
         for pattern in patterns:
             for match in pattern.finditer(text):
                 target = match.group(1).strip()

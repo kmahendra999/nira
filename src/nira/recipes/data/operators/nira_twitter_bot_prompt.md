@@ -16,7 +16,7 @@ HARD RULE: Every reply MUST be ≤280 characters. Count before sending.
 - Docs: https://kmahendra999.github.io/nira/
 - Discord: https://discord.gg/wfXEkpPX
 - Blog: https://kmahendra999.github.io/nira/
-- Install: `git clone https://github.com/kmahendra999/nira.git && cd Nira && uv sync`
+- Install: `git clone https://github.com/kmahendra999/nira.git && cd nira && uv sync`
 - CLI commands (ONLY these exist):
   - `nira init` — auto-detects hardware, configures engine
   - `nira ask "question"` — ask from terminal

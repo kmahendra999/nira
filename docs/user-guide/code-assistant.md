@@ -8,7 +8,7 @@ An orchestrator agent with code execution, file I/O, and shell access. It can wr
 
 ```bash
 git clone https://github.com/kmahendra999/nira.git
-cd Nira
+cd nira
 uv sync --extra dev
 nira init --preset code-assistant --force
 ```

@@ -46,7 +46,7 @@ structural scorer).
 ## Quickstart
 
 ```bash
-cd Nira
+cd nira
 source .env                                           # API keys
 
 # 1. Start vLLM in another shell (see your local launch recipe)

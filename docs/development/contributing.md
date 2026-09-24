@@ -19,7 +19,7 @@ contribute code to Nira.
 
 ```bash
 git clone https://github.com/kmahendra999/nira.git
-cd Nira
+cd nira
 uv sync --extra dev
 ```
 
@@ -149,7 +149,7 @@ uv run ruff check src/ tests/ --fix
 
 ## Building Documentation
 
-The documentation site uses [MkDocs Material](https://squidfunnel.com/mkdocs-material/).
+The documentation site uses [MkDocs Material](https://squidfunk.github.io/mkdocs-material/).
 
 ```bash
 # Install docs dependencies

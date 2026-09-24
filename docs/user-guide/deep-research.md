@@ -8,7 +8,7 @@ A multi-hop research agent that searches across your indexed documents, cross-re
 
 ```bash
 git clone https://github.com/kmahendra999/nira.git
-cd Nira
+cd nira
 uv sync --extra dev
 nira init --preset deep-research --force
 ```

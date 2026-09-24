@@ -13,7 +13,7 @@ The Nira Python SDK provides a high-level interface for interacting with local i
 
 ```bash
 git clone https://github.com/kmahendra999/nira.git
-cd Nira
+cd nira
 uv sync
 ```
 

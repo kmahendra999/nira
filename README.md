@@ -142,7 +142,7 @@ Quick start for contributors:
 
 ```bash
 git clone https://github.com/kmahendra999/nira.git
-cd Nira
+cd nira
 uv sync --extra dev
 uv run pre-commit install
 uv run pytest tests/ -v

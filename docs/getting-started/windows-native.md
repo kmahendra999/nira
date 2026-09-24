@@ -17,8 +17,8 @@ avoid a Linux VM; WSL2 remains the smoother experience for most users.
 ## What you need
 
 - Windows 10 1809+ or Windows 11.
-- Python 3.10 – 3.13 (Python 3.14 has no numpy Windows wheels yet —
-  see [#432](https://github.com/kmahendra999/nira/issues/432)).
+- Python 3.10 – 3.13 (Python 3.14 is not supported yet — numpy ships no
+  cp314 Windows wheel, so `uv sync` would build it from source and fail).
 - `git` on PATH.
 - ~5 GB free disk on `%LOCALAPPDATA%`.
 

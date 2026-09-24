@@ -5,7 +5,7 @@ with context-augmented retrieval and citations.
 
 ## Requirements
 
-- Nira installed (`git clone https://github.com/kmahendra999/nira.git && cd Nira && uv sync` or `uv sync --extra dev`)
+- Nira installed (`git clone https://github.com/kmahendra999/nira.git && cd nira && uv sync` or `uv sync --extra dev`)
 - An inference engine running (Ollama, cloud API, vLLM, etc.)
 - A memory backend available (SQLite is the built-in default)
 

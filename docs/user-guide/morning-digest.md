@@ -8,7 +8,7 @@ A personalized daily briefing that collects data from your connected services, s
 
 ```bash
 git clone https://github.com/kmahendra999/nira.git
-cd Nira
+cd nira
 uv sync --extra dev
 ```
 

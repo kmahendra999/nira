@@ -8,7 +8,7 @@ The server requires the `[server]` extra (FastAPI + uvicorn):
 
 ```bash
 git clone https://github.com/kmahendra999/nira.git
-cd Nira
+cd nira
 uv sync --extra server
 ```
 

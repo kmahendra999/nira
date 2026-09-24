@@ -128,7 +128,7 @@ The quickest way to experience Nira is the full chat UI running in your browser:
 
 ```bash
 git clone https://github.com/kmahendra999/nira.git
-cd Nira
+cd nira
 ./scripts/quickstart.sh
 ```
 

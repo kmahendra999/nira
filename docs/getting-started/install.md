@@ -24,10 +24,9 @@ model. **You don't need to install uv or any other prerequisite first.**
 
 !!! info "Install URL"
     This script is served straight from the project's own GitHub Pages site,
-    so HTTPS always works. You may also see `https://nira.ai/install.sh`
-    referenced in older docs — that domain is community-operated and has had
-    intermittent TLS issues ([#337](https://github.com/kmahendra999/nira/issues/337)).
-    The `nira.github.io` URL above is the canonical one.
+    so HTTPS always works. Write-ups inherited from upstream may point at a
+    different host; the `kmahendra999.github.io/nira` URL above is the
+    canonical one for this fork.
 
 About 3 minutes on a typical broadband connection. Type `nira` to start chatting.
 

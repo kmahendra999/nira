@@ -257,7 +257,7 @@ export function SystemPanel() {
           </button>
 
           <a
-            href="https://kmahendra999.github.io/nira/leaderboard"
+            href="https://kmahendra999.github.io/nira/docs/leaderboard/"
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-1.5 mt-1.5 px-3 py-1.5 text-[11px]

@@ -7,7 +7,7 @@ Nira includes a launchd property list (plist) for running the API server as a ba
 Before installing the service, ensure that Nira is installed and the `nira` command is available at `/usr/local/bin/nira`. If you installed via `uv` or `pip` with a different prefix, adjust the path in the plist accordingly.
 
 ```bash
-git clone https://github.com/kmahendra999/nira.git && cd Nira && uv sync --extra server
+git clone https://github.com/kmahendra999/nira.git && cd nira && uv sync --extra server
 which nira  # Verify the installation path
 ```
 

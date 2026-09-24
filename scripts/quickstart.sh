@@ -7,7 +7,7 @@ set -euo pipefail
 #
 # Usage:
 #   git clone https://github.com/kmahendra999/nira.git
-#   cd Nira
+#   cd nira
 #   ./scripts/quickstart.sh
 # ──────────────────────────────────────────────────────────────────────
 

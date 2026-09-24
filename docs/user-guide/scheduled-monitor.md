@@ -8,7 +8,7 @@ A persistent operative agent that runs on a cron schedule, maintains state acros
 
 ```bash
 git clone https://github.com/kmahendra999/nira.git
-cd Nira
+cd nira
 uv sync --extra dev
 nira init --preset scheduled-monitor --force
 ```

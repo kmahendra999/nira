@@ -44,7 +44,7 @@ Nira is that stack. It is a framework for local-first personal AI, built around 
 
     ```bash
     git clone https://github.com/kmahendra999/nira.git
-    cd Nira
+    cd nira
     ./scripts/quickstart.sh
     ```
 
@@ -60,17 +60,14 @@ Nira is that stack. It is a framework for local-first personal AI, built around 
 
     ```bash
     git clone https://github.com/kmahendra999/nira.git
-    cd Nira
+    cd nira
     ./scripts/quickstart.sh
     ```
 
-    **Step 2.** Download and open the desktop app:
+    **Step 2.** Open the web UI at `http://localhost:8000`.
 
-    [Download for macOS](https://github.com/kmahendra999/nira/releases/download/desktop-v1.0.2/Nira_1.0.1_universal.dmg){ .md-button .md-button--primary }
-
-    Also available for [Windows](https://github.com/kmahendra999/nira/releases/download/desktop-v1.0.2/Nira_1.0.1_x64-setup.exe), [Linux (DEB)](https://github.com/kmahendra999/nira/releases/download/desktop-v1.0.2/Nira_1.0.1_amd64.deb), and [Linux (RPM)](https://github.com/kmahendra999/nira/releases/download/desktop-v1.0.2/Nira-1.0.1-1.x86_64.rpm). See the [Downloads](downloads.md) page for details.
-
-    The app connects to `http://localhost:8000` automatically.
+    There is no desktop build to download yet. The [Downloads](downloads.md)
+    page has the command that builds one for your platform.
 
     !!! warning "macOS first launch"
 

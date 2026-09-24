@@ -20,7 +20,7 @@ your machine and the frontend connects via `localhost`.
 
 ```bash
 git clone https://github.com/kmahendra999/nira.git
-cd Nira
+cd nira
 ./scripts/quickstart.sh
 ```
 
@@ -40,7 +40,7 @@ If you prefer to run each step yourself:
 
     ```bash
     git clone https://github.com/kmahendra999/nira.git
-    cd Nira
+    cd nira
     uv sync --extra desktop
     uv run maturin develop -m rust/crates/nira-python/Cargo.toml
     cd frontend && npm install && cd ..
@@ -86,21 +86,14 @@ processing happens on your local machine — the app connects to the backend you
 
 ```bash
 git clone https://github.com/kmahendra999/nira.git
-cd Nira
+cd nira
 ./scripts/quickstart.sh
 ```
 
-**Step 2.** Download and open the desktop app:
+**Step 2.** Open the web UI at `http://localhost:8000`.
 
-| Platform | Download |
-|----------|----------|
-| macOS (Universal) | [:material-download: **Nira.dmg**](https://github.com/kmahendra999/nira/releases/download/desktop-v1.0.2/Nira_1.0.1_universal.dmg) |
-| Windows (64-bit) | [:material-download: **Nira-setup.exe**](https://github.com/kmahendra999/nira/releases/download/desktop-v1.0.2/Nira_1.0.1_x64-setup.exe) |
-| Linux (DEB) | [:material-download: **Nira.deb**](https://github.com/kmahendra999/nira/releases/download/desktop-v1.0.2/Nira_1.0.1_amd64.deb) |
-| Linux (RPM) | [:material-download: **Nira.rpm**](https://github.com/kmahendra999/nira/releases/download/desktop-v1.0.2/Nira-1.0.1-1.x86_64.rpm) |
-| Linux (AppImage) | [:material-download: **Nira.AppImage**](https://github.com/kmahendra999/nira/releases/download/desktop-v1.0.2/Nira_1.0.1_amd64.AppImage) |
-
-The app connects to `http://localhost:8000` automatically.
+There is no desktop build to download yet — see [Downloads](../downloads.md) for
+the command that builds one for your platform.
 
 !!! warning "macOS: \"app is damaged\""
     If macOS says the app is damaged, clear the Gatekeeper quarantine flag:
@@ -116,7 +109,7 @@ The app connects to `http://localhost:8000` automatically.
 
 ```bash
 git clone https://github.com/kmahendra999/nira.git
-cd Nira/desktop
+cd nira/frontend
 npm install
 npm run tauri build
 ```
@@ -134,7 +127,7 @@ programmatically. Every feature is accessible from the terminal.
 
 ```bash
 git clone https://github.com/kmahendra999/nira.git
-cd Nira
+cd nira
 uv sync
 uv run maturin develop -m rust/crates/nira-python/Cargo.toml
 ```
@@ -178,7 +171,7 @@ For programmatic access, the `Nira` class provides a high-level sync API.
 
 ```bash
 git clone https://github.com/kmahendra999/nira.git
-cd Nira
+cd nira
 uv sync
 uv run maturin develop -m rust/crates/nira-python/Cargo.toml
 ```
