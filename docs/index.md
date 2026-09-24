@@ -64,10 +64,10 @@ Nira is that stack. It is a framework for local-first personal AI, built around 
     ./scripts/quickstart.sh
     ```
 
-    **Step 2.** Open the web UI at `http://localhost:8000`.
-
-    There is no desktop build to download yet. The [Downloads](downloads.md)
-    page has the command that builds one for your platform.
+    **Step 2.** Open the web UI at `http://localhost:8000`, or install the
+    desktop app — unsigned edge builds for Linux and Windows are on the
+    [`desktop-edge` release](https://github.com/kmahendra999/nira/releases/tag/desktop-edge).
+    See [Downloads](downloads.md).
 
     !!! warning "macOS first launch"
 

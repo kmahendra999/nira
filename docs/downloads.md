@@ -23,9 +23,24 @@ processing happens on your local machine — the app connects to the backend you
 
 ### Download
 
-**No desktop build has been published yet.** The [releases
-page](https://github.com/kmahendra999/nira/releases) carries the Android apk and
-nothing else — no desktop release has ever completed. Build it yourself:
+!!! warning "These are edge builds"
+    They are rebuilt from `main` on every push, are **not** code-signed, and
+    are published as a prerelease. There is no stable desktop release yet, so
+    `releases/latest/download/…` will not find them — use the links below,
+    which point at the `desktop-edge` tag.
+
+| Platform | Download | Notes |
+|----------|----------|-------|
+| Linux (DEB) | [Nira_1.0.1_amd64.deb](https://github.com/kmahendra999/nira/releases/download/desktop-edge/Nira_1.0.1_amd64.deb) | Ubuntu, Debian |
+| Linux (RPM) | [Nira-1.0.1-1.x86_64.rpm](https://github.com/kmahendra999/nira/releases/download/desktop-edge/Nira-1.0.1-1.x86_64.rpm) | Fedora, RHEL |
+| Linux (AppImage) | [Nira_1.0.1_amd64.AppImage](https://github.com/kmahendra999/nira/releases/download/desktop-edge/Nira_1.0.1_amd64.AppImage) | Any distro |
+| Windows (64-bit) | [Nira_1.0.1_x64-setup.exe](https://github.com/kmahendra999/nira/releases/download/desktop-edge/Nira_1.0.1_x64-setup.exe) | Windows 10+ |
+| Windows (MSI) | [Nira_1.0.1_x64_en-US.msi](https://github.com/kmahendra999/nira/releases/download/desktop-edge/Nira_1.0.1_x64_en-US.msi) | Windows 10+ |
+| macOS (Universal) | Not built | See below |
+
+**macOS is not built.** The release job fails at "Configure Apple signing"
+because the signing secrets are not configured on the repository, and an
+unsigned macOS bundle is not worth shipping. Build it yourself:
 
 ```bash
 git clone https://github.com/kmahendra999/nira.git
@@ -34,18 +49,8 @@ npm install
 npm run tauri build
 ```
 
-The bundles land in `frontend/src-tauri/target/release/bundle/`.
-
-| Platform | What the build produces | Status |
-|----------|-------------------------|--------|
-| macOS (Universal) | `.dmg` | Not built |
-| Windows (64-bit) | `.exe` (NSIS) and `.msi` | Not built |
-| Linux (DEB) | `.deb` | Not built |
-| Linux (RPM) | `.rpm` | Not built |
-| Linux (AppImage) | `.AppImage` | Not built |
-
-Tauri bundles for the machine it runs on, so each row is produced on that
-platform — there is no cross-compile here and no notarised build to download.
+Tauri bundles for the machine it runs on — there is no cross-compile — so the
+result lands in `frontend/src-tauri/target/release/bundle/`.
 
 ### macOS: "app is damaged" fix
 

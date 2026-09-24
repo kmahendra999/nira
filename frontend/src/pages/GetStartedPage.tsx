@@ -18,7 +18,10 @@ import {
 } from 'lucide-react';
 import { isTauri, checkHealth } from '../lib/api';
 
-const RELEASES_URL = 'https://github.com/kmahendra999/nira/releases';
+// The desktop bundles live on a rolling prerelease tag, so they are not
+// reachable through releases/latest/download.
+const RELEASES_URL =
+  'https://github.com/kmahendra999/nira/releases/tag/desktop-edge';
 
 interface Platform {
   id: string;
@@ -356,8 +359,9 @@ function SelfHostedView() {
             </h2>
           </div>
           <p className="text-xs mb-6" style={{ color: 'var(--color-text-tertiary)' }}>
-            No desktop build has been published yet. Every bundle this page used
-            to offer &mdash; {primary.label} included &mdash; returned a 404.
+            Unsigned edge builds for Linux and Windows, rebuilt from{' '}
+            <code>main</code> on every push. macOS is not built &mdash; the
+            release job has no Apple signing secrets.
           </p>
 
           <a
@@ -369,7 +373,7 @@ function SelfHostedView() {
             style={{ background: 'var(--color-accent)', color: 'var(--color-on-accent)' }}
           >
             <Download size={18} />
-            Open the releases page
+            Open the desktop downloads
           </a>
 
           <p className="mt-4 text-[11px]" style={{ color: 'var(--color-text-tertiary)' }}>

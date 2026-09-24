@@ -90,10 +90,12 @@ cd nira
 ./scripts/quickstart.sh
 ```
 
-**Step 2.** Open the web UI at `http://localhost:8000`.
+**Step 2.** Open the web UI at `http://localhost:8000`, or install the desktop
+app.
 
-There is no desktop build to download yet — see [Downloads](../downloads.md) for
-the command that builds one for your platform.
+Unsigned edge builds for Linux and Windows are on the
+[`desktop-edge` release](https://github.com/kmahendra999/nira/releases/tag/desktop-edge);
+macOS has to be built from source. See [Downloads](../downloads.md).
 
 !!! warning "macOS: \"app is damaged\""
     If macOS says the app is damaged, clear the Gatekeeper quarantine flag:
