@@ -368,3 +368,82 @@ def _await_queued(store: ApprovalStore, timeout: float = 5.0):  # noqa: ANN202
             return pending[0]
         time.sleep(0.02)
     raise AssertionError("nothing was queued for approval")
+
+
+class TestTheLoopCloses:
+    """Set "always allow" from a client, and nobody is asked again.
+
+    The route writing a row and the bridge reading one are each covered
+    elsewhere. Neither proves the feature works, because for the whole time
+    the store supported `always_approve` and the bridge honoured it, no
+    client could set it -- so the two halves had never met.
+    """
+
+    def test_remembering_from_the_api_stops_the_next_prompt(
+        self, store, monkeypatch
+    ) -> None:
+        pytest.importorskip("fastapi")
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
+
+        import nira.server.approval_routes as routes
+
+        monkeypatch.setattr(routes, "_store", store)
+        app = FastAPI()
+        app.include_router(routes.router)
+        client = TestClient(app)
+
+        # A read, not a shell command: `Bash` is in _DESTRUCTIVE and so is
+        # always tier high, which is exactly the case that must never be
+        # remembered. Reading something is the case that may be.
+        sent = Sent()
+        bridge = bridge_for(store, sent)
+        bridge.handle(request(tool="Read", input={"file_path": "/etc/hosts"}))
+        action = _await_queued(store)
+        assert action.tier != "high"
+
+        body = client.post(
+            f"/v1/approvals/{action.id}/approve", json={"remember": True}
+        ).json()
+        assert body["remembered"] is True
+        assert sent.wait()["behavior"] == "allow"
+
+        # Second time: no question reaches the queue at all.
+        again = Sent()
+        bridge_for(store, again).handle(
+            request(id="perm_2", tool="Read", input={"file_path": "/etc/passwd"})
+        )
+
+        assert again.wait()["behavior"] == "allow"
+        assert store.list_pending() == [], "nobody should have been asked twice"
+
+    def test_a_destructive_tool_is_asked_every_time(self, store, monkeypatch) -> None:
+        """`rm` is tier high, so the API refuses to remember it."""
+        pytest.importorskip("fastapi")
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
+
+        import nira.server.approval_routes as routes
+
+        monkeypatch.setattr(routes, "_store", store)
+        app = FastAPI()
+        app.include_router(routes.router)
+        client = TestClient(app)
+
+        sent = Sent()
+        bridge_for(store, sent).handle(request())
+        action = _await_queued(store)
+
+        body = client.post(
+            f"/v1/approvals/{action.id}/approve", json={"remember": True}
+        ).json()
+        assert body["remembered"] is False
+        sent.wait()
+
+        again = Sent()
+        bridge_for(store, again).handle(request(id="perm_2"))
+
+        # Asked again, rather than silently allowed from a remembered yes.
+        assert _await_queued(store).permission_key == "tool:Bash:rm"
+        store.update_status(store.list_pending()[0].id, STATUS_APPROVED)
+        again.wait()

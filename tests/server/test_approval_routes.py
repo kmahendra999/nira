@@ -355,3 +355,110 @@ class TestApprovalStoreIntegration:
         resp = client.get("/v1/approvals/pending")
         tiers = {a["tier"] for a in resp.json()["actions"]}
         assert tiers == {"trivial", "low", "medium", "high"}
+
+
+# ---------------------------------------------------------------------------
+# "Always allow", from a client
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.skipif(not HAS_FASTAPI, reason="fastapi not installed")
+class TestRememberingAnAnswer:
+    """The permission memory had no way in.
+
+    `always_approve` has been in the store since the memory existed, and the
+    bridge honours it — it short-circuits before anyone is asked. No client
+    could set it, so the only way to reach the feature was to edit the
+    database by hand.
+    """
+
+    def test_approving_once_remembers_nothing(self, client, approval_store) -> None:
+        action_id = _queue(approval_store)
+
+        body = client.post(f"/v1/approvals/{action_id}/approve").json()
+
+        assert body["status"] == "approved"
+        assert body["remembered"] is False
+        assert approval_store.get_permission("file_write:path:~/Desktop") is None
+
+    def test_approving_with_remember_records_a_standing_yes(
+        self, client, approval_store
+    ) -> None:
+        action_id = _queue(approval_store)
+
+        body = client.post(
+            f"/v1/approvals/{action_id}/approve", json={"remember": True}
+        ).json()
+
+        assert body["remembered"] is True
+        remembered = approval_store.get_permission("file_write:path:~/Desktop")
+        assert remembered is not None
+        assert remembered.decision == "always_approve"
+
+    def test_denying_with_remember_records_a_standing_no(
+        self, client, approval_store
+    ) -> None:
+        action_id = _queue(approval_store)
+
+        body = client.post(
+            f"/v1/approvals/{action_id}/deny", json={"remember": True}
+        ).json()
+
+        assert body["remembered"] is True
+        assert (
+            approval_store.get_permission("file_write:path:~/Desktop").decision
+            == "always_deny"
+        )
+
+    def test_a_high_tier_action_is_never_remembered(
+        self, client, approval_store
+    ) -> None:
+        """One yes on a phone must not stand in for every future `rm`.
+
+        The bridge assigns `high` to anything that changes the world, and
+        `set_permission` takes no tier — so if the route does not refuse
+        this, nothing does.
+        """
+        action_id = _queue(
+            approval_store, tier=TIER_HIGH, permission_key="tool:Bash:rm"
+        )
+
+        body = client.post(
+            f"/v1/approvals/{action_id}/approve", json={"remember": True}
+        ).json()
+
+        # The action itself still goes through; only the memory is refused.
+        assert body["status"] == "approved"
+        assert body["remembered"] is False
+        assert approval_store.get_permission("tool:Bash:rm") is None
+        assert approval_store.get_action(action_id).status == STATUS_APPROVED
+
+    def test_a_low_tier_action_may_be_remembered(self, client, approval_store) -> None:
+        action_id = _queue(approval_store, tier=TIER_LOW, permission_key="tool:Read")
+
+        body = client.post(
+            f"/v1/approvals/{action_id}/approve", json={"remember": True}
+        ).json()
+
+        assert body["remembered"] is True
+
+    def test_the_listing_says_whether_remembering_is_offered(
+        self, client, approval_store
+    ) -> None:
+        """A client should not render a control the server will ignore."""
+        _queue(approval_store, tier=TIER_MEDIUM, permission_key="tool:Read")
+        _queue(approval_store, tier=TIER_HIGH, permission_key="tool:Bash:rm")
+
+        actions = client.get("/v1/approvals/pending").json()["actions"]
+        by_key = {a["permission_key"]: a for a in actions}
+
+        assert by_key["tool:Read"]["can_remember"] is True
+        assert by_key["tool:Bash:rm"]["can_remember"] is False
+
+    def test_an_unknown_action_is_still_a_404(self, client) -> None:
+        assert (
+            client.post(
+                "/v1/approvals/nope/approve", json={"remember": True}
+            ).status_code
+            == 404
+        )
