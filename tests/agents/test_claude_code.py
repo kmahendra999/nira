@@ -5,7 +5,7 @@ from __future__ import annotations
 import io
 import json
 import subprocess
-import time
+import threading
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -70,6 +70,10 @@ class _FakePopen:
     def kill(self) -> None:
         self.killed = True
         self._returncode = -9
+        # A killed process's pipes end. Without this the pump thread reading a
+        # hanging stdout never returns, and a daemon thread left spinning
+        # outlives the test that created it.
+        self.stdout.close()
 
 
 class _CapturingStdin:
@@ -101,17 +105,31 @@ class _CapturingStdin:
 
 
 class _HangingLines:
-    """A stdout that never yields a line, standing in for a wedged agent."""
+    """A stdout that never yields a line, standing in for a wedged agent.
+
+    This used to recurse -- ``return self.__next__()`` after a sleep -- which
+    is not an infinite loop, it is a stack roughly a thousand frames deep that
+    raises ``RecursionError`` about fifty seconds in. It runs on the agent's
+    daemon pump thread, long after the test that started it has passed, so the
+    crash landed in whichever unrelated test the xdist worker was running by
+    then and read as a flake in that file.
+
+    Blocking on an event gives the same behaviour -- no line, ever -- and lets
+    the thread end when the reader closes the pipe.
+    """
+
+    def __init__(self) -> None:
+        self._closed = threading.Event()
 
     def __iter__(self):
         return self
 
     def __next__(self):
-        time.sleep(0.05)
-        return self.__next__()
+        self._closed.wait()
+        raise StopIteration
 
     def close(self) -> None:
-        pass
+        self._closed.set()
 
 
 def _mock_proc(
