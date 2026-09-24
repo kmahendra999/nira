@@ -8,7 +8,8 @@ FROM nginx:1.27-alpine
 # wants to bind 80, which a non-root process may not, hence 8080 below.
 RUN rm /etc/nginx/conf.d/default.conf
 
-COPY website/nginx.conf /etc/nginx/conf.d/nira.conf
+COPY website/nginx.conf           /etc/nginx/conf.d/nira.conf
+COPY website/security-headers.conf /etc/nginx/security-headers.conf
 COPY website/public/    /usr/share/nginx/html/
 
 # The installer, from the one place it lives. The page tells people to pipe

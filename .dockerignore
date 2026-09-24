@@ -9,6 +9,7 @@
 
 !website/public
 !website/nginx.conf
+!website/security-headers.conf
 !scripts/install/install.sh
 
 # Not needed inside the image even from those paths.
