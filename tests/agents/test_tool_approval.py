@@ -33,6 +33,26 @@ from nira.tools.approval_store import (
 def store(tmp_path):
     approvals = ApprovalStore(str(tmp_path / "approvals.db"))
     yield approvals
+
+    # Let the bridge's workers finish before the connection goes.
+    #
+    # `handle()` resolves each request on a daemon thread that polls the store
+    # for up to its timeout, and the store is one `sqlite3` connection opened
+    # with `check_same_thread=False`. Closing it out from under a thread that
+    # is mid-query is a use-after-close on the connection object, and it does
+    # not raise -- it took the whole xdist worker down, and the failure was
+    # reported against whichever test that worker happened to be running.
+    #
+    # `ApprovalBridge.join` exists for exactly this and no test called it.
+    # Doing it here covers every test in the file rather than relying on each
+    # one to remember.
+    deadline = time.monotonic() + 10.0
+    for thread in threading.enumerate():
+        if not thread.name.startswith("nira-approval-"):
+            continue
+        thread.join(max(0.0, deadline - time.monotonic()))
+        assert not thread.is_alive(), f"{thread.name} outlived its test"
+
     approvals.close()
 
 
