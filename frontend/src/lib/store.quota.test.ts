@@ -367,3 +367,56 @@ describe('reclaiming room prefers trimming attachments to deleting conversations
     off();
   });
 });
+
+describe('the sidebar does not keep listing conversations that were reclaimed', () => {
+  it('rebuilds the list when a reclaim removes one', async () => {
+    const { useAppStore, onStorageWarning } = await import('./store');
+    const off = onStorageWarning(() => {});
+
+    const store = {
+      version: 1 as const,
+      activeId: 'active',
+      conversations: {
+        gone: bigConversation('gone', 900, 1),
+        active: bigConversation('active', 200, 9),
+      },
+    };
+    storage.setItem('nira-conversations', JSON.stringify(store));
+    useAppStore.getState().loadConversations();
+    expect(useAppStore.getState().conversations).toHaveLength(2);
+
+    storage.setBudget(600);
+    useAppStore.getState().addMessage('active', msg('hi'));
+
+    const listed = useAppStore.getState().conversations.map((c) => c.id);
+    expect(listed, 'a reclaimed conversation must leave the sidebar').not.toContain('gone');
+    off();
+  });
+
+  it('selecting a stale entry repairs the list instead of showing a blank chat', async () => {
+    const { useAppStore, onStorageWarning } = await import('./store');
+    const off = onStorageWarning(() => {});
+
+    const store = {
+      version: 1 as const,
+      activeId: 'a',
+      conversations: { a: bigConversation('a', 50, 1) },
+    };
+    storage.setItem('nira-conversations', JSON.stringify(store));
+    useAppStore.getState().loadConversations();
+
+    // Something removed it behind the app's back.
+    useAppStore.setState({
+      conversations: [bigConversation('ghost', 10, 2), ...useAppStore.getState().conversations],
+    });
+    expect(useAppStore.getState().conversations.map((c) => c.id)).toContain('ghost');
+
+    useAppStore.getState().selectConversation('ghost');
+
+    expect(
+      useAppStore.getState().conversations.map((c) => c.id),
+      'the click should have repaired the list',
+    ).not.toContain('ghost');
+    off();
+  });
+});

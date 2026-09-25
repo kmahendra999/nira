@@ -572,6 +572,14 @@ export const useAppStore = create<AppState>((set, get) => {
       set({
         activeId: id,
         messages: conv ? conv.messages : [],
+        // Re-read the list from what is actually stored. Reclaiming room can
+        // remove conversations while the sidebar still lists them, and the
+        // first thing a user does with a stale entry is click it — which
+        // showed an empty chat and no reason for it. Refreshing here means
+        // that click is also the repair.
+        conversations: Object.values(store.conversations).sort(
+          (a, b) => b.updatedAt - a.updatedAt,
+        ),
       });
     },
 
@@ -658,9 +666,20 @@ export const useAppStore = create<AppState>((set, get) => {
         if (researchTraces) lastMsg.researchTraces = researchTraces;
         if (researchSources) lastMsg.researchSources = researchSources;
         conv.updatedAt = Date.now();
-        saveConversations(store, conversationId);
+        const wrote = saveConversations(store, conversationId);
         if (get().activeId === conversationId) {
           set({ messages: [...conv.messages] });
+        }
+        // A reclaim during streaming can drop conversations out from under
+        // the sidebar. Rebuilding the list on every flush would sort it 12
+        // times a second for nothing, so do it only when the store we just
+        // wrote no longer matches the one on screen.
+        if (wrote && Object.keys(store.conversations).length !== get().conversations.length) {
+          set({
+            conversations: Object.values(store.conversations).sort(
+              (a, b) => b.updatedAt - a.updatedAt,
+            ),
+          });
         }
       }
     },
