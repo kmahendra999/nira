@@ -3591,10 +3591,19 @@ fn copy_dir_all(src: &std::path::Path, dst: &std::path::Path) -> std::io::Result
             continue;
         }
         let target = dst.join(&name);
+        // Propagate failures rather than swallowing them.
+        //
+        // These were `let _ =`, so a copy that moved not one byte still
+        // returned Ok and the caller printed "Carried your data over". Worse,
+        // the destination directory had already been created, so the
+        // `new_dir.exists()` guard then skipped the migration on every later
+        // launch: a silent, permanent, unretryable failure with a success
+        // message on it. The staging directory in the caller is the other
+        // half of this — an error here must leave nothing behind.
         if file_type.is_dir() {
-            let _ = copy_dir_all(&entry.path(), &target);
+            copy_dir_all(&entry.path(), &target)?;
         } else if file_type.is_file() {
-            let _ = std::fs::copy(entry.path(), &target);
+            std::fs::copy(entry.path(), &target)?;
         }
         // Symlinks are skipped deliberately: nothing in a webview profile
         // needs one, and following one would copy from outside the profile.
@@ -3638,7 +3647,22 @@ fn migrate_webview_profile_between(old_dir: &std::path::Path, new_dir: &std::pat
         return; // Nothing to carry over.
     }
 
-    match copy_dir_all(old_dir, new_dir) {
+    // Copy into a staging directory and rename it into place only once the
+    // whole copy has succeeded.
+    //
+    // The destination is what the `new_dir.exists()` guard above tests, so
+    // creating it up front and then failing halfway would mark the migration
+    // as done for ever — the app would start against a half-copied or empty
+    // profile and never try again. Renaming is atomic within a filesystem, so
+    // `new_dir` either does not exist or is a complete profile.
+    let staging = new_dir.with_extension("migrating");
+    let _ = std::fs::remove_dir_all(&staging); // leftovers from a crashed run
+
+    let copied = copy_dir_all(old_dir, &staging).and_then(|()| {
+        std::fs::rename(&staging, new_dir)
+    });
+
+    match copied {
         Ok(()) => {
             eprintln!(
                 "Carried your data over from the previous app name ({} -> {}).",
@@ -3649,9 +3673,11 @@ fn migrate_webview_profile_between(old_dir: &std::path::Path, new_dir: &std::pat
             // runs unattended at launch.
         }
         Err(err) => {
+            // Leave nothing behind, so the next launch tries again.
+            let _ = std::fs::remove_dir_all(&staging);
             eprintln!(
                 "Could not carry data over from {}: {}. Your previous data is \
-                 still at {}.",
+                 still at {}, and Nira will try again next time it starts.",
                 LEGACY_IDENTIFIER,
                 err,
                 old_dir.display()
@@ -4815,6 +4841,53 @@ mod tests {
             std::fs::read_to_string(new.join("CacheStorage/deep/nested/file")).unwrap(),
             "cache"
         );
+        std::fs::remove_dir_all(&root).ok();
+    }
+
+    #[test]
+    fn a_failed_copy_leaves_no_profile_so_the_next_launch_retries() {
+        // The destination is what the `new_dir.exists()` guard tests. Creating
+        // it and then failing halfway marked the migration done for ever: the
+        // app started against an empty profile, printed "Carried your data
+        // over", and never tried again.
+        let root = std::env::temp_dir().join(format!(
+            "nira-fail-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let old = root.join("old");
+        write(&old.join("localstorage/db"), "conversations");
+        // An unreadable subdirectory makes the copy fail partway.
+        let blocked = old.join("blocked");
+        std::fs::create_dir_all(&blocked).unwrap();
+        write(&blocked.join("f"), "x");
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&blocked, std::fs::Permissions::from_mode(0o000)).unwrap();
+        }
+
+        let new = root.join("new");
+        super::migrate_webview_profile_between(&old, &new);
+
+        #[cfg(unix)]
+        {
+            assert!(
+                !new.exists(),
+                "a failed migration must leave no profile, or it never retries"
+            );
+            assert!(
+                !new.with_extension("migrating").exists(),
+                "the staging directory must be cleaned up"
+            );
+            // And the original is untouched.
+            assert!(old.join("localstorage/db").exists());
+
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&blocked, std::fs::Permissions::from_mode(0o755)).ok();
+        }
         std::fs::remove_dir_all(&root).ok();
     }
 

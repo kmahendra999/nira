@@ -579,3 +579,77 @@ describe('trimming is bounded too', () => {
     };
   }
 });
+
+describe('a trim that did not help is not committed by a later delete', () => {
+  // write() serialises the whole store, so an attachment stripped in stage 1
+  // is persisted by ANY later successful write — including stage 2's
+  // deletion. The reclaim then took four losses and reported one: "removed 1
+  // old conversation", while tool results vanished out of conversations still
+  // listed on screen. No test covered trim-then-delete; this is it.
+  function withToolResult(id: string, updatedAt: number, resultBytes: number) {
+    return {
+      id,
+      title: id,
+      updatedAt,
+      createdAt: updatedAt,
+      model: 'qwen3.5:4b',
+      messages: [
+        {
+          ...msg('words', 'assistant'),
+          toolCalls: [
+            { id: 't', name: 'search', arguments: '{}', result: 'R'.repeat(resultBytes) },
+          ],
+        },
+      ],
+    };
+  }
+
+  it('restores attachments when trimming fails and only the delete lands', async () => {
+    const { useAppStore, onStorageWarning, resetStorageReclaimThrottle } = await import('./store');
+    resetStorageReclaimThrottle();
+    const warnings: StorageWarning[] = [];
+    const off = onStorageWarning((w) => warnings.push(w));
+
+    const store = {
+      version: 1 as const,
+      activeId: 'active',
+      conversations: {
+        // Oldest and biggest, but plain text — nothing for stage 1 to trim,
+        // so stage 1 skips it and works on the two small ones instead.
+        huge: bigConversation('huge', 4000, 1),
+        keep1: withToolResult('keep1', 2, 300),
+        keep2: withToolResult('keep2', 3, 300),
+        active: bigConversation('active', 100, 9),
+      },
+    };
+    storage.setItem('nira-conversations', JSON.stringify(store));
+    useAppStore.getState().loadConversations();
+
+    const attachmentsOnDisk = () =>
+      Object.values(
+        JSON.parse(storage.getItem('nira-conversations') as string).conversations,
+      ).filter((c: any) => c.messages.some((m: any) => m.toolCalls)).length;
+
+    expect(attachmentsOnDisk()).toBe(2);
+
+    // Measured: 5592 intact, 5222 with keep1 trimmed, 4852 with both trimmed,
+    // 1437 once `huge` is deleted. A 2000-byte budget therefore rejects every
+    // trim and accepts the delete — exactly the trim-then-delete path.
+    storage.setBudget(2000);
+    useAppStore.getState().addMessage('active', msg('go'));
+
+    const saved = JSON.parse(storage.getItem('nira-conversations') as string);
+    expect(saved.conversations.huge, 'the delete should have landed').toBeUndefined();
+    expect(saved.conversations.keep1, 'survivors stay').toBeTruthy();
+    expect(
+      attachmentsOnDisk(),
+      'a trim that did not help must not ride along on the delete',
+    ).toBe(2);
+
+    // And the report matches what actually happened.
+    const pruned = warnings.filter((w) => w.kind === 'pruned');
+    expect(pruned).toHaveLength(1);
+    expect(warnings.some((w) => w.kind === 'trimmed')).toBe(false);
+    off();
+  });
+});

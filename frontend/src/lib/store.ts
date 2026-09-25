@@ -211,12 +211,27 @@ function saveConversations(
   // more per call than deleting does — but it is still not allowed to hollow
   // out the archive to keep one reply on disk.
   let trimmed = 0;
+  // What stage 1 removed, so it can be put back if stage 1 does not succeed.
+  //
+  // `write()` serialises the whole `store` object, so a strip applied here is
+  // committed by ANY later successful write — including stage 2's deletion.
+  // Without this, a reclaim that trimmed three conversations and then deleted
+  // one persisted all four losses and reported only the deletion: the user is
+  // told "removed 1 old conversation" while tool results and research sources
+  // vanish out of conversations that are still on screen.
+  const undoStrip: Array<() => void> = [];
   if (Date.now() - lastTrimAt >= TRIM_COOLDOWN_MS) {
     for (const conversation of oldestFirst()) {
       if (trimmed >= MAX_TRIMS_PER_EVENT) break;
       let changed = false;
       for (const message of conversation.messages ?? []) {
         if (message.toolCalls || message.researchTraces || message.researchSources) {
+          const { toolCalls, researchTraces, researchSources } = message;
+          undoStrip.push(() => {
+            if (toolCalls) message.toolCalls = toolCalls;
+            if (researchTraces) message.researchTraces = researchTraces;
+            if (researchSources) message.researchSources = researchSources;
+          });
           delete message.toolCalls;
           delete message.researchTraces;
           delete message.researchSources;
@@ -239,9 +254,13 @@ function saveConversations(
           return false;
         }
       }
+    }
+    if (trimmed > 0) lastTrimAt = Date.now();
   }
-  if (trimmed > 0) lastTrimAt = Date.now();
-  }
+
+  // Stage 1 did not get under the limit. Put the attachments back before
+  // anything else writes, so the only loss reported is the only loss taken.
+  for (const undo of undoStrip) undo();
 
   // Stage 2 — the text alone still does not fit. Delete, oldest first.
   //
