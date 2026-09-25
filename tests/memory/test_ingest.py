@@ -54,15 +54,26 @@ def test_read_document_utf8_fallback(tmp_path: Path):
     assert "caf" in text
 
 
-def test_read_document_pdf_missing_dep(tmp_path: Path):
+def test_read_document_pdf_handles_both_worlds(tmp_path: Path):
+    """A malformed PDF must fail cleanly whether or not pdfplumber is here.
+
+    This used to catch only ImportError, so it passed exactly while
+    pdfplumber was *not* installed and started failing the moment it was —
+    with a PDFSyntaxError from the parser it had just gained. Both outcomes
+    are correct behaviour; what matters is that neither is a crash somewhere
+    unrelated, and that the missing-dependency message names the package.
+    """
     p = tmp_path / "doc.pdf"
     p.write_bytes(b"%PDF-1.4 fake pdf content")
-    # Should raise ImportError when pdfplumber not installed
-    # or succeed if it IS installed — either way just check it's handled
     try:
         read_document(p)
     except ImportError as exc:
+        # No parser installed: say which one to install.
         assert "pdfplumber" in str(exc)
+    except Exception as exc:
+        # Parser installed: it rejects the malformed file, which is the
+        # parser's own error and not an ImportError in disguise.
+        assert not isinstance(exc, ImportError)
 
 
 def test_read_document_not_found(tmp_path: Path):

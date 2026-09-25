@@ -16,10 +16,14 @@ try:
 except ImportError:
     pass
 
-try:
-    import nira.tools.storage.colbert_backend  # noqa: F401
-except ImportError:
-    pass
+# ColBERT is deliberately NOT imported here.
+#
+# It does a top-level `import torch`, and this package sits on the CLI's
+# import path — so eagerly registering it makes every `nira` command load a
+# deep-learning stack it will almost never use. That cost was invisible while
+# torch was uninstalled (the ImportError was swallowed) and appeared the
+# moment anything else pulled torch in, adding seconds to every invocation.
+# `MemoryRegistry.get("colbert")` imports it on demand instead.
 
 try:
     import nira.tools.storage.hybrid  # noqa: F401
