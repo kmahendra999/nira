@@ -118,7 +118,11 @@ export default function App() {
       .then((m) => {
         setModels(m);
       })
-      .catch(() => setModels([]))
+      // Not setModels([]): a failed fetch is not the same fact as "you have
+      // no models", and reporting it as one cleared the user's selection on
+      // every transient failure. Leave the last known list alone; the auth
+      // toast and the picker's own empty state explain the failure.
+      .catch(() => {})
       .finally(() => setModelsLoading(false));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 

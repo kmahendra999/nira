@@ -527,9 +527,27 @@ export const useAppStore = create<AppState>((set, get) => {
 
         const currentIsBad =
           !!state.selectedModel && isEmbedOnlyModel(state.selectedModel);
+        // An empty list is not evidence that a particular model is absent.
+        //
+        // Callers pass `[]` when the *fetch* failed — App.tsx did it from a
+        // `.catch()` — and this then read as "the user has zero models", so
+        // it cleared `selectedModel` and set modelWasAutoPicked. Every
+        // transient 401 or server restart wiped the choice, the selector fell
+        // to "No models", and when the next poll succeeded it came back:
+        // exactly the "it reverts automatically and is not stable" the user
+        // reported after downloading one. Only a list we actually received
+        // can prove a model is gone.
         const currentMissing =
           !!state.selectedModel &&
+          models.length > 0 &&
           !models.some((m) => m.id === state.selectedModel);
+
+        if (models.length === 0 && state.selectedModel && !currentIsBad) {
+          // Keep the selection and say nothing about it. `settings.defaultModel`
+          // still holds it, so a later successful fetch re-confirms rather than
+          // re-picks.
+          return { models };
+        }
 
         if (!state.selectedModel || currentIsBad || currentMissing) {
           // Auto-picked, so a later /v1/info may still correct it.
