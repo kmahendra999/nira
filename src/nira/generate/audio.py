@@ -85,18 +85,30 @@ def _generate_speech(job: Any, report: Callable[[float, str], None]) -> str:
 
 
 def _load_music(size: str, report: Callable[[float, str], None]) -> Any:
+    """Load MusicGen's model and processor directly.
+
+    Not ``transformers.pipeline("text-to-audio")``: that helper is broken in
+    transformers 5.17 — its preprocess step calls ``BatchEncoding.to(dtype=…)``
+    and BatchEncoding has no such argument, so every generation raises a
+    TypeError from inside the library. The model API underneath is stable and
+    documented, and going straight to it also means the exact sampling rate
+    rather than whatever the pipeline decides to report.
+    """
     global _MUSIC, _MUSIC_KEY
     if _MUSIC is not None and _MUSIC_KEY == size:
         return _MUSIC
 
-    from transformers import pipeline as hf_pipeline
+    from transformers import AutoProcessor, MusicgenForConditionalGeneration
 
     spec = MUSIC_MODELS[size]
     report(
         0.05,
         f"Loading MusicGen {size} (first run downloads ~{spec['download_gb']} GB)…",
     )
-    _MUSIC = hf_pipeline("text-to-audio", model=spec["repo"], device="cpu")
+    processor = AutoProcessor.from_pretrained(spec["repo"])
+    model = MusicgenForConditionalGeneration.from_pretrained(spec["repo"]).to("cpu")
+
+    _MUSIC = (processor, model)
     _MUSIC_KEY = size
     return _MUSIC
 
@@ -114,7 +126,7 @@ def _generate_music(job: Any, report: Callable[[float, str], None]) -> str:
     seconds = min(int(job.params.get("seconds") or 10), MAX_MUSIC_SECONDS)
 
     try:
-        generator = _load_music(size, report)
+        processor, model = _load_music(size, report)
     except ImportError as exc:
         raise RuntimeError(
             "Music generation needs transformers. Install it with: "
@@ -130,21 +142,21 @@ def _generate_music(job: Any, report: Callable[[float, str], None]) -> str:
         0.15,
         f"Composing {seconds}s — expect roughly {seconds * 6}s on this CPU…",
     )
-    output = generator(
-        job.prompt,
-        forward_params={"do_sample": True, "max_new_tokens": tokens},
-    )
+    inputs = processor(text=[job.prompt], padding=True, return_tensors="pt")
+    values = model.generate(**inputs, do_sample=True, max_new_tokens=tokens)
 
     if job.cancelled:
         raise RuntimeError("Cancelled")
 
     report(0.9, "Saving…")
     filename = f"{job.id}.wav"
-    audio = output["audio"]
-    # transformers returns (channels, samples); soundfile wants the transpose.
-    if hasattr(audio, "ndim") and audio.ndim > 1:
+    # (batch, channels, samples) -> (samples, channels) for soundfile.
+    audio = values[0].cpu().numpy()
+    if audio.ndim > 1:
         audio = audio.T
-    sf.write(output_dir() / filename, audio, output["sampling_rate"])
+    sf.write(
+        output_dir() / filename, audio, model.config.audio_encoder.sampling_rate
+    )
     return filename
 
 

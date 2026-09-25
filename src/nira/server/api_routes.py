@@ -338,8 +338,13 @@ def generation_result(job_id: str):
     """The finished file."""
     from fastapi.responses import FileResponse
 
-    from nira.generate import output_dir
+    # Imported as a module rather than pulling the name in: a bound name is a
+    # separate reference that a test (or anything else) patching the module
+    # attribute cannot reach, and this function's whole job is deciding which
+    # directory is allowed.
+    from nira.generate import jobs as generate_jobs
 
+    output_dir = generate_jobs.output_dir
     job = _generation_queue().get(job_id)
     if job is None:
         raise HTTPException(status_code=404, detail="No such job.")
