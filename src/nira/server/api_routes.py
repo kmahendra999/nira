@@ -9,7 +9,15 @@ import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, HTTPException, Request, WebSocket, WebSocketDisconnect
+from fastapi import (
+    APIRouter,
+    File,
+    HTTPException,
+    Request,
+    UploadFile,
+    WebSocket,
+    WebSocketDisconnect,
+)
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
@@ -199,6 +207,105 @@ async def message_agent(agent_id: str, req: AgentMessageRequest, request: Reques
         return {"status": "sent", "content": result.content}
     except ImportError:
         raise HTTPException(status_code=501, detail="Agent tools not available")
+
+
+# ---- Chat attachment routes ----
+#
+# Files a user attaches to a chat message. Bytes stay here; the browser holds
+# an id. See nira.server.attachments for why.
+
+attachments_router = APIRouter(prefix="/v1/chat/attachments", tags=["attachments"])
+
+
+def _attachment_store(request: Request):
+    """The per-process attachment store, created on first use."""
+    from nira.server.attachments import AttachmentStore
+
+    store = getattr(request.app.state, "attachment_store", None)
+    if store is None:
+        store = AttachmentStore()
+        request.app.state.attachment_store = store
+    return store
+
+
+@attachments_router.post("")
+async def upload_attachment(request: Request, file: UploadFile = File(...)):
+    """Accept one file, extract it now, and return an id to reference it by.
+
+    Reads with a hard ceiling rather than `await file.read()`.
+    Every other upload path in this server reads the whole body into memory
+    unbounded, which on a host that also binds to a tailnet is a
+    memory-exhaustion primitive — and one that 152 GB of RAM makes feel
+    survivable right up until it is not.
+    """
+    from nira.documents import ExtractionError
+    from nira.server.attachments import (
+        MAX_FILE_BYTES,
+        AttachmentTooLarge,
+    )
+
+    filename = (file.filename or "").strip() or "attachment"
+
+    # Read in chunks and stop the moment the limit is passed, so an oversized
+    # upload costs one chunk over the limit rather than the whole file.
+    chunks: List[bytes] = []
+    total = 0
+    while True:
+        chunk = await file.read(1024 * 1024)
+        if not chunk:
+            break
+        total += len(chunk)
+        if total > MAX_FILE_BYTES:
+            raise HTTPException(
+                status_code=413,
+                detail=(
+                    f"{filename} is larger than {MAX_FILE_BYTES // (1024 * 1024)} MB."
+                ),
+            )
+        chunks.append(chunk)
+
+    data = b"".join(chunks)
+    store = _attachment_store(request)
+    try:
+        attachment = store.add(filename, data, mime=file.content_type or "")
+    except AttachmentTooLarge as exc:
+        raise HTTPException(status_code=413, detail=str(exc)) from exc
+    except ExtractionError as exc:
+        # The message names the format and, where there is one, the fix.
+        raise HTTPException(status_code=415, detail=str(exc)) from exc
+    except Exception as exc:  # pragma: no cover - unexpected parser failure
+        logger.exception("attachment extraction failed")
+        raise HTTPException(
+            status_code=500, detail=f"Could not read {filename}: {exc}"
+        ) from exc
+
+    return attachment.to_public()
+
+
+@attachments_router.get("/{attachment_id}/content")
+def attachment_content(attachment_id: str, request: Request):
+    """The image bytes, for the thumbnail the composer shows.
+
+    Documents have no bytes to return — they were reduced to text at upload
+    and the original was not kept.
+    """
+    from fastapi.responses import Response
+
+    attachment = _attachment_store(request).get(attachment_id)
+    if attachment is None:
+        raise HTTPException(status_code=404, detail="That attachment has expired.")
+    if not attachment.thumbnail:
+        raise HTTPException(
+            status_code=404, detail="This attachment has no preview image."
+        )
+    return Response(content=attachment.thumbnail, media_type=attachment.mime)
+
+
+@attachments_router.delete("/{attachment_id}")
+def discard_attachment(attachment_id: str, request: Request):
+    """Drop an attachment the user removed before sending."""
+    removed = _attachment_store(request).discard(attachment_id)
+    return {"status": "deleted" if removed else "not_found"}
 
 
 # ---- Memory routes ----
@@ -1533,6 +1640,7 @@ def include_all_routes(app) -> None:
 
     app.include_router(approval_router)
     app.include_router(agents_router)
+    app.include_router(attachments_router)
     app.include_router(memory_router)
     app.include_router(network_router)
     app.include_router(traces_router)
@@ -1594,6 +1702,7 @@ def include_all_routes(app) -> None:
 __all__ = [
     "include_all_routes",
     "agents_router",
+    "attachments_router",
     "memory_router",
     "network_router",
     "traces_router",

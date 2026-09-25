@@ -53,6 +53,10 @@ def _to_messages(chat_messages) -> list[Message]:
                 ]
                 or None,
                 tool_call_id=m.tool_call_id,
+                # The engines already know what to do with this: the core
+                # Message type has carried `images` since `nira ask --image`,
+                # and messages_to_dicts puts it on the wire.
+                images=list(m.images) if getattr(m, "images", None) else None,
             )
         )
     return messages
@@ -154,9 +158,89 @@ def _ensure_identity_prompt(messages: list[Message], app_config) -> list[Message
     return [combined_system, *non_system_messages]
 
 
+def _resolve_attachments(request_body, request) -> None:
+    """Turn ``attachment_ids`` into message content and images, in place.
+
+    Runs before anything else looks at the request, so every downstream path —
+    the agent, the three streaming handlers, memory, the complexity scorer —
+    sees an ordinary message whose content happens to include the document
+    text. Nothing further needs to know attachments exist.
+
+    Document text goes into ``content`` rather than a side channel on purpose.
+    An attached file is untrusted third-party text, and content is what the
+    guardrail and redaction layers scan; routing it past them straight to the
+    engine would also route a .env-shaped document past the secret redactor.
+
+    Images cannot go in content, so they take the `images` field the core
+    Message type already has — and a model that cannot see them is refused
+    rather than left to invent a description.
+    """
+    from fastapi import HTTPException
+
+    from nira.server.attachments import (
+        MAX_FILES_PER_MESSAGE,
+        collect_images,
+        render_for_prompt,
+    )
+    from nira.server.model_capabilities import is_vision_model
+
+    messages = getattr(request_body, "messages", None) or []
+    store = getattr(request.app.state, "attachment_store", None)
+
+    for message in messages:
+        ids = getattr(message, "attachment_ids", None)
+        if not ids:
+            continue
+        if len(ids) > MAX_FILES_PER_MESSAGE:
+            raise HTTPException(
+                status_code=413,
+                detail=(
+                    f"{len(ids)} files attached; the limit is "
+                    f"{MAX_FILES_PER_MESSAGE} per message."
+                ),
+            )
+        if store is None:
+            raise HTTPException(
+                status_code=410,
+                detail="Those attachments have expired. Attach them again.",
+            )
+
+        resolved = store.resolve(list(ids))
+        if len(resolved) != len(ids):
+            # Expired between upload and send. Say so rather than answering
+            # about a file the model never received.
+            raise HTTPException(
+                status_code=410,
+                detail=("Some attachments have expired. Attach them again and resend."),
+            )
+
+        images = collect_images(resolved)
+        if images and not is_vision_model(request_body.model):
+            names = ", ".join(a.filename for a in resolved if a.kind == "image")
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"{request_body.model} cannot read images ({names}). "
+                    "Switch to a vision model such as qwen2.5vl:7b, or "
+                    "remove the image."
+                ),
+            )
+        if images:
+            message.images = (message.images or []) + images
+
+        document_block = render_for_prompt(resolved)
+        if document_block:
+            message.content = (message.content or "") + document_block
+
+        # Consumed. Leaving them set would re-resolve on a retry and append
+        # the same document text a second time.
+        message.attachment_ids = None
+
+
 @router.post("/v1/chat/completions")
 async def chat_completions(request_body: ChatCompletionRequest, request: Request):
     """Handle chat completion requests (streaming and non-streaming)."""
+    _resolve_attachments(request_body, request)
     engine = request.app.state.engine
     agent = getattr(request.app.state, "agent", None)
     model = request_body.model
@@ -235,6 +319,12 @@ async def chat_completions(request_body: ChatCompletionRequest, request: Request
                             ]
                             or None,
                             tool_call_id=getattr(msg, "tool_call_id", None),
+                            # Enumerated rather than copied, so every new
+                            # field has to be added here too or it vanishes
+                            # when memory context is on — and the whole block
+                            # is wrapped in a bare `except Exception` logged
+                            # at debug, so it vanishes silently.
+                            images=getattr(msg, "images", None),
                         )
                     )
                 request_body.messages = new_msgs

@@ -6,7 +6,7 @@ import time
 import uuid
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 # ---------------------------------------------------------------------------
 # Request models
@@ -19,6 +19,62 @@ class ChatMessage(BaseModel):
     name: Optional[str] = None
     tool_calls: Optional[List[Dict[str, Any]]] = None
     tool_call_id: Optional[str] = None
+    # Base64 image data for vision-capable models. The core `Message` type has
+    # carried this since the CLI's `nira ask --image` shipped, and
+    # `messages_to_dicts` already forwards it to Ollama's `images` array — the
+    # HTTP layer was the only missing link.
+    images: Optional[List[str]] = None
+    # Ids from POST /v1/chat/attachments. Ids rather than bytes: a 3 MB photo
+    # is ~4 MB base64, and conversations are persisted in the browser's
+    # ~5 MB localStorage.
+    attachment_ids: Optional[List[str]] = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _accept_openai_content_parts(cls, data: Any) -> Any:
+        """Accept OpenAI-style ``content`` arrays, storing them in our shape.
+
+        Every OpenAI-compatible vision client sends
+        ``content: [{"type": "text"...}, {"type": "image_url"...}]``, and
+        `content` here is a `str`, so all of them got a 422 — the endpoint
+        advertises OpenAI compatibility and rejected the standard request.
+
+        Normalising here rather than widening `content` to a union is what
+        keeps this cheap: eight places read `.content` expecting a string, and
+        a union would hand every one of them a list instead.
+        """
+        if not isinstance(data, dict):
+            return data
+        content = data.get("content")
+        if not isinstance(content, list):
+            return data
+
+        texts: List[str] = []
+        images: List[str] = list(data.get("images") or [])
+        for part in content:
+            if not isinstance(part, dict):
+                # A bare string inside the array is not in the spec, but it
+                # costs nothing to read it as text rather than 422.
+                if isinstance(part, str):
+                    texts.append(part)
+                continue
+            kind = part.get("type")
+            if kind == "text":
+                texts.append(str(part.get("text") or ""))
+            elif kind in {"image_url", "input_image"}:
+                url = part.get("image_url")
+                if isinstance(url, dict):
+                    url = url.get("url")
+                url = url or part.get("image")
+                if isinstance(url, str) and url:
+                    # data:image/png;base64,AAAA... -> AAAA...
+                    images.append(url.split(",", 1)[-1] if "," in url else url)
+
+        data = dict(data)
+        data["content"] = "\n\n".join(t for t in texts if t)
+        if images:
+            data["images"] = images
+        return data
 
 
 class ChatCompletionRequest(BaseModel):

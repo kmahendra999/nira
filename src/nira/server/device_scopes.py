@@ -52,6 +52,11 @@ _ASK_PATHS = (
     "/v1/speech/transcribe",
     "/v1/completions",
     "/v1/responses",
+    # Attaching a file to a message is part of sending the message, so it
+    # carries the same scope. Without this line a phone paired with `ask`
+    # gets a 403 on attachments while chat itself works — and the refusal
+    # happens in middleware, so nothing in the app would explain it.
+    "/v1/chat/attachments",
 )
 
 # Reading what the desktop is doing. Everything here must be side-effect free,
