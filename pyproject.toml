@@ -85,6 +85,27 @@ memory-colbert = [
     "torch>=2.0",
 ]
 memory-pdf = ["pdfplumber>=0.10"]
+# Reading files a user attaches to a chat message. Text extraction only — no
+# model runs here, so this stays small and installs on any machine.
+attachments = [
+    "pdfplumber>=0.10",      # PDF text + table extraction (MIT)
+    "python-docx>=1.1",      # .docx paragraphs and tables (MIT)
+    "openpyxl>=3.1",         # .xlsx sheets, read-only mode (MIT)
+    "pillow>=10.3",          # decode/resize images before a vision model sees them (HPND)
+]
+# Generating images, audio and video locally. Heavy: torch alone is ~2.5 GB,
+# and model weights are downloaded on first use. Separate from `attachments`
+# because reading a spreadsheet should not require a deep-learning stack.
+generate = [
+    "torch>=2.2",
+    "diffusers>=0.31",       # Stable Diffusion / AnimateDiff pipelines (Apache-2.0)
+    "transformers>=4.44",    # text encoders the pipelines need (Apache-2.0)
+    "accelerate>=0.34",      # device/memory placement (Apache-2.0)
+    "safetensors>=0.4",
+    "pillow>=10.3",
+    "imageio[ffmpeg]>=2.35", # encode generated frames to mp4 (BSD-2)
+    "soundfile>=0.12",
+]
 memory-bm25 = ["rank-bm25>=0.2.2"]
 server = [
     "fastapi>=0.110",
