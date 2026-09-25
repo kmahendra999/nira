@@ -627,7 +627,11 @@ export const useAppStore = create<AppState>((set, get) => {
       };
       store.conversations[conv.id] = conv;
       store.activeId = conv.id;
-      saveConversations(store);
+      // Named explicitly rather than relying on activeId having just been set
+      // to the same value: the reclaim must never consider a conversation
+      // being created expendable, and that should not depend on the order of
+      // the two lines above.
+      saveConversations(store, conv.id);
       set({
         conversations: Object.values(store.conversations).sort(
           (a, b) => b.updatedAt - a.updatedAt,

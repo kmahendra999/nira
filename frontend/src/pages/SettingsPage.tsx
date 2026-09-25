@@ -20,6 +20,7 @@ import {
   Wifi,
 } from 'lucide-react';
 import { useAppStore, type ThemeMode } from '../lib/store';
+import { toast } from 'sonner';
 import {
   checkHealth,
   fetchSpeechHealth,
@@ -452,14 +453,47 @@ export function SettingsPage() {
       if (!file) return;
       const reader = new FileReader();
       reader.onload = (ev) => {
+        // Every failure here used to be silent: a bare `catch {}` around an
+        // unguarded setItem, and a version mismatch that simply did nothing.
+        // This is the path the app tells people to use when storage is full
+        // or a conversation is lost — the one place where saying nothing is
+        // least acceptable.
+        let data: { version?: number; conversations?: Record<string, unknown> };
         try {
-          const data = JSON.parse(ev.target?.result as string);
-          if (data.version === 1) {
-            localStorage.setItem('nira-conversations', JSON.stringify(data));
-            useAppStore.getState().loadConversations();
-            showSaved();
-          }
-        } catch {}
+          data = JSON.parse(ev.target?.result as string);
+        } catch {
+          toast.error('That file is not valid JSON', {
+            description: 'Pick a file exported from Settings → Data.',
+          });
+          return;
+        }
+
+        if (data?.version !== 1) {
+          toast.error('That file is not a Nira export', {
+            description: `Expected version 1${
+              data?.version ? `, found ${data.version}` : ''
+            }.`,
+          });
+          return;
+        }
+
+        try {
+          localStorage.setItem('nira-conversations', JSON.stringify(data));
+        } catch (err: any) {
+          toast.error('Could not import', {
+            description:
+              'There is not enough room in local storage. Clear some ' +
+              'conversations first, then import again.',
+            duration: 12000,
+          });
+          return;
+        }
+
+        useAppStore.getState().loadConversations();
+        const count = Object.keys(data.conversations ?? {}).length;
+        toast.success(
+          `Imported ${count} conversation${count === 1 ? '' : 's'}`,
+        );
       };
       reader.readAsText(file);
     };
