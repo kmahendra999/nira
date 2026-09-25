@@ -5,15 +5,43 @@ import { InputArea } from './InputArea';
 import { ChatAnnouncer } from './ChatAnnouncer';
 import { StreamingDots } from './StreamingDots';
 import { useAppStore } from '../../lib/store';
-import { Sparkles, PanelRightOpen, PanelRightClose, Database, MessageSquare, X } from 'lucide-react';
+import {
+  Sparkles,
+  PanelRightOpen,
+  PanelRightClose,
+  Database,
+  MessageSquare,
+  X,
+  Image as ImageIcon,
+  FileText,
+} from 'lucide-react';
 import { listConnectors } from '../../lib/connectors-api';
 
 function getGreeting(): string {
-  const hour = new Date().getHours();
-  if (hour < 12) return 'Good morning';
-  if (hour < 18) return 'Good afternoon';
-  return 'Good evening';
+  // A question rather than a greeting, per the reference. "Good morning" is
+  // pleasant and tells you nothing; "Where should we start?" points at the
+  // box below it.
+  return 'Where should we start?';
 }
+
+/** A few concrete starting points, in the reference's shape. */
+const SUGGESTIONS = [
+  {
+    icon: ImageIcon,
+    label: 'Create an image',
+    prompt: 'A quiet harbour at dawn, soft light on the water',
+  },
+  {
+    icon: FileText,
+    label: 'Summarise a document',
+    prompt: 'Summarise the attached document and list its three main claims.',
+  },
+  {
+    icon: Database,
+    label: 'Ask about my data',
+    prompt: 'What has come up most often in my messages this week?',
+  },
+];
 
 export function ChatArea() {
   const activeId = useAppStore((s) => s.activeId);
@@ -123,42 +151,45 @@ export function ChatArea() {
         className="flex-1 overflow-y-auto"
       >
         {isEmpty ? (
+          /* The reference layout: one large question, and a few things you
+             could actually do, rather than a paragraph explaining the product
+             to someone who has already installed it. The composer sits below
+             this in the normal flow, so the eye lands on the heading, then
+             the input, then the suggestions. */
           <div className="flex flex-col items-center justify-center h-full px-4">
-            <div
-              className="w-12 h-12 rounded-2xl flex items-center justify-center mb-4"
-              style={{ background: 'var(--color-accent-subtle)', color: 'var(--color-accent)' }}
+            <h2
+              className="text-3xl md:text-4xl font-normal text-center mb-8"
+              style={{ color: 'var(--color-text)' }}
             >
-              <Sparkles size={24} />
-            </div>
-            <h2 className="text-xl font-semibold mb-2" style={{ color: 'var(--color-text)' }}>
               {getGreeting()}
             </h2>
-            <p className="text-sm text-center max-w-sm mb-6" style={{ color: 'var(--color-text-secondary)' }}>
-              Ask anything. Your AI runs locally — private, fast, and always available.
-            </p>
 
-            {/* Quick action hints */}
-            <div className="flex gap-3">
-              <button
-                onClick={() => navigate('/data-sources')}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs
-                  cursor-pointer transition-colors bg-bg-secondary text-text-secondary
-                  border border-border hover:border-accent"
-
-              >
-                <Database size={14} style={{ color: 'var(--color-accent)' }} />
-                Connect Data Sources
-              </button>
-              <button
-                onClick={() => { navigate('/data-sources'); setTimeout(() => window.dispatchEvent(new CustomEvent('switch-tab', { detail: 'messaging' })), 100); }}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs
-                  cursor-pointer transition-colors bg-bg-secondary text-text-secondary
-                  border border-border hover:border-accent"
-
-              >
-                <MessageSquare size={14} style={{ color: 'var(--color-accent)' }} />
-                Set Up Messaging Channels
-              </button>
+            <div className="flex flex-col gap-1 w-full max-w-md">
+              {SUGGESTIONS.map(({ icon: Icon, label, prompt }) => (
+                <button
+                  key={label}
+                  onClick={() => {
+                    // Put it in the composer rather than sending it: a
+                    // suggestion is a starting point, and firing it off
+                    // immediately takes the edit away from the user.
+                    window.dispatchEvent(
+                      new CustomEvent('nira-compose', { detail: prompt }),
+                    );
+                  }}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm
+                    text-left cursor-pointer transition-colors"
+                  style={{ color: 'var(--color-text-secondary)' }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'var(--color-bg-secondary)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'transparent';
+                  }}
+                >
+                  <Icon size={16} style={{ color: 'var(--color-text-tertiary)' }} />
+                  {label}
+                </button>
+              ))}
             </div>
           </div>
         ) : (

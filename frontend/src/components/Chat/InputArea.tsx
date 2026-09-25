@@ -227,6 +227,20 @@ export function InputArea() {
       });
   }, []);
 
+  // Suggestions on the empty screen fill the box rather than sending: a
+  // suggestion is a starting point, and firing it off immediately takes the
+  // edit away from the person who clicked it.
+  useEffect(() => {
+    const onCompose = (event: Event) => {
+      const text = (event as CustomEvent<string>).detail;
+      if (typeof text !== 'string') return;
+      setInput(text);
+      textareaRef.current?.focus();
+    };
+    window.addEventListener('nira-compose', onCompose);
+    return () => window.removeEventListener('nira-compose', onCompose);
+  }, []);
+
   const attachFiles = useCallback(async (files: FileList | File[]) => {
     const chosen = Array.from(files);
     if (!chosen.length) return;
