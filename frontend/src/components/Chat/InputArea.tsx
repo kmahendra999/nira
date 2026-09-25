@@ -19,7 +19,10 @@ import {
   apiFetch,
   uploadChatAttachment,
   discardChatAttachment,
+  fetchGenerateCapabilities,
+  startGeneration,
 } from '../../lib/api';
+import { ComposerMenu, type CreateKind } from './ComposerMenu';
 import type { MessageAttachment } from '../../types';
 import { listConnectors, getSyncStatus } from '../../lib/connectors-api';
 import { serializeToolCallArguments } from '../../lib/tool-call';
@@ -200,6 +203,30 @@ export function InputArea() {
   const [dragging, setDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // When set, the composer is composing a *generation* prompt rather than a
+  // message. Shown as a chip so the mode is never invisible — a text box that
+  // silently does something different is the worst version of this.
+  const [createMode, setCreateMode] = useState<CreateKind | null>(null);
+  const [createUnavailable, setCreateUnavailable] = useState<
+    Partial<Record<CreateKind, string>>
+  >({});
+
+  useEffect(() => {
+    fetchGenerateCapabilities()
+      .then((caps) => {
+        const missing: Partial<Record<CreateKind, string>> = {};
+        (['image', 'audio', 'video'] as CreateKind[]).forEach((kind) => {
+          const entry = caps[kind];
+          if (entry && !entry.available) missing[kind] = entry.reason ?? 'Not available';
+        });
+        setCreateUnavailable(missing);
+      })
+      .catch(() => {
+        // The server may be starting. Leave everything enabled rather than
+        // greying out features that probably work.
+      });
+  }, []);
+
   const attachFiles = useCallback(async (files: FileList | File[]) => {
     const chosen = Array.from(files);
     if (!chosen.length) return;
@@ -240,6 +267,38 @@ export function InputArea() {
       toast.error('Still uploading — one moment');
       return;
     }
+    // Generation is a different act from chatting: no model, no streaming, a
+    // job that outlives this component. Handled before the chat path rather
+    // than threaded through it.
+    if (createMode) {
+      setInput('');
+      const kind = createMode;
+      let convId = activeId;
+      if (!convId) convId = createConversation(selectedModel || 'default');
+
+      addMessage(convId, {
+        id: generateId(),
+        role: 'user',
+        content,
+        timestamp: Date.now(),
+      });
+      try {
+        const job = await startGeneration(kind, content);
+        addMessage(convId, {
+          id: generateId(),
+          role: 'assistant',
+          content: '',
+          timestamp: Date.now(),
+          generation: { id: job.id, kind },
+        });
+      } catch (err: any) {
+        toast.error(err?.message ?? `Could not start ${kind} generation`, {
+          duration: 10000,
+        });
+      }
+      return;
+    }
+
     if (!selectedModel) {
       toast.error('Pick a model first (⌘K)');
       return;
@@ -772,6 +831,38 @@ export function InputArea() {
           void attachFiles(e.dataTransfer.files);
         }}
       >
+        {createMode && (
+          <div className="flex items-center gap-2">
+            <span
+              className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-[11px]"
+              style={{
+                background: 'var(--color-accent-subtle)',
+                border: '1px solid var(--color-accent)',
+                color: 'var(--color-accent)',
+              }}
+            >
+              {createMode === 'image'
+                ? 'Creating an image'
+                : createMode === 'audio'
+                  ? 'Creating music'
+                  : 'Creating a video'}
+              <button
+                onClick={() => setCreateMode(null)}
+                className="cursor-pointer"
+                title="Back to chatting"
+              >
+                <X size={11} />
+              </button>
+            </span>
+            <span className="text-[11px]" style={{ color: 'var(--color-text-tertiary)' }}>
+              {createMode === 'video'
+                ? 'Minutes, not seconds, on this machine.'
+                : createMode === 'image'
+                  ? 'About two minutes.'
+                  : 'Roughly six seconds of work per second of audio.'}
+            </span>
+          </div>
+        )}
         {(pending.length > 0 || uploading > 0) && (
           <div className="flex flex-wrap gap-1.5">
             {pending.map((attachment) => (
@@ -832,15 +923,12 @@ export function InputArea() {
             e.target.value = '';
           }}
         />
-        <button
-          onClick={() => fileInputRef.current?.click()}
+        <ComposerMenu
+          onUpload={() => fileInputRef.current?.click()}
+          onCreate={setCreateMode}
+          unavailable={createUnavailable}
           disabled={streamState.isStreaming}
-          className="p-1.5 rounded-lg transition-colors shrink-0 cursor-pointer disabled:opacity-50"
-          style={{ color: 'var(--color-text-tertiary)' }}
-          title="Attach a file — images, PDF, Word, Excel, CSV, text"
-        >
-          <Paperclip size={16} />
-        </button>
+        />
         <textarea
           ref={textareaRef}
           value={input}

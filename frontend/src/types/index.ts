@@ -148,6 +148,15 @@ export interface ChatMessage {
   isResearch?: boolean;
   usage?: TokenUsage;
   attachments?: MessageAttachment[];
+  /**
+   * A generation job this message is showing.
+   *
+   * Only the id is stored. The file lives on the server and the job may
+   * still be running when the conversation is reloaded, so the bubble polls
+   * rather than holding a result — and a conversation exported to another
+   * machine shows "no longer available" instead of a broken image.
+   */
+  generation?: { id: string; kind: 'image' | 'audio' | 'video' };
   telemetry?: MessageTelemetry;
   audio?: { url: string };
 }

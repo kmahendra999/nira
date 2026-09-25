@@ -8,6 +8,7 @@ import 'katex/dist/katex.min.css';
 import { Copy, Check } from 'lucide-react';
 import { AudioPlayer } from './AudioPlayer';
 import { AttachmentChips } from './AttachmentChips';
+import { GenerationBubble } from './GenerationBubble';
 import { ToolCallCard } from './ToolCallCard';
 import { ResearchTimeline } from './ResearchTimeline';
 import { rehypeCitations } from '../../lib/rehype-citations';
@@ -139,6 +140,18 @@ export function MessageBubble({ message, isLive = false }: Props) {
             <AttachmentChips attachments={message.attachments} />
           ) : null}
         </div>
+      </div>
+    );
+  }
+
+  // A generated image, clip or track: the message body is the job, not text.
+  if (message.generation) {
+    return (
+      <div className="mb-4">
+        <GenerationBubble
+          jobId={message.generation.id}
+          kind={message.generation.kind}
+        />
       </div>
     );
   }
