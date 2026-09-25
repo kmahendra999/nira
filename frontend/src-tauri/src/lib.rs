@@ -3505,43 +3505,61 @@ async fn hide_overlay() -> Result<(), String> {
 const LEGACY_IDENTIFIER: &str = "com.openjarvis.desktop";
 const IDENTIFIER: &str = "com.nira.desktop";
 
-/// Where the webview keeps its per-app data (localStorage included).
+/// Every directory a pre-rename install might have kept data in, paired with
+/// where the current identifier looks for it.
 ///
-/// Each platform's webview picks this from the bundle identifier, so the
-/// rename gave the app a brand-new, empty profile and left the old one on
-/// disk untouched.
-fn webview_data_dir(identifier: &str) -> Option<std::path::PathBuf> {
+/// A list rather than one path, because the three platforms do not agree and
+/// only one of them can be checked from here. On this machine
+/// ~/.local/share/com.nira.desktop/localstorage holds the real SQLite store,
+/// so Linux is verified. macOS and Windows are not: wry has no
+/// `data_directory` handling for WKWebView at all — it ignores the setting and
+/// uses WebKit's own per-bundle storage — and WebView2 falls back to its own
+/// default user-data folder. Each candidate below is therefore attempted and
+/// skipped when absent, which costs nothing when a guess is wrong and works
+/// when it is right. A wrong guess is a no-op, never a wrong copy: the target
+/// is only written when it does not already exist.
+fn legacy_profile_candidates() -> Vec<(std::path::PathBuf, std::path::PathBuf)> {
     let home = std::path::PathBuf::from(home_dir());
     if home.as_os_str().is_empty() {
-        return None;
+        return Vec::new();
     }
+    let pair = |base: std::path::PathBuf| {
+        (base.join(LEGACY_IDENTIFIER), base.join(IDENTIFIER))
+    };
+
     #[cfg(target_os = "linux")]
     {
+        // Verified: this is where WebKitGTK puts localStorage for this app.
         let base = std::env::var_os("XDG_DATA_HOME")
             .map(std::path::PathBuf::from)
             .filter(|p| p.is_absolute())
             .unwrap_or_else(|| home.join(".local").join("share"));
-        Some(base.join(identifier))
+        vec![pair(base)]
     }
     #[cfg(target_os = "macos")]
     {
-        Some(
-            home.join("Library")
-                .join("Application Support")
-                .join(identifier),
-        )
+        vec![
+            // WKWebView's own website data, keyed by bundle id. This is the
+            // one that holds localStorage.
+            pair(home.join("Library").join("WebKit")),
+            // Tauri's app data dir — plugin state rather than localStorage,
+            // but it is the user's too and it was stranded by the same rename.
+            pair(home.join("Library").join("Application Support")),
+        ]
     }
     #[cfg(target_os = "windows")]
     {
-        let base = std::env::var_os("APPDATA")
+        let local = std::env::var_os("LOCALAPPDATA")
+            .map(std::path::PathBuf::from)
+            .unwrap_or_else(|| home.join("AppData").join("Local"));
+        let roaming = std::env::var_os("APPDATA")
             .map(std::path::PathBuf::from)
             .unwrap_or_else(|| home.join("AppData").join("Roaming"));
-        Some(base.join(identifier))
+        vec![pair(local), pair(roaming)]
     }
     #[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
     {
-        let _ = identifier;
-        None
+        Vec::new()
     }
 }
 
@@ -3601,13 +3619,9 @@ fn copy_dir_all(src: &std::path::Path, dst: &std::path::Path) -> std::io::Result
 /// profile does not exist yet. So it cannot overwrite data the user already
 /// has under the new name, and it cannot run twice.
 fn migrate_legacy_webview_profile() {
-    let (Some(old_dir), Some(new_dir)) = (
-        webview_data_dir(LEGACY_IDENTIFIER),
-        webview_data_dir(IDENTIFIER),
-    ) else {
-        return;
-    };
-    migrate_webview_profile_between(&old_dir, &new_dir);
+    for (old_dir, new_dir) in legacy_profile_candidates() {
+        migrate_webview_profile_between(&old_dir, &new_dir);
+    }
 }
 
 /// The decision and the copy, with both paths supplied.
@@ -4865,33 +4879,36 @@ mod tests {
     }
 
     #[test]
-    fn webview_data_dir_differs_between_the_two_identifiers() {
-        // The whole premise: the rename changes the path, which is why the
-        // data went missing.
-        let old = super::webview_data_dir(super::LEGACY_IDENTIFIER);
-        let new = super::webview_data_dir(super::IDENTIFIER);
-        assert!(old.is_some() && new.is_some());
-        assert_ne!(old, new);
-        assert!(new.unwrap().ends_with(super::IDENTIFIER));
+    fn every_candidate_pairs_the_old_identifier_with_the_new_one() {
+        let candidates = super::legacy_profile_candidates();
+        assert!(!candidates.is_empty(), "this platform should have candidates");
+        for (old, new) in candidates {
+            assert!(old.ends_with(super::LEGACY_IDENTIFIER), "{old:?}");
+            assert!(new.ends_with(super::IDENTIFIER), "{new:?}");
+            assert_ne!(old, new, "the rename is the whole reason this exists");
+            assert_eq!(
+                old.parent(),
+                new.parent(),
+                "a pair must differ only in the identifier"
+            );
+        }
     }
 
     #[cfg(target_os = "linux")]
     #[test]
-    fn webview_data_dir_honours_xdg_data_home() {
-        // A login-launched autostart entry can carry a different XDG_DATA_HOME
-        // than an interactive shell; guessing ~/.local/share would then
-        // migrate into a directory the webview never reads.
-        let dir = super::webview_data_dir(super::IDENTIFIER).unwrap();
-        let expected_default = std::path::PathBuf::from(super::home_dir())
-            .join(".local")
-            .join("share")
-            .join(super::IDENTIFIER);
-        match std::env::var_os("XDG_DATA_HOME") {
-            Some(base) if std::path::Path::new(&base).is_absolute() => {
-                assert_eq!(dir, std::path::PathBuf::from(base).join(super::IDENTIFIER));
-            }
-            _ => assert_eq!(dir, expected_default),
-        }
+    fn the_linux_candidate_is_the_directory_the_webview_actually_uses() {
+        // Verified against this machine: ~/.local/share/com.nira.desktop
+        // holds the real localstorage/ SQLite store.
+        let (_, new) = super::legacy_profile_candidates().remove(0);
+        let base = std::env::var_os("XDG_DATA_HOME")
+            .map(std::path::PathBuf::from)
+            .filter(|p| p.is_absolute())
+            .unwrap_or_else(|| {
+                std::path::PathBuf::from(super::home_dir())
+                    .join(".local")
+                    .join("share")
+            });
+        assert_eq!(new, base.join(super::IDENTIFIER));
     }
 
     #[test]
