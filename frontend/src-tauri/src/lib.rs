@@ -3501,7 +3501,138 @@ async fn hide_overlay() -> Result<(), String> {
 // ---------------------------------------------------------------------------
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
+/// The identifier this app shipped under before the rename to Nira.
+const LEGACY_IDENTIFIER: &str = "com.openjarvis.desktop";
+const IDENTIFIER: &str = "com.nira.desktop";
+
+/// Where the webview keeps its per-app data (localStorage included).
+///
+/// Each platform's webview picks this from the bundle identifier, so the
+/// rename gave the app a brand-new, empty profile and left the old one on
+/// disk untouched.
+fn webview_data_dir(identifier: &str) -> Option<std::path::PathBuf> {
+    let home = std::path::PathBuf::from(home_dir());
+    if home.as_os_str().is_empty() {
+        return None;
+    }
+    #[cfg(target_os = "linux")]
+    {
+        let base = std::env::var_os("XDG_DATA_HOME")
+            .map(std::path::PathBuf::from)
+            .filter(|p| p.is_absolute())
+            .unwrap_or_else(|| home.join(".local").join("share"));
+        Some(base.join(identifier))
+    }
+    #[cfg(target_os = "macos")]
+    {
+        Some(
+            home.join("Library")
+                .join("Application Support")
+                .join(identifier),
+        )
+    }
+    #[cfg(target_os = "windows")]
+    {
+        let base = std::env::var_os("APPDATA")
+            .map(std::path::PathBuf::from)
+            .unwrap_or_else(|| home.join("AppData").join("Roaming"));
+        Some(base.join(identifier))
+    }
+    #[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
+    {
+        let _ = identifier;
+        None
+    }
+}
+
+/// Copy a directory tree. Skips anything it cannot read rather than aborting:
+/// a partial profile is strictly better than none, and a cache file we cannot
+/// open is not a reason to lose someone's conversations.
+fn copy_dir_all(src: &std::path::Path, dst: &std::path::Path) -> std::io::Result<()> {
+    std::fs::create_dir_all(dst)?;
+    for entry in std::fs::read_dir(src)? {
+        let Ok(entry) = entry else { continue };
+        let Ok(file_type) = entry.file_type() else {
+            continue;
+        };
+        let target = dst.join(entry.file_name());
+        if file_type.is_dir() {
+            let _ = copy_dir_all(&entry.path(), &target);
+        } else if file_type.is_file() {
+            let _ = std::fs::copy(entry.path(), &target);
+        }
+        // Symlinks are skipped deliberately: nothing in a webview profile
+        // needs one, and following one would copy from outside the profile.
+    }
+    Ok(())
+}
+
+/// Carry a pre-rename webview profile over to the current identifier.
+///
+/// Conversations, settings and every other preference live only in the
+/// webview's localStorage, which is keyed by the bundle identifier. Renaming
+/// `com.openjarvis.desktop` to `com.nira.desktop` therefore pointed the app at
+/// an empty profile: upgrading users opened Nira to a blank slate, with their
+/// history still on disk under a directory nothing read any more.
+///
+/// Copying the whole directory rather than reading localStorage out of it is
+/// deliberate. The three platforms store it in three different formats — a
+/// SQLite file on Linux, WebKit's own store on macOS, a LevelDB under
+/// EBWebView on Windows — and a file copy does not need to know which.
+///
+/// Runs once, before Tauri creates the new profile, and only when the new
+/// profile does not exist yet. So it cannot overwrite data the user already
+/// has under the new name, and it cannot run twice.
+fn migrate_legacy_webview_profile() {
+    let (Some(old_dir), Some(new_dir)) = (
+        webview_data_dir(LEGACY_IDENTIFIER),
+        webview_data_dir(IDENTIFIER),
+    ) else {
+        return;
+    };
+    migrate_webview_profile_between(&old_dir, &new_dir);
+}
+
+/// The decision and the copy, with both paths supplied.
+///
+/// Split out from the resolution above so tests can drive it against a
+/// temporary directory. The alternative — setting XDG_DATA_HOME from a test —
+/// mutates process-global state that the other tests read, which is a data
+/// race in a multi-threaded test binary and would make both tests flaky.
+fn migrate_webview_profile_between(old_dir: &std::path::Path, new_dir: &std::path::Path) {
+    if new_dir.exists() {
+        return; // Already have a profile under the current name.
+    }
+    if !old_dir.is_dir() {
+        return; // Nothing to carry over.
+    }
+
+    match copy_dir_all(old_dir, new_dir) {
+        Ok(()) => {
+            eprintln!(
+                "Carried your data over from the previous app name ({} -> {}).",
+                LEGACY_IDENTIFIER, IDENTIFIER
+            );
+            // Leave the old directory in place. It is the only copy of that
+            // data until the user has confirmed the new one works, and this
+            // runs unattended at launch.
+        }
+        Err(err) => {
+            eprintln!(
+                "Could not carry data over from {}: {}. Your previous data is \
+                 still at {}.",
+                LEGACY_IDENTIFIER,
+                err,
+                old_dir.display()
+            );
+        }
+    }
+}
+
 pub fn run() {
+    // First, before anything can create the new profile directory.
+    migrate_legacy_webview_profile();
+
     let backend: SharedBackend = Arc::new(Mutex::new(BackendManager::default()));
     let configured_at_launch = match read_configured_inference_config() {
         Some(cfg) if cfg.confirmed => {
@@ -4568,6 +4699,151 @@ mod tests {
     // The key must never leave this machine. Every fetch_* command takes its
     // base URL from the frontend, which sources it from Settings -> API URL,
     // so "a key exists locally" is not a reason to attach it to a request.
+    // Conversations and settings live only in the webview's localStorage,
+    // which is keyed by the bundle identifier. The rename to com.nira.desktop
+    // pointed the app at an empty profile and left the old one on disk, so
+    // upgrading users opened Nira to a blank slate.
+    fn write(path: &std::path::Path, body: &str) {
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(path, body).unwrap();
+    }
+
+    #[test]
+    fn migration_carries_a_real_pre_rename_profile_and_then_never_runs_again() {
+        // End-to-end through the actual entry point, against a fake HOME:
+        // an upgrading user's first launch.
+        let root = std::env::temp_dir().join(format!(
+            "nira-e2e-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let old = root
+            .join(".local/share")
+            .join(super::LEGACY_IDENTIFIER)
+            .join("localstorage");
+        write(&old.join("tauri_localhost_0.localstorage"), "OLD-CONVERSATIONS");
+
+        let data_home = root.join(".local/share");
+        let old_dir = data_home.join(super::LEGACY_IDENTIFIER);
+        let new_dir = data_home.join(super::IDENTIFIER);
+        assert!(!new_dir.exists(), "precondition: no profile under the new name");
+
+        super::migrate_webview_profile_between(&old_dir, &new_dir);
+
+        let carried = new_dir.join("localstorage/tauri_localhost_0.localstorage");
+        assert_eq!(
+            std::fs::read_to_string(&carried).unwrap(),
+            "OLD-CONVERSATIONS",
+            "the upgrading user's conversations must survive the rename"
+        );
+
+        // Second launch: the new profile now exists and must not be clobbered.
+        std::fs::write(&carried, "NEW-CONVERSATIONS").unwrap();
+        super::migrate_webview_profile_between(&old_dir, &new_dir);
+        assert_eq!(
+            std::fs::read_to_string(&carried).unwrap(),
+            "NEW-CONVERSATIONS",
+            "migration must never overwrite data written under the new name"
+        );
+
+        // And the original is left alone — it is the only other copy.
+        assert!(old.join("tauri_localhost_0.localstorage").exists());
+
+        std::fs::remove_dir_all(&root).ok();
+    }
+
+    #[test]
+    fn copy_dir_all_carries_a_nested_profile_across() {
+        let root = std::env::temp_dir().join(format!(
+            "nira-migrate-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let old = root.join("old");
+        let new = root.join("new");
+        write(&old.join("localstorage/store.localstorage"), "conversations");
+        write(&old.join("localstorage/store.localstorage-wal"), "wal");
+        write(&old.join("CacheStorage/deep/nested/file"), "cache");
+
+        super::copy_dir_all(&old, &new).unwrap();
+
+        assert_eq!(
+            std::fs::read_to_string(new.join("localstorage/store.localstorage")).unwrap(),
+            "conversations"
+        );
+        assert_eq!(
+            std::fs::read_to_string(new.join("localstorage/store.localstorage-wal")).unwrap(),
+            "wal",
+            "the -wal file holds writes not yet checkpointed into the main db"
+        );
+        assert_eq!(
+            std::fs::read_to_string(new.join("CacheStorage/deep/nested/file")).unwrap(),
+            "cache"
+        );
+        std::fs::remove_dir_all(&root).ok();
+    }
+
+    #[test]
+    fn copy_dir_all_skips_symlinks_rather_than_following_them_out_of_the_profile() {
+        let root = std::env::temp_dir().join(format!(
+            "nira-symlink-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let old = root.join("old");
+        let outside = root.join("outside.txt");
+        write(&outside, "not part of the profile");
+        std::fs::create_dir_all(&old).unwrap();
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(&outside, old.join("link.txt")).unwrap();
+
+        let new = root.join("new");
+        super::copy_dir_all(&old, &new).unwrap();
+
+        #[cfg(unix)]
+        assert!(
+            !new.join("link.txt").exists(),
+            "a symlink would copy data from outside the profile"
+        );
+        std::fs::remove_dir_all(&root).ok();
+    }
+
+    #[test]
+    fn webview_data_dir_differs_between_the_two_identifiers() {
+        // The whole premise: the rename changes the path, which is why the
+        // data went missing.
+        let old = super::webview_data_dir(super::LEGACY_IDENTIFIER);
+        let new = super::webview_data_dir(super::IDENTIFIER);
+        assert!(old.is_some() && new.is_some());
+        assert_ne!(old, new);
+        assert!(new.unwrap().ends_with(super::IDENTIFIER));
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn webview_data_dir_honours_xdg_data_home() {
+        // A login-launched autostart entry can carry a different XDG_DATA_HOME
+        // than an interactive shell; guessing ~/.local/share would then
+        // migrate into a directory the webview never reads.
+        let dir = super::webview_data_dir(super::IDENTIFIER).unwrap();
+        let expected_default = std::path::PathBuf::from(super::home_dir())
+            .join(".local")
+            .join("share")
+            .join(super::IDENTIFIER);
+        match std::env::var_os("XDG_DATA_HOME") {
+            Some(base) if std::path::Path::new(&base).is_absolute() => {
+                assert_eq!(dir, std::path::PathBuf::from(base).join(super::IDENTIFIER));
+            }
+            _ => assert_eq!(dir, expected_default),
+        }
+    }
+
     #[test]
     fn local_targets_get_the_key() {
         for url in [

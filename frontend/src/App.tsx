@@ -12,7 +12,7 @@ import { LogsPage } from './pages/LogsPage';
 import { CommandPalette } from './components/CommandPalette';
 import { SetupScreen } from './components/SetupScreen';
 import { Toaster } from './components/ui/sonner';
-import { useAppStore } from './lib/store';
+import { useAppStore, onStorageWarning } from './lib/store';
 import { fetchModels, fetchServerInfo, fetchSavings, submitSavings, isTauri, onAuthFailure } from './lib/api';
 import { toast } from 'sonner';
 import { OptInModal } from './components/OptInModal';
@@ -41,6 +41,39 @@ export default function App() {
             },
           },
         });
+      }),
+    [],
+  );
+
+  // Storage trouble used to be completely silent: the throw escaped into the
+  // stream loop, which swallows it, so a reply stopped mid-sentence and the
+  // message was never saved. Say what happened and what it cost.
+  useEffect(
+    () =>
+      onStorageWarning((warning) => {
+        if (warning.kind === 'pruned') {
+          toast.warning('Storage was full', {
+            id: 'nira-storage',
+            duration: 8000,
+            description: `Removed ${warning.removed} of your oldest conversation${
+              warning.removed === 1 ? '' : 's'
+            } to make room. Export from Settings → Data to keep them next time.`,
+          });
+        } else if (warning.kind === 'full') {
+          toast.error('Out of storage space', {
+            id: 'nira-storage',
+            duration: 12000,
+            description:
+              'This conversation is too large to save. It stays on screen, but ' +
+              'it will not survive a restart. Export it from Settings → Data.',
+          });
+        } else {
+          toast.error('Cannot save locally', {
+            id: 'nira-storage',
+            duration: 12000,
+            description: `${warning.detail}. Conversations will not persist.`,
+          });
+        }
       }),
     [],
   );

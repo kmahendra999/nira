@@ -87,8 +87,127 @@ function loadConversations(): ConversationStore {
   }
 }
 
-function saveConversations(store: ConversationStore): void {
-  localStorage.setItem(CONVERSATIONS_KEY, JSON.stringify(store));
+// localStorage is finite and conversations are the thing that fills it: every
+// assistant message carries its full tool-call results, and the whole store is
+// rewritten on each flush. This write had no try/catch, so on
+// QuotaExceededError the throw escaped saveConversations, escaped
+// addMessage/updateLastAssistant, and landed in the stream loop — which
+// swallows it. The visible result was a reply that stopped mid-sentence and a
+// message that was never saved, with nothing anywhere saying storage was full.
+
+export type StorageWarning =
+  | { kind: 'pruned'; removed: number }
+  | { kind: 'full' }
+  | { kind: 'unavailable'; detail: string };
+
+type StorageWarningListener = (warning: StorageWarning) => void;
+const storageWarningListeners = new Set<StorageWarningListener>();
+
+export function onStorageWarning(listener: StorageWarningListener): () => void {
+  storageWarningListeners.add(listener);
+  return () => storageWarningListeners.delete(listener);
+}
+
+function emitStorageWarning(warning: StorageWarning): void {
+  for (const listener of storageWarningListeners) {
+    try {
+      listener(warning);
+    } catch {
+      // One bad listener must not stop the others, or fail the write.
+    }
+  }
+}
+
+/** Whether an exception is the browser saying "out of room". */
+function isQuotaError(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  // Chrome/WebKit name it; Firefox uses its own name; older Safari reports
+  // only a numeric code. A DOMException carries `code`, a plain Error does not.
+  const code = (err as unknown as { code?: number }).code;
+  return (
+    err.name === 'QuotaExceededError' ||
+    err.name === 'NS_ERROR_DOM_QUOTA_REACHED' ||
+    code === 22 ||
+    code === 1014
+  );
+}
+
+/**
+ * Persist conversations, making room by dropping the oldest ones if needed.
+ *
+ * Returns false when nothing could be written. Callers keep their in-memory
+ * state either way — losing the running conversation because the *disk* is
+ * full would be a strictly worse outcome than a stale file.
+ */
+function saveConversations(store: ConversationStore): boolean {
+  try {
+    localStorage.setItem(CONVERSATIONS_KEY, JSON.stringify(store));
+    return true;
+  } catch (err) {
+    if (!isQuotaError(err)) {
+      // Private browsing, blocked site data, a disabled storage API: nothing
+      // to prune our way out of.
+      emitStorageWarning({
+        kind: 'unavailable',
+        detail: err instanceof Error ? err.message : String(err),
+      });
+      return false;
+    }
+  }
+
+  // Out of room. Drop the least recently updated conversations, oldest first,
+  // and retry after each. The active one is kept to the very end: it is the
+  // one being written right now, and dropping it would delete the reply the
+  // user is currently reading.
+  const byAge = Object.values(store.conversations).sort(
+    (a, b) => a.updatedAt - b.updatedAt,
+  );
+  let removed = 0;
+
+  for (const conversation of byAge) {
+    if (conversation.id === store.activeId) continue;
+    delete store.conversations[conversation.id];
+    removed += 1;
+    try {
+      localStorage.setItem(CONVERSATIONS_KEY, JSON.stringify(store));
+      emitStorageWarning({ kind: 'pruned', removed });
+      return true;
+    } catch (err) {
+      if (!isQuotaError(err)) {
+        emitStorageWarning({
+          kind: 'unavailable',
+          detail: err instanceof Error ? err.message : String(err),
+        });
+        return false;
+      }
+    }
+  }
+
+  // Even alone, the active conversation does not fit. Say so rather than
+  // failing silently; it is the only honest thing left.
+  emitStorageWarning({ kind: 'full' });
+  return false;
+}
+
+/**
+ * Write one small preference, reporting rather than throwing on failure.
+ *
+ * These are individually tiny, but they share a quota with the conversations
+ * blob — so once that fills, every one of them starts throwing too.
+ */
+function persist(key: string, value: string): void {
+  try {
+    localStorage.setItem(key, value);
+  } catch (err) {
+    emitStorageWarning(
+      isQuotaError(err)
+        ? { kind: 'full' }
+        : {
+            kind: 'unavailable',
+            detail: err instanceof Error ? err.message : String(err),
+          },
+    );
+  }
 }
 
 export type ThemeMode = 'light' | 'dark' | 'system';
@@ -130,7 +249,24 @@ function loadSettings(): Settings {
 }
 
 function saveSettings(settings: Settings): void {
-  localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  // Guarded for the same reason as saveConversations, and it matters more per
+  // byte: this blob is tiny but holds the API key and the default model. If a
+  // conversations write has filled the quota, an unguarded throw here would
+  // escape updateSettings and lose the setting the user just changed —
+  // including, at the worst possible moment, the API key they were typing in
+  // to fix a 401.
+  try {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  } catch (err) {
+    emitStorageWarning(
+      isQuotaError(err)
+        ? { kind: 'full' }
+        : {
+            kind: 'unavailable',
+            detail: err instanceof Error ? err.message : String(err),
+          },
+    );
+  }
 }
 
 // ── Store ─────────────────────────────────────────────────────────────
@@ -662,15 +798,19 @@ export const useAppStore = create<AppState>((set, get) => {
 
     setOptIn: (enabled: boolean, displayName: string, email: string) => {
       const anonId = get().optInAnonId;
-      localStorage.setItem(OPTIN_KEY, String(enabled));
-      localStorage.setItem(OPTIN_NAME_KEY, displayName);
-      localStorage.setItem(OPTIN_EMAIL_KEY, email);
-      localStorage.setItem(OPTIN_ANONID_KEY, anonId);
+      // Four unguarded writes in a row: a throw on the first left the last
+      // three unwritten and the in-memory state unset, so the modal reopened
+      // and the user re-entered everything. Persist what we can, and keep the
+      // choice for the session regardless.
+      persist(OPTIN_KEY, String(enabled));
+      persist(OPTIN_NAME_KEY, displayName);
+      persist(OPTIN_EMAIL_KEY, email);
+      persist(OPTIN_ANONID_KEY, anonId);
       set({ optInEnabled: enabled, optInDisplayName: displayName, optInEmail: email });
     },
     setOptInModalOpen: (open: boolean) => set({ optInModalOpen: open }),
     markOptInModalSeen: () => {
-      localStorage.setItem(OPTIN_SEEN_KEY, 'true');
+      persist(OPTIN_SEEN_KEY, 'true');
       set({ optInModalSeen: true });
     },
   };
