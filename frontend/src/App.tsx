@@ -114,16 +114,45 @@ export default function App() {
 
   // Fetch models on mount
   useEffect(() => {
-    fetchModels()
-      .then((m) => {
-        setModels(m);
-      })
-      // Not setModels([]): a failed fetch is not the same fact as "you have
-      // no models", and reporting it as one cleared the user's selection on
-      // every transient failure. Leave the last known list alone; the auth
-      // toast and the picker's own empty state explain the failure.
-      .catch(() => {})
-      .finally(() => setModelsLoading(false));
+    let cancelled = false;
+
+    const load = () =>
+      fetchModels()
+        .then((m) => {
+          if (!cancelled) setModels(m);
+        })
+        // Not setModels([]): a failed fetch is not the same fact as "you have
+        // no models", and reporting it as one cleared the user's selection on
+        // every transient failure. Leave the last known list alone; the auth
+        // toast and the picker's own empty state explain the failure.
+        .catch(() => {})
+        .finally(() => {
+          if (!cancelled) setModelsLoading(false);
+        });
+
+    void load();
+
+    // Retry until it works, then stop.
+    //
+    // This ran once, in a mount effect with an empty dep array, and nothing
+    // ever re-ran it. So every recoverable cause of an empty list was in
+    // practice permanent: pasting the API key into Settings fixed the auth
+    // but left the picker empty, and a list fetched while `nira serve` was
+    // still starting stayed empty until the window was reloaded. Both are
+    // states the user is actively trying to get out of.
+    const interval = setInterval(() => {
+      if (cancelled) return;
+      if (useAppStore.getState().models.length > 0) {
+        clearInterval(interval);
+        return;
+      }
+      void load();
+    }, 5000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fetch server info

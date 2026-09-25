@@ -1781,7 +1781,7 @@ async fn check_health(api_url: String) -> Result<serde_json::Value, String> {
     );
     let resp = nira_get(&url)
         .await
-        .map_err(|e| format!("Connection failed: {}", e))?;
+        ?;
     resp.json()
         .await
         .map_err(|e| format!("Invalid response: {}", e))
@@ -1794,9 +1794,9 @@ async fn fetch_energy(api_url: String) -> Result<serde_json::Value, String> {
     } else {
         api_url
     };
-    let resp = nira_get(format!("{}/v1/telemetry/energy", base))
+    let resp = nira_get(&format!("{}/v1/telemetry/energy", base))
         .await
-        .map_err(|e| format!("Connection failed: {}", e))?;
+        ?;
     resp.json()
         .await
         .map_err(|e| format!("Invalid response: {}", e))
@@ -1809,9 +1809,9 @@ async fn fetch_telemetry(api_url: String) -> Result<serde_json::Value, String> {
     } else {
         api_url
     };
-    let resp = nira_get(format!("{}/v1/telemetry/stats", base))
+    let resp = nira_get(&format!("{}/v1/telemetry/stats", base))
         .await
-        .map_err(|e| format!("Connection failed: {}", e))?;
+        ?;
     resp.json()
         .await
         .map_err(|e| format!("Invalid response: {}", e))
@@ -1824,9 +1824,9 @@ async fn fetch_traces(api_url: String, limit: u32) -> Result<serde_json::Value, 
     } else {
         api_url
     };
-    let resp = nira_get(format!("{}/v1/traces?limit={}", base, limit))
+    let resp = nira_get(&format!("{}/v1/traces?limit={}", base, limit))
         .await
-        .map_err(|e| format!("Connection failed: {}", e))?;
+        ?;
     resp.json()
         .await
         .map_err(|e| format!("Invalid response: {}", e))
@@ -1839,9 +1839,9 @@ async fn fetch_trace(api_url: String, trace_id: String) -> Result<serde_json::Va
     } else {
         api_url
     };
-    let resp = nira_get(format!("{}/v1/traces/{}", base, trace_id))
+    let resp = nira_get(&format!("{}/v1/traces/{}", base, trace_id))
         .await
-        .map_err(|e| format!("Connection failed: {}", e))?;
+        ?;
     resp.json()
         .await
         .map_err(|e| format!("Invalid response: {}", e))
@@ -1854,9 +1854,9 @@ async fn fetch_learning_stats(api_url: String) -> Result<serde_json::Value, Stri
     } else {
         api_url
     };
-    let resp = nira_get(format!("{}/v1/learning/stats", base))
+    let resp = nira_get(&format!("{}/v1/learning/stats", base))
         .await
-        .map_err(|e| format!("Connection failed: {}", e))?;
+        ?;
     resp.json()
         .await
         .map_err(|e| format!("Invalid response: {}", e))
@@ -1869,9 +1869,9 @@ async fn fetch_learning_policy(api_url: String) -> Result<serde_json::Value, Str
     } else {
         api_url
     };
-    let resp = nira_get(format!("{}/v1/learning/policy", base))
+    let resp = nira_get(&format!("{}/v1/learning/policy", base))
         .await
-        .map_err(|e| format!("Connection failed: {}", e))?;
+        ?;
     resp.json()
         .await
         .map_err(|e| format!("Invalid response: {}", e))
@@ -1884,9 +1884,9 @@ async fn fetch_memory_stats(api_url: String) -> Result<serde_json::Value, String
     } else {
         api_url
     };
-    let resp = nira_get(format!("{}/v1/memory/stats", base))
+    let resp = nira_get(&format!("{}/v1/memory/stats", base))
         .await
-        .map_err(|e| format!("Connection failed: {}", e))?;
+        ?;
     resp.json()
         .await
         .map_err(|e| format!("Invalid response: {}", e))
@@ -1904,7 +1904,8 @@ async fn search_memory(
         api_url
     };
     let client = reqwest::Client::new();
-    let resp = with_auth(client.post(format!("{}/v1/memory/search", base)))
+    let search_url = format!("{}/v1/memory/search", base);
+    let resp = with_auth(client.post(&search_url), &search_url)
         .json(&serde_json::json!({"query": query, "top_k": top_k}))
         .send()
         .await
@@ -1921,9 +1922,9 @@ async fn fetch_agents(api_url: String) -> Result<serde_json::Value, String> {
     } else {
         api_url
     };
-    let resp = nira_get(format!("{}/v1/agents", base))
+    let resp = nira_get(&format!("{}/v1/agents", base))
         .await
-        .map_err(|e| format!("Connection failed: {}", e))?;
+        ?;
     resp.json()
         .await
         .map_err(|e| format!("Invalid response: {}", e))
@@ -1936,9 +1937,9 @@ async fn fetch_models(api_url: String) -> Result<serde_json::Value, String> {
     } else {
         api_url
     };
-    let resp = nira_get(format!("{}/v1/models", base))
+    let resp = nira_get(&format!("{}/v1/models", base))
         .await
-        .map_err(|e| format!("Connection failed: {}", e))?;
+        ?;
     resp.json()
         .await
         .map_err(|e| format!("Invalid response: {}", e))
@@ -2039,9 +2040,9 @@ async fn fetch_savings(api_url: String) -> Result<serde_json::Value, String> {
     } else {
         api_url
     };
-    let resp = nira_get(format!("{}/v1/savings", base))
+    let resp = nira_get(&format!("{}/v1/savings", base))
         .await
-        .map_err(|e| format!("Connection failed: {}", e))?;
+        ?;
     resp.json()
         .await
         .map_err(|e| format!("Invalid response: {}", e))
@@ -2064,7 +2065,7 @@ async fn transcribe_audio(
 
     let form = reqwest::multipart::Form::new().part("file", part);
 
-    let resp = with_auth(client.post(&url))
+    let resp = with_auth(client.post(&url), &url)
         .multipart(form)
         .send()
         .await
@@ -2341,12 +2342,28 @@ async fn reload_cloud_keys_at(reload_url: &str, keys: Vec<(String, String)>) {
         .into_iter()
         .map(|(key, value)| (key, serde_json::Value::String(value)))
         .collect();
-    let _ = reqwest::Client::new()
-        .post(reload_url)
+    // Authenticated like every other call to our own server. Without this it
+    // 401'd on any install with a key, and the `let _ =` threw the rejection
+    // away — so saving a cloud key reported success while the running server
+    // never received it, and the key only took effect after a restart.
+    let result = with_auth(reqwest::Client::new().post(reload_url), reload_url)
         .json(&serde_json::json!({ "keys": key_map }))
         .timeout(std::time::Duration::from_secs(10))
         .send()
         .await;
+    match result {
+        Ok(resp) if !resp.status().is_success() => {
+            eprintln!(
+                "cloud-key hot reload rejected by the server ({}); the key is \
+                 saved but takes effect on the next restart",
+                resp.status()
+            );
+        }
+        Err(err) => {
+            eprintln!("cloud-key hot reload could not reach the server: {}", err);
+        }
+        _ => {}
+    }
 }
 
 /// Hot-reload only a live server process launched and owned by this desktop
@@ -2884,9 +2901,10 @@ fn extract_api_key(existing: &str) -> Option<String> {
 /// without a Bearer token. Nothing here ever sent one: every Tauri command
 /// below called the server bare, and the webview's `getApiKey()` only ever
 /// read localStorage, which the desktop app never populated. So on any
-/// install with a key — which is what the installer writes — the whole app
-/// failed at once: no model list, no chat, and a speech backend that was
-/// running fine reported as "Not configured".
+/// install whose config carries a key, the whole app failed at once: no
+/// model list, no chat, and a speech backend that was running fine reported
+/// as "Not configured". (`nira auth create-key` is what writes the key;
+/// `check_bind_safety` also requires one for any non-loopback bind.)
 ///
 /// Read fresh rather than cached at startup: `nira serve` can be restarted
 /// with a new key while the app stays open, and a stale key fails exactly
@@ -2902,22 +2920,87 @@ fn server_api_key() -> Option<String> {
     extract_api_key(&std::fs::read_to_string(nira_config_path()).ok()?)
 }
 
-/// Attach the local server's Bearer token to a request, when there is one.
+/// Whether *url* points at a server on this machine.
+///
+/// This gate matters: every `fetch_*` command takes its base from the
+/// frontend, which sources it from Settings → API URL. Attaching the key on
+/// the strength of "a key exists locally" would mail this machine's
+/// credential to whatever host the user typed there, including one they were
+/// only pointing at to read someone else's public instance.
+fn is_local_server(url: &str) -> bool {
+    let Ok(parsed) = reqwest::Url::parse(url) else {
+        // A relative or unparseable URL is not a remote host we could leak to.
+        return true;
+    };
+    // `url` is not a direct dependency, so match on the host string rather
+    // than on url::Host, and parse the literal forms ourselves.
+    match parsed.host_str() {
+        None => true, // no host at all (e.g. a relative path) — same machine
+        Some(host) => {
+            let host = host.trim_start_matches('[').trim_end_matches(']');
+            if host == "localhost" || host.ends_with(".localhost") {
+                return true;
+            }
+            match host.parse::<std::net::IpAddr>() {
+                Ok(addr) => addr.is_loopback(),
+                // A name we cannot resolve here is treated as remote: the
+                // safe default for a credential is to withhold it.
+                Err(_) => false,
+            }
+        }
+    }
+}
+
+/// Attach this machine's Bearer token, but only when the target is local.
 ///
 /// A keyless local server is left byte-for-byte unchanged: no header is added
 /// at all, rather than an empty one, which some middlewares treat as a
 /// malformed credential rather than an absent one.
-fn with_auth(builder: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
+fn with_auth(builder: reqwest::RequestBuilder, url: &str) -> reqwest::RequestBuilder {
+    if !is_local_server(url) {
+        return builder;
+    }
     match server_api_key() {
         Some(key) => builder.header("Authorization", format!("Bearer {}", key)),
         None => builder,
     }
 }
 
-/// GET a local-server URL with auth attached. Replaces the bare
-/// `reqwest::get` that every one of these commands used to call.
-async fn nira_get(url: impl reqwest::IntoUrl) -> reqwest::Result<reqwest::Response> {
-    with_auth(reqwest::Client::new().get(url)).send().await
+/// GET a local-server URL with auth attached, and treat a non-2xx as an error.
+///
+/// Replaces the bare `reqwest::get` these commands used to call. The status
+/// check is the other half: reqwest does not error on 4xx/5xx, and the
+/// server's 401 body is valid JSON, so `resp.json()` used to succeed and the
+/// command returned `Ok({"detail": "Missing Authorization header"})`. The
+/// frontend read that as `result?.data || []` — an empty list, on the success
+/// path, with no error to surface. That is why "Installed Models (0)" was
+/// stated as a fact rather than as a failure, and why the auth toast never
+/// fired for the model list.
+async fn nira_get(url: &str) -> Result<reqwest::Response, String> {
+    let resp = with_auth(reqwest::Client::new().get(url), url)
+        .send()
+        .await
+        .map_err(|e| format!("Connection failed: {}", e))?;
+    let status = resp.status();
+    if !status.is_success() {
+        let detail = resp.text().await.unwrap_or_default();
+        let detail = serde_json::from_str::<serde_json::Value>(&detail)
+            .ok()
+            .and_then(|v| v.get("detail").and_then(|d| d.as_str()).map(str::to_string))
+            .unwrap_or_else(|| detail.chars().take(200).collect());
+        return Err(if status == reqwest::StatusCode::UNAUTHORIZED
+            || status == reqwest::StatusCode::FORBIDDEN
+        {
+            format!(
+                "The local server rejected this request ({}). Check the API key in Settings. {}",
+                status.as_u16(),
+                detail
+            )
+        } else {
+            format!("Server returned {}: {}", status.as_u16(), detail)
+        });
+    }
+    Ok(resp)
 }
 
 /// Hand the webview the key so its own `fetch` calls can authenticate too.
@@ -2970,7 +3053,7 @@ async fn speech_health(api_url: String) -> Result<serde_json::Value, String> {
     let url = format!("{}/v1/speech/health", api_url);
     let resp = nira_get(&url)
         .await
-        .map_err(|e| format!("Connection failed: {}", e))?;
+        ?;
 
     // A 401 body has no `available` field, so it used to deserialize straight
     // into `available: false` and the panel said "Not configured" about a
@@ -3432,6 +3515,16 @@ pub fn run() {
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             if let Some(window) = app.get_webview_window("main") {
+                // show() before set_focus(), not instead of it.
+                //
+                // Now that closing hides to the tray, the window is very
+                // often invisible when a second launch arrives — and on
+                // Linux set_focus() early-returns on an invisible window.
+                // Without the show() the launcher icon would do nothing at
+                // all, which is a worse trap than the close-quits behaviour
+                // it replaced.
+                let _ = window.show();
+                let _ = window.unminimize();
                 let _ = window.set_focus();
             }
         }))
@@ -4415,6 +4508,45 @@ mod tests {
     fn extract_api_key_handles_the_nested_table_spelling() {
         let toml = "[server]\nport = 8000\n\n[server.auth]\napi_key = \"k\"\n";
         assert_eq!(super::extract_api_key(toml).as_deref(), Some("k"));
+    }
+
+    // The key must never leave this machine. Every fetch_* command takes its
+    // base URL from the frontend, which sources it from Settings -> API URL,
+    // so "a key exists locally" is not a reason to attach it to a request.
+    #[test]
+    fn local_targets_get_the_key() {
+        for url in [
+            "http://127.0.0.1:8000/v1/models",
+            "http://localhost:8000/v1/models",
+            "https://localhost:8443/v1/models",
+            "http://app.localhost:3000/v1/models",
+            "http://[::1]:8000/v1/models",
+            "http://127.1.2.3:8000/v1/models",
+        ] {
+            assert!(super::is_local_server(url), "should be local: {url}");
+        }
+    }
+
+    #[test]
+    fn remote_targets_do_not_get_the_key() {
+        for url in [
+            "https://nira.example.com/v1/models",
+            "http://192.168.1.20:8000/v1/models",
+            "http://100.123.66.19:8000/v1/models",
+            "https://evil.test/v1/models",
+            // A lookalike that is not loopback: the suffix check must not be
+            // a substring check.
+            "http://localhost.evil.test/v1/models",
+        ] {
+            assert!(!super::is_local_server(url), "should be remote: {url}");
+        }
+    }
+
+    #[test]
+    fn an_unparseable_url_is_not_treated_as_a_remote_host() {
+        // Nothing to leak to; the request will fail on its own.
+        assert!(super::is_local_server("/v1/models"));
+        assert!(super::is_local_server(""));
     }
 
     #[test]
