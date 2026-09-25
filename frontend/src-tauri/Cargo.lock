@@ -2483,6 +2483,7 @@ version = "1.0.1"
 dependencies = [
  "dispatch",
  "keyring",
+ "libc",
  "objc",
  "reqwest",
  "serde",

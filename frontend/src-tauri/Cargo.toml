@@ -33,6 +33,14 @@ tokio = { version = "1", features = ["full"] }
 # enables NO backend by default — without an explicit per-platform feature it
 # silently falls back to a non-persistent in-memory mock, so keys would not
 # survive an app restart. Each desktop target opts into its native store.
+# Killing the server means killing a process *group*: `nira serve` is spawned
+# as `uv run nira serve`, so `uv` is the direct child and the Python process is
+# a grandchild. tokio's Child::kill() signals only the direct child, so every
+# shutdown path left the real server running — and the next start then failed
+# with "Another server is already registered (PID ...)".
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
 [target.'cfg(target_os = "macos")'.dependencies]
 objc = "0.2"
 dispatch = "0.2"

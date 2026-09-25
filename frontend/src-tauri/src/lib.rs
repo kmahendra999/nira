@@ -362,6 +362,34 @@ struct ChildHandle {
 
 impl ChildHandle {
     async fn kill(&mut self) {
+        // Kill the process *group*, not just the child.
+        //
+        // The server is spawned as `uv run nira serve --port 8000`, so `uv` is
+        // the direct child and the Python process that actually holds the port
+        // is a grandchild. `Child::kill()` signals only the direct child, so
+        // the server survived every shutdown path: quitting the app, resetting
+        // the inference source, all of it. The orphan then held port 8000 and
+        // its pidfile, and the next start died with "Another server is already
+        // registered (PID ...)" — a message about a process the user never
+        // knowingly started.
+        //
+        // spawn_owned_child puts each child in its own group, so a negative
+        // pid here reaches the whole tree.
+        #[cfg(unix)]
+        if let Some(pid) = self.child.id() {
+            // SAFETY: a kill(2) with a negative pid signals the process group.
+            // The group id equals the child's pid because spawn_owned_child
+            // called process_group(0). Worst case the group is already gone
+            // and this returns ESRCH, which we ignore.
+            unsafe {
+                libc::kill(-(pid as i32), libc::SIGTERM);
+            }
+            // Give the tree a moment to exit cleanly, then insist.
+            tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+            unsafe {
+                libc::kill(-(pid as i32), libc::SIGKILL);
+            }
+        }
         let _ = self.child.kill().await;
     }
 }
@@ -375,6 +403,11 @@ impl ChildHandle {
 /// `kill_on_drop(true)` before `output()`).
 fn spawn_owned_child(cmd: &mut tokio::process::Command) -> std::io::Result<tokio::process::Child> {
     cmd.kill_on_drop(true);
+    // Own the whole tree, not just the direct child. `process_group(0)` starts
+    // a new group whose id is the child's pid, which is what lets
+    // ChildHandle::kill signal the grandchildren too — see the note there.
+    #[cfg(unix)]
+    cmd.process_group(0);
     cmd.spawn()
 }
 
@@ -3656,8 +3689,16 @@ pub fn run() {
         .expect("error while building Nira Desktop")
         .run(move |_app, event| {
             if let tauri::RunEvent::ExitRequested { .. } = event {
+                // Block here rather than spawning and returning.
+                //
+                // This used to fire-and-forget the cleanup onto the async
+                // runtime. The runtime checks the prevent-exit channel with a
+                // non-blocking try_recv the instant the handler returns and
+                // then calls process::exit, so the spawned task usually never
+                // ran — and process::exit does not run Drop, so kill_on_drop
+                // did not save it either. The children were simply orphaned.
                 let b = backend.clone();
-                tauri::async_runtime::spawn(async move {
+                tauri::async_runtime::block_on(async move {
                     b.lock().await.stop_all().await;
                 });
             }
