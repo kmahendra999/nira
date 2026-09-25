@@ -3555,7 +3555,24 @@ fn copy_dir_all(src: &std::path::Path, dst: &std::path::Path) -> std::io::Result
         let Ok(file_type) = entry.file_type() else {
             continue;
         };
-        let target = dst.join(entry.file_name());
+        let name = entry.file_name();
+        // Skip SQLite's shared-memory index.
+        //
+        // On Linux the webview keeps localStorage in SQLite, as a triple:
+        // the database, a -wal write-ahead log, and a -shm index. The -wal is
+        // not optional — on this machine it holds 24 KB against the database's
+        // 12 KB, so a copy that took only the database would silently lose
+        // most of the recent history, which is exactly the data this migration
+        // exists to save. The -shm is the opposite: SQLite rebuilds it on
+        // open, and carrying a stale one across is a hazard rather than a
+        // help.
+        if std::path::Path::new(&name)
+            .to_str()
+            .is_some_and(|n| n.ends_with("-shm"))
+        {
+            continue;
+        }
+        let target = dst.join(&name);
         if file_type.is_dir() {
             let _ = copy_dir_all(&entry.path(), &target);
         } else if file_type.is_file() {
@@ -4783,6 +4800,39 @@ mod tests {
         assert_eq!(
             std::fs::read_to_string(new.join("CacheStorage/deep/nested/file")).unwrap(),
             "cache"
+        );
+        std::fs::remove_dir_all(&root).ok();
+    }
+
+    #[test]
+    fn copy_dir_all_takes_the_wal_but_leaves_the_shm() {
+        // The -wal is where the recent writes are: on this machine it is 24 KB
+        // against a 12 KB database, so dropping it would lose most of the
+        // history. The -shm is a rebuildable index and a stale one is a
+        // hazard.
+        let root = std::env::temp_dir().join(format!(
+            "nira-wal-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let old = root.join("old/localstorage");
+        write(&old.join("s.localstorage"), "db");
+        write(&old.join("s.localstorage-wal"), "recent writes");
+        write(&old.join("s.localstorage-shm"), "rebuildable index");
+
+        let new = root.join("new/localstorage");
+        super::copy_dir_all(&old, &new).unwrap();
+
+        assert_eq!(
+            std::fs::read_to_string(new.join("s.localstorage-wal")).unwrap(),
+            "recent writes"
+        );
+        assert!(new.join("s.localstorage").exists());
+        assert!(
+            !new.join("s.localstorage-shm").exists(),
+            "a stale shared-memory index must not be carried across"
         );
         std::fs::remove_dir_all(&root).ok();
     }
