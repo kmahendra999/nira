@@ -12,6 +12,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import type { StorageWarning } from './store';
+import type { ChatMessage } from '../types';
 
 /** localStorage that refuses writes past a byte budget, like the real one. */
 class BudgetStorage {
@@ -65,8 +66,13 @@ afterEach(() => {
 });
 
 /** A well-formed ChatMessage; the store's type requires id and timestamp. */
-function msg(content: string) {
-  return { id: `m-${content.length}-${content.slice(0, 4)}`, role: 'user' as const, content, timestamp: 1 };
+function msg(content: string, role: ChatMessage['role'] = 'user'): ChatMessage {
+  return {
+    id: `m-${content.length}-${content.slice(0, 4)}`,
+    role,
+    content,
+    timestamp: 1,
+  };
 }
 
 /** Build a conversation whose messages are `size` bytes of content. */
@@ -100,7 +106,10 @@ describe('conversation writes when storage is full', () => {
     storage.setItem('nira-conversations', JSON.stringify(store));
     useAppStore.getState().loadConversations();
 
-    storage.setBudget(1100); // room for roughly two of them
+    // Measured: 1760 bytes with all three plus the new message, 1209 with
+    // the oldest removed. 1400 admits exactly one deletion, which is also the
+    // most a single event is allowed to do.
+    storage.setBudget(1400);
 
     useAppStore.getState().addMessage('new', msg('hello'));
 
@@ -417,6 +426,83 @@ describe('the sidebar does not keep listing conversations that were reclaimed', 
       useAppStore.getState().conversations.map((c) => c.id),
       'the click should have repaired the list',
     ).not.toContain('ghost');
+    off();
+  });
+});
+
+describe('one streaming reply cannot consume the archive', () => {
+  // saveConversations runs on every stream flush (throttled to 80ms). Before
+  // the rate limit, a measured run of one long reply on a full disk deleted
+  // 19 of 21 conversations — one per flush. The archive is irreplaceable and
+  // the reply is on screen and exportable, so history wins.
+  it('deletes at most one conversation across a long stream', async () => {
+    const { useAppStore, onStorageWarning, resetStorageReclaimThrottle } = await import('./store');
+    resetStorageReclaimThrottle();
+    const off = onStorageWarning(() => {});
+
+    const conversations: Record<string, ReturnType<typeof bigConversation>> = {};
+    for (let i = 0; i < 20; i += 1) {
+      conversations[`c${i}`] = bigConversation(`c${i}`, 200, i);
+    }
+    conversations.active = {
+      id: 'active',
+      title: 'active',
+      updatedAt: 999,
+      createdAt: 1,
+      model: 'qwen3.5:4b',
+      messages: [msg('', 'assistant')],
+    };
+    storage.setItem(
+      'nira-conversations',
+      JSON.stringify({ version: 1, activeId: 'active', conversations }),
+    );
+    useAppStore.getState().loadConversations();
+    const before = useAppStore.getState().conversations.length;
+
+    storage.setBudget(3000);
+    for (let i = 1; i <= 60; i += 1) {
+      useAppStore.getState().updateLastAssistant('active', 'y'.repeat(i * 40));
+    }
+
+    const after = Object.keys(
+      JSON.parse(storage.getItem('nira-conversations') as string).conversations,
+    ).length;
+
+    expect(before).toBe(21);
+    expect(
+      after,
+      `one reply destroyed ${before - after} conversations; the limit allows one`,
+    ).toBeGreaterThanOrEqual(before - 1);
+    off();
+  });
+
+  it('still reports that it could not save once the limit is reached', async () => {
+    const { useAppStore, onStorageWarning, resetStorageReclaimThrottle } = await import('./store');
+    resetStorageReclaimThrottle();
+    const warnings: StorageWarning[] = [];
+    const off = onStorageWarning((w) => warnings.push(w));
+
+    const store = {
+      version: 1 as const,
+      activeId: 'active',
+      conversations: {
+        a: bigConversation('a', 300, 1),
+        b: bigConversation('b', 300, 2),
+        active: bigConversation('active', 100, 9),
+      },
+    };
+    storage.setItem('nira-conversations', JSON.stringify(store));
+    useAppStore.getState().loadConversations();
+    storage.setBudget(500);
+
+    useAppStore.getState().addMessage('active', msg('one'));
+    warnings.length = 0;
+    useAppStore.getState().addMessage('active', msg('two'));
+
+    expect(
+      warnings.some((w) => w.kind === 'full'),
+      'the second attempt must say it could not save, not delete again',
+    ).toBe(true);
     off();
   });
 });

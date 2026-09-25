@@ -119,6 +119,15 @@ function emitStorageWarning(warning: StorageWarning): void {
   }
 }
 
+// One reply must not be able to consume the archive. See stage 2 below.
+const DELETION_COOLDOWN_MS = 60_000;
+let lastDeletionAt = 0;
+
+/** Exported for tests; forgets the deletion rate limit. */
+export function resetStorageReclaimThrottle(): void {
+  lastDeletionAt = 0;
+}
+
 /** Whether an exception is the browser saying "out of room". */
 function isQuotaError(err: unknown): boolean {
   if (!(err instanceof Error)) return false;
@@ -212,13 +221,33 @@ function saveConversations(
   }
 
   // Stage 2 — the text alone still does not fit. Delete, oldest first.
-  let removed = 0;
-  for (const conversation of oldestFirst()) {
-    delete store.conversations[conversation.id];
-    removed += 1;
+  //
+  // Rate-limited, and that limit is the important part. saveConversations is
+  // called on every stream flush, throttled to 80ms, so without a bound a
+  // single long reply on a full disk deletes a conversation per flush: a
+  // measured run destroyed 19 of 21 conversations while one reply streamed.
+  // The archive is irreplaceable and the reply is on screen and exportable,
+  // so when the choice is between them, history wins. Past the limit this
+  // reports 'full' instead — the conversation stops persisting, which is a
+  // loss the user is told about rather than one taken from them silently.
+  if (Date.now() - lastDeletionAt < DELETION_COOLDOWN_MS) {
+    emitStorageWarning({ kind: 'full' });
+    return false;
+  }
+
+  // At most one per event, as well as one per cooldown. The loop used to
+  // keep deleting until the write fit, so a single call could take many —
+  // which is how the measured run still lost 13 conversations even with the
+  // cooldown gating entry. If freeing one is not enough, stop and say so;
+  // the next attempt, a minute later, frees one more. Converging slowly is
+  // the right direction to be wrong in.
+  const oldest = oldestFirst()[0];
+  if (oldest) {
+    delete store.conversations[oldest.id];
     try {
       write();
-      emitStorageWarning({ kind: 'pruned', removed });
+      lastDeletionAt = Date.now();
+      emitStorageWarning({ kind: 'pruned', removed: 1 });
       return true;
     } catch (err) {
       if (!isQuotaError(err)) {
@@ -228,6 +257,9 @@ function saveConversations(
         });
         return false;
       }
+      // Still does not fit. Put it back rather than losing it for nothing.
+      store.conversations[oldest.id] = oldest;
+      lastDeletionAt = Date.now();
     }
   }
 
