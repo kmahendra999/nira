@@ -177,14 +177,9 @@ export function ChatArea() {
                     );
                   }}
                   className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm
-                    text-left cursor-pointer transition-colors"
+                    text-left cursor-pointer transition-colors bg-transparent
+                    hover:bg-bg-secondary"
                   style={{ color: 'var(--color-text-secondary)' }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = 'var(--color-bg-secondary)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'transparent';
-                  }}
                 >
                   <Icon size={16} style={{ color: 'var(--color-text-tertiary)' }} />
                   {label}

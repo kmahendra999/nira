@@ -6,19 +6,30 @@ from __future__ import annotations
 class TestSelectTorchDevice:
     """Tests for _select_torch_device() logic in orchestrator trainers.
 
-    Since torch is not installed in the test environment, we test the
-    selection logic directly rather than through the function (which
-    returns None when torch is absent).
+    These used to assume torch was absent from the test environment and
+    asserted that directly, so they passed by accident and started failing
+    the moment anything installed torch — which the `generate` extra now
+    does. The absent case is simulated instead.
     """
 
-    def test_no_torch_returns_none(self):
+    def test_no_torch_returns_none(self, monkeypatch):
         """Without torch, _select_torch_device returns None."""
-        from nira.learning.intelligence.orchestrator.sft_trainer import (
-            _select_torch_device,
-        )
+        from nira.learning.intelligence.orchestrator import sft_trainer
 
-        # torch is not installed in test env, so HAS_TORCH is False
-        assert _select_torch_device() is None
+        monkeypatch.setattr(sft_trainer, "HAS_TORCH", False)
+        assert sft_trainer._select_torch_device() is None
+
+    def test_with_torch_returns_a_device(self):
+        """With torch present it picks one, rather than returning None."""
+        from nira.learning.intelligence.orchestrator import sft_trainer
+
+        if not sft_trainer.HAS_TORCH:
+            import pytest
+
+            pytest.skip("torch is not installed")
+        device = sft_trainer._select_torch_device()
+        assert device is not None
+        assert str(device) in {"cuda", "mps", "cpu"}
 
     def test_cuda_preferred(self):
         """CUDA is selected when available (logic test)."""

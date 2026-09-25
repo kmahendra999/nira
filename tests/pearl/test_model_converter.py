@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import sys
 from pathlib import Path
 
 import pytest
@@ -15,11 +16,27 @@ save_file = safetensors_torch.save_file
 
 
 def _load_converter():
+    """Import the converter script as a module.
+
+    It has to be in ``sys.modules`` *before* it executes, which is what a
+    normal import does and what this was missing. Any dataclass the script
+    defines makes ``dataclasses`` look its module up by name, and an
+    unregistered module resolves to None — so the script raised
+    ``AttributeError: 'NoneType' object has no attribute '__dict__'`` from
+    inside the standard library. It was invisible while these tests skipped
+    for want of torch.
+    """
     path = Path(__file__).parents[2] / "scripts" / "pearl" / "model_converter.py"
-    spec = importlib.util.spec_from_file_location("pearl_model_converter", path)
+    name = "pearl_model_converter"
+    spec = importlib.util.spec_from_file_location(name, path)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    sys.modules[name] = module
+    try:
+        spec.loader.exec_module(module)
+    except Exception:
+        sys.modules.pop(name, None)
+        raise
     return module
 
 

@@ -268,7 +268,11 @@ export function CreatePage() {
             }}
             placeholder={active.placeholder}
             rows={3}
-            className="w-full rounded-xl px-3 py-2.5 text-sm outline-none resize-none"
+            // The focus ring is left alone. Suppressing it leaves a
+            // keyboard user with no way to see where they are, and this box
+            // is the first thing they tab to on the page.
+            className="w-full rounded-xl px-3 py-2.5 text-sm resize-none
+              focus:border-accent"
             style={{
               background: 'var(--color-input-bg)',
               border: '1px solid var(--color-input-border)',

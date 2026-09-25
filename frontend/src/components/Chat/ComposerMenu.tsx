@@ -80,14 +80,9 @@ export function ComposerMenu({ onUpload, onCreate, unavailable, disabled }: Prop
       disabled={!!reason}
       title={reason}
       className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm text-left
-        transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+        transition-colors cursor-pointer bg-transparent hover:bg-bg-secondary
+        disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
       style={{ color: 'var(--color-text)' }}
-      onMouseEnter={(e) => {
-        if (!reason) e.currentTarget.style.background = 'var(--color-bg-secondary)';
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.background = 'transparent';
-      }}
     >
       <Icon size={16} style={{ color: 'var(--color-text-secondary)' }} />
       {label}
