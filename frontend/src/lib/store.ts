@@ -98,7 +98,10 @@ function loadConversations(): ConversationStore {
 export type StorageWarning =
   | { kind: 'trimmed'; conversations: number }
   | { kind: 'pruned'; removed: number }
-  | { kind: 'full' }
+  // `scope` because the same condition needs two different sentences: a
+  // conversation that will not survive a restart is a different problem, with
+  // a different remedy, from a setting that did not stick.
+  | { kind: 'full'; scope: 'conversation' | 'setting' }
   | { kind: 'unavailable'; detail: string };
 
 type StorageWarningListener = (warning: StorageWarning) => void;
@@ -231,7 +234,7 @@ function saveConversations(
   // reports 'full' instead — the conversation stops persisting, which is a
   // loss the user is told about rather than one taken from them silently.
   if (Date.now() - lastDeletionAt < DELETION_COOLDOWN_MS) {
-    emitStorageWarning({ kind: 'full' });
+    emitStorageWarning({ kind: 'full', scope: 'conversation' });
     return false;
   }
 
@@ -265,7 +268,7 @@ function saveConversations(
 
   // Even alone, the protected conversation does not fit. Say so rather than
   // failing silently; it is the only honest thing left.
-  emitStorageWarning({ kind: 'full' });
+  emitStorageWarning({ kind: 'full', scope: 'conversation' });
   return false;
 }
 
@@ -281,7 +284,7 @@ function persist(key: string, value: string): void {
   } catch (err) {
     emitStorageWarning(
       isQuotaError(err)
-        ? { kind: 'full' }
+        ? { kind: 'full', scope: 'setting' }
         : {
             kind: 'unavailable',
             detail: err instanceof Error ? err.message : String(err),
@@ -340,7 +343,7 @@ function saveSettings(settings: Settings): void {
   } catch (err) {
     emitStorageWarning(
       isQuotaError(err)
-        ? { kind: 'full' }
+        ? { kind: 'full', scope: 'setting' }
         : {
             kind: 'unavailable',
             detail: err instanceof Error ? err.message : String(err),

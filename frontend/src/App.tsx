@@ -72,8 +72,13 @@ export default function App() {
             id: 'nira-storage',
             duration: 12000,
             description:
-              'This conversation is too large to save. It stays on screen, but ' +
-              'it will not survive a restart. Export it from Settings → Data.',
+              warning.scope === 'setting'
+                ? 'That setting could not be saved and will revert when you ' +
+                  'restart. Free space by exporting and clearing conversations ' +
+                  'in Settings → Data.'
+                : 'This conversation is too large to save. It stays on screen, ' +
+                  'but it will not survive a restart. Export it from ' +
+                  'Settings → Data.',
           });
         } else {
           toast.error('Cannot save locally', {

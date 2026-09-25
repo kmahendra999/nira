@@ -160,7 +160,9 @@ describe('conversation writes when storage is full', () => {
     expect(() =>
       useAppStore.getState().addMessage('only', msg('hi')),
     ).not.toThrow();
-    expect(warnings.some((w) => w.kind === 'full')).toBe(true);
+    expect(
+      warnings.some((w) => w.kind === 'full' && w.scope === 'conversation'),
+    ).toBe(true);
     off();
   });
 
@@ -212,7 +214,11 @@ describe('settings and preferences share the same quota', () => {
       useAppStore.getState().updateSettings({ apiKey: 'nira_sk_typed' }),
     ).not.toThrow();
     expect(useAppStore.getState().settings.apiKey).toBe('nira_sk_typed');
-    expect(warnings.length).toBeGreaterThan(0);
+    // A settings failure must not be described as a conversation that will
+    // not survive a restart — no conversation is involved.
+    const full = warnings.find((w) => w.kind === 'full');
+    expect(full).toBeTruthy();
+    expect(full && full.kind === 'full' && full.scope).toBe('setting');
     off();
   });
 
