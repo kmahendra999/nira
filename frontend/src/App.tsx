@@ -51,7 +51,15 @@ export default function App() {
   useEffect(
     () =>
       onStorageWarning((warning) => {
-        if (warning.kind === 'pruned') {
+        if (warning.kind === 'trimmed') {
+          toast.warning('Storage was full', {
+            id: 'nira-storage',
+            duration: 8000,
+            description: `Removed attachments from ${warning.conversations} older conversation${
+              warning.conversations === 1 ? '' : 's'
+            } to make room. The messages themselves are still there.`,
+          });
+        } else if (warning.kind === 'pruned') {
           toast.warning('Storage was full', {
             id: 'nira-storage',
             duration: 8000,

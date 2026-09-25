@@ -254,3 +254,116 @@ describe('the warning channel itself', () => {
     expect(seen).toHaveLength(0);
   });
 });
+
+describe('reclaiming room prefers trimming attachments to deleting conversations', () => {
+  // A single tool-call result can dwarf an entire conversation's text, so the
+  // bytes are almost always in the attachments. Deleting whole conversations
+  // to reclaim them throws away the words too — and the words are what people
+  // came back for.
+  function withAttachment(id: string, updatedAt: number) {
+    return {
+      id,
+      title: id,
+      updatedAt,
+      createdAt: updatedAt,
+      model: 'qwen3.5:4b',
+      messages: [
+        {
+          id: `${id}-m`,
+          role: 'assistant' as const,
+          content: 'the words',
+          timestamp: updatedAt,
+          toolCalls: [
+            { id: 't', name: 'search', arguments: '{}', result: 'R'.repeat(600) },
+          ],
+        },
+      ],
+    };
+  }
+
+  it('strips attachments from the oldest first, keeping the messages', async () => {
+    const { useAppStore, onStorageWarning } = await import('./store');
+    const warnings: StorageWarning[] = [];
+    const off = onStorageWarning((w) => warnings.push(w));
+
+    const store = {
+      version: 1 as const,
+      activeId: 'active',
+      conversations: {
+        old: withAttachment('old', 1),
+        active: withAttachment('active', 9),
+      },
+    };
+    storage.setItem('nira-conversations', JSON.stringify(store));
+    useAppStore.getState().loadConversations();
+    // Measured: 1733 bytes intact, 1117 once the older attachment is
+    // stripped, 952 if the whole conversation is deleted. 1200 admits the
+    // trimmed form and rejects the intact one, so trimming must suffice.
+    storage.setBudget(1200);
+
+    useAppStore.getState().addMessage('active', msg('hi'));
+
+    const saved = JSON.parse(storage.getItem('nira-conversations') as string);
+    expect(saved.conversations.old, 'the conversation survives').toBeTruthy();
+    expect(saved.conversations.old.messages[0].content).toBe('the words');
+    expect(saved.conversations.old.messages[0].toolCalls).toBeUndefined();
+    expect(warnings.some((w) => w.kind === 'trimmed')).toBe(true);
+    expect(warnings.some((w) => w.kind === 'pruned')).toBe(false);
+    off();
+  });
+
+  it('falls through to deleting when trimming is not enough', async () => {
+    const { useAppStore, onStorageWarning } = await import('./store');
+    const warnings: StorageWarning[] = [];
+    const off = onStorageWarning((w) => warnings.push(w));
+
+    const store = {
+      version: 1 as const,
+      activeId: 'active',
+      conversations: {
+        old: bigConversation('old', 900, 1), // plain text, nothing to trim
+        active: bigConversation('active', 200, 9),
+      },
+    };
+    storage.setItem('nira-conversations', JSON.stringify(store));
+    useAppStore.getState().loadConversations();
+    storage.setBudget(600);
+
+    useAppStore.getState().addMessage('active', msg('hi'));
+
+    const saved = JSON.parse(storage.getItem('nira-conversations') as string);
+    expect(saved.conversations.old).toBeUndefined();
+    expect(saved.conversations.active).toBeTruthy();
+    expect(warnings.some((w) => w.kind === 'pruned')).toBe(true);
+    off();
+  });
+
+  it('never reclaims the conversation being written, even when it is not the active one', async () => {
+    // importOverlayConversation writes a conversation that is not activeId.
+    // Protecting only activeId would let the reclaim delete the very thing
+    // the write is about.
+    const { useAppStore, onStorageWarning } = await import('./store');
+    const off = onStorageWarning(() => {});
+
+    const store = {
+      version: 1 as const,
+      activeId: 'elsewhere',
+      conversations: {
+        elsewhere: bigConversation('elsewhere', 200, 5),
+        target: bigConversation('target', 700, 1), // oldest → first to go
+      },
+    };
+    storage.setItem('nira-conversations', JSON.stringify(store));
+    useAppStore.getState().loadConversations();
+    storage.setBudget(500);
+
+    useAppStore.getState().addMessage('target', msg('appended'));
+
+    const saved = JSON.parse(storage.getItem('nira-conversations') as string);
+    expect(
+      saved.conversations.target,
+      'the conversation the message was appended to must survive',
+    ).toBeTruthy();
+    off();
+  });
+});

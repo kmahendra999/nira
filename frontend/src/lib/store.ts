@@ -96,6 +96,7 @@ function loadConversations(): ConversationStore {
 // message that was never saved, with nothing anywhere saying storage was full.
 
 export type StorageWarning =
+  | { kind: 'trimmed'; conversations: number }
   | { kind: 'pruned'; removed: number }
   | { kind: 'full' }
   | { kind: 'unavailable'; detail: string };
@@ -133,20 +134,40 @@ function isQuotaError(err: unknown): boolean {
 }
 
 /**
- * Persist conversations, making room by dropping the oldest ones if needed.
+ * Persist conversations, reclaiming room if the write does not fit.
+ *
+ * `protectId` is the conversation this write is about — it is never touched,
+ * because deleting the thing being saved to make room to save it is absurd.
+ * It defaults to the active conversation, but callers that write to a
+ * different one (the overlay import) must say so.
+ *
+ * Reclaims in two stages, because the two costs are very different:
+ *
+ *   1. Strip the heavy attachments — tool-call results, research traces and
+ *      sources — from the oldest conversations. This is where the bytes
+ *      actually are: a single tool result can dwarf an entire conversation's
+ *      text. The messages stay readable, which is what people came for.
+ *   2. Only if that is not enough, delete whole conversations, oldest first.
  *
  * Returns false when nothing could be written. Callers keep their in-memory
- * state either way — losing the running conversation because the *disk* is
- * full would be a strictly worse outcome than a stale file.
+ * state either way — losing the running conversation because the disk is full
+ * would be strictly worse than a stale file.
  */
-function saveConversations(store: ConversationStore): boolean {
-  try {
+function saveConversations(
+  store: ConversationStore,
+  protectId?: string | null,
+): boolean {
+  const write = (): boolean => {
     localStorage.setItem(CONVERSATIONS_KEY, JSON.stringify(store));
     return true;
+  };
+
+  try {
+    return write();
   } catch (err) {
     if (!isQuotaError(err)) {
       // Private browsing, blocked site data, a disabled storage API: nothing
-      // to prune our way out of.
+      // to reclaim our way out of.
       emitStorageWarning({
         kind: 'unavailable',
         detail: err instanceof Error ? err.message : String(err),
@@ -155,21 +176,48 @@ function saveConversations(store: ConversationStore): boolean {
     }
   }
 
-  // Out of room. Drop the least recently updated conversations, oldest first,
-  // and retry after each. The active one is kept to the very end: it is the
-  // one being written right now, and dropping it would delete the reply the
-  // user is currently reading.
-  const byAge = Object.values(store.conversations).sort(
-    (a, b) => a.updatedAt - b.updatedAt,
-  );
-  let removed = 0;
+  const keepId = protectId ?? store.activeId;
+  const oldestFirst = () =>
+    Object.values(store.conversations)
+      .filter((c) => c.id !== keepId)
+      .sort((a, b) => a.updatedAt - b.updatedAt);
 
-  for (const conversation of byAge) {
-    if (conversation.id === store.activeId) continue;
+  // Stage 1 — drop attachments, keep the words.
+  let trimmed = 0;
+  for (const conversation of oldestFirst()) {
+    let changed = false;
+    for (const message of conversation.messages ?? []) {
+      if (message.toolCalls || message.researchTraces || message.researchSources) {
+        delete message.toolCalls;
+        delete message.researchTraces;
+        delete message.researchSources;
+        changed = true;
+      }
+    }
+    if (!changed) continue;
+    trimmed += 1;
+    try {
+      write();
+      emitStorageWarning({ kind: 'trimmed', conversations: trimmed });
+      return true;
+    } catch (err) {
+      if (!isQuotaError(err)) {
+        emitStorageWarning({
+          kind: 'unavailable',
+          detail: err instanceof Error ? err.message : String(err),
+        });
+        return false;
+      }
+    }
+  }
+
+  // Stage 2 — the text alone still does not fit. Delete, oldest first.
+  let removed = 0;
+  for (const conversation of oldestFirst()) {
     delete store.conversations[conversation.id];
     removed += 1;
     try {
-      localStorage.setItem(CONVERSATIONS_KEY, JSON.stringify(store));
+      write();
       emitStorageWarning({ kind: 'pruned', removed });
       return true;
     } catch (err) {
@@ -183,7 +231,7 @@ function saveConversations(store: ConversationStore): boolean {
     }
   }
 
-  // Even alone, the active conversation does not fit. Say so rather than
+  // Even alone, the protected conversation does not fit. Say so rather than
   // failing silently; it is the only honest thing left.
   emitStorageWarning({ kind: 'full' });
   return false;
@@ -480,7 +528,9 @@ export const useAppStore = create<AppState>((set, get) => {
           model: overlay.model || 'default',
           messages: overlay.messages,
         };
-        saveConversations(store);
+        // overlay.id, not activeId: this write is about the overlay's
+        // conversation, and the reclaim must not consider it expendable.
+        saveConversations(store, overlay.id);
         set({
           conversations: Object.values(store.conversations).sort(
             (a, b) => b.updatedAt - a.updatedAt,
@@ -570,7 +620,11 @@ export const useAppStore = create<AppState>((set, get) => {
           message.content.slice(0, 50) +
           (message.content.length > 50 ? '...' : '');
       }
-      saveConversations(store);
+      // conversationId, not activeId. They are the same in the chat flow
+      // today, but this signature takes an explicit id and nothing enforces
+      // the match — so name the conversation this write is about rather than
+      // letting the reclaim decide it is expendable.
+      saveConversations(store, conversationId);
       const conversations = Object.values(store.conversations).sort(
         (a, b) => b.updatedAt - a.updatedAt,
       );
@@ -604,7 +658,7 @@ export const useAppStore = create<AppState>((set, get) => {
         if (researchTraces) lastMsg.researchTraces = researchTraces;
         if (researchSources) lastMsg.researchSources = researchSources;
         conv.updatedAt = Date.now();
-        saveConversations(store);
+        saveConversations(store, conversationId);
         if (get().activeId === conversationId) {
           set({ messages: [...conv.messages] });
         }
