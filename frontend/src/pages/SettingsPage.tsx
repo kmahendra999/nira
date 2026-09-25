@@ -402,8 +402,39 @@ export function SettingsPage() {
   };
 
   const handleExport = () => {
-    const data = localStorage.getItem('nira-conversations') || '{}';
-    const blob = new Blob([data], { type: 'application/json' });
+    // Export what is on screen, not what made it to disk.
+    //
+    // This read localStorage directly, which is the one place the data might
+    // be missing from: when storage is full, saveConversations cannot write
+    // and the app tells the user to export instead — advice that would have
+    // handed them a file without the conversation they were trying to save.
+    // A file has no quota, so the in-memory state is both the truthful source
+    // and the one worth keeping.
+    const persisted = (() => {
+      try {
+        return JSON.parse(localStorage.getItem('nira-conversations') || '{}');
+      } catch {
+        return {};
+      }
+    })();
+    const live = useAppStore.getState();
+    const merged = {
+      version: 1,
+      activeId: live.activeId,
+      conversations: {
+        ...(persisted.conversations ?? {}),
+        ...Object.fromEntries(live.conversations.map((c) => [c.id, c])),
+      },
+    };
+    // The active conversation's newest messages live in `messages`; the
+    // entries in `conversations` can lag it mid-stream.
+    if (live.activeId && merged.conversations[live.activeId]) {
+      merged.conversations[live.activeId] = {
+        ...merged.conversations[live.activeId],
+        messages: live.messages,
+      };
+    }
+    const blob = new Blob([JSON.stringify(merged)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
