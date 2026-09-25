@@ -4,6 +4,7 @@ import { Layout } from './components/Layout';
 import { ChatPage } from './pages/ChatPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { CreatePage } from './pages/CreatePage';
 import { GetStartedPage } from './pages/GetStartedPage';
 import { AgentsPage } from './pages/AgentsPage';
 import { DataSourcesPage } from './pages/DataSourcesPage';
@@ -311,6 +312,7 @@ export default function App() {
       <Routes>
         <Route element={<Layout />}>
           <Route index element={<ChatPage />} />
+          <Route path="create" element={<CreatePage />} />
           <Route path="dashboard" element={<DashboardPage />} />
           <Route path="settings" element={<SettingsPage />} />
           <Route path="get-started" element={<GetStartedPage />} />

@@ -209,6 +209,163 @@ async def message_agent(agent_id: str, req: AgentMessageRequest, request: Reques
         raise HTTPException(status_code=501, detail="Agent tools not available")
 
 
+# ---- Generation routes ----
+#
+# Images, audio and video. Every one of these takes longer than an HTTP
+# request should, so they return a job id and the client polls. See
+# nira.generate.jobs for why that is the only honest shape here.
+
+generate_router = APIRouter(prefix="/v1/generate", tags=["generate"])
+
+
+class GenerateRequest(BaseModel):
+    prompt: str
+    #: Backend-specific: model, steps, size, seed, frames, fps, mode, voice…
+    options: Optional[Dict[str, Any]] = None
+
+
+def _generation_queue():
+    from nira.generate import get_queue
+
+    return get_queue()
+
+
+@generate_router.get("/capabilities")
+def generation_capabilities():
+    """What this install can generate, and what each option costs.
+
+    The UI reads this rather than hard-coding a menu, so an install without
+    the `generate` extra shows what is missing instead of buttons that fail.
+    """
+    from nira.generate import audio, image, video
+
+    def describe(module, kinds) -> Dict[str, Any]:
+        if not module.available():
+            return {"available": False, "reason": module.why()}
+        return {"available": True, **kinds}
+
+    return {
+        "image": describe(
+            image,
+            {
+                "models": [
+                    {"id": key, **{k: v for k, v in spec.items() if k != "repo"}}
+                    for key, spec in image.MODELS.items()
+                ],
+                "default": image.DEFAULT_MODEL,
+            },
+        ),
+        "audio": describe(
+            audio,
+            {
+                "modes": list(audio.MODES),
+                "music_models": list(audio.MUSIC_MODELS),
+                "max_seconds": audio.MAX_MUSIC_SECONDS,
+            },
+        ),
+        "video": describe(
+            video,
+            {
+                "models": [
+                    {"id": key, **{k: v for k, v in spec.items() if k != "repo"}}
+                    for key, spec in video.MODELS.items()
+                ],
+                "default": video.DEFAULT_MODEL,
+                "max_frames": video.MAX_FRAMES,
+            },
+        ),
+        "queued": len(
+            [j for j in _generation_queue().list() if j.status.value == "queued"]
+        ),
+    }
+
+
+@generate_router.post("/{kind}")
+def start_generation(kind: str, req: GenerateRequest):
+    """Queue a generation job and return it immediately."""
+    from nira.generate import JobKind
+
+    try:
+        job_kind = JobKind(kind)
+    except ValueError:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Cannot generate {kind!r}. Try: image, audio, video.",
+        ) from None
+
+    prompt = (req.prompt or "").strip()
+    if not prompt:
+        raise HTTPException(status_code=422, detail="A prompt is required.")
+
+    try:
+        job = _generation_queue().submit(job_kind, prompt, **(req.options or {}))
+    except ValueError as exc:
+        # The backend is not installed. The message names the extra to add.
+        raise HTTPException(status_code=501, detail=str(exc)) from exc
+
+    body = job.to_public()
+    body["queue_position"] = _generation_queue().position(job.id)
+    return body
+
+
+@generate_router.get("/jobs")
+def list_generation_jobs(limit: int = 30):
+    return {"jobs": [j.to_public() for j in _generation_queue().list(limit=limit)]}
+
+
+@generate_router.get("/jobs/{job_id}")
+def generation_job(job_id: str):
+    job = _generation_queue().get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="No such job.")
+    body = job.to_public()
+    body["queue_position"] = _generation_queue().position(job_id)
+    return body
+
+
+@generate_router.delete("/jobs/{job_id}")
+def cancel_generation(job_id: str):
+    """Stop a job. Backends check between steps, so this is not instant."""
+    if not _generation_queue().cancel(job_id):
+        raise HTTPException(
+            status_code=409, detail="That job has already finished."
+        )
+    return {"status": "cancelling"}
+
+
+@generate_router.get("/jobs/{job_id}/result")
+def generation_result(job_id: str):
+    """The finished file."""
+    from fastapi.responses import FileResponse
+
+    from nira.generate import output_dir
+
+    job = _generation_queue().get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="No such job.")
+    if job.status.value != "done" or not job.result:
+        raise HTTPException(
+            status_code=409,
+            detail=f"That job is {job.status.value}, not finished.",
+        )
+
+    # Resolve under the output directory and verify containment: the id comes
+    # from the URL, and a job whose result was somehow set to "../.." must not
+    # become a file-read primitive.
+    path = (output_dir() / job.result).resolve()
+    if not path.is_file() or output_dir().resolve() not in path.parents:
+        raise HTTPException(status_code=404, detail="That file is no longer here.")
+
+    media = {
+        ".png": "image/png",
+        ".jpg": "image/jpeg",
+        ".mp4": "video/mp4",
+        ".gif": "image/gif",
+        ".wav": "audio/wav",
+    }.get(path.suffix.lower(), "application/octet-stream")
+    return FileResponse(path, media_type=media, filename=path.name)
+
+
 # ---- Chat attachment routes ----
 #
 # Files a user attaches to a chat message. Bytes stay here; the browser holds
@@ -1641,6 +1798,7 @@ def include_all_routes(app) -> None:
     app.include_router(approval_router)
     app.include_router(agents_router)
     app.include_router(attachments_router)
+    app.include_router(generate_router)
     app.include_router(memory_router)
     app.include_router(network_router)
     app.include_router(traces_router)
@@ -1703,6 +1861,7 @@ __all__ = [
     "include_all_routes",
     "agents_router",
     "attachments_router",
+    "generate_router",
     "memory_router",
     "network_router",
     "traces_router",

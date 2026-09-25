@@ -1240,6 +1240,124 @@ export async function updateMemoryConfig(
 }
 
 // ---------------------------------------------------------------------------
+// Generation — images, audio, video
+// ---------------------------------------------------------------------------
+
+// Everything here is a job, never a request that waits. On a CPU an image is
+// tens of seconds and a video is minutes, so a synchronous call would hold a
+// connection open past every proxy timeout and leave the user unable to tell
+// "still working" from "died".
+
+export type GenerateKind = 'image' | 'audio' | 'video';
+
+export type GenerateStatus =
+  | 'queued'
+  | 'running'
+  | 'done'
+  | 'failed'
+  | 'cancelled';
+
+export interface GenerateJob {
+  id: string;
+  kind: GenerateKind;
+  prompt: string;
+  status: GenerateStatus;
+  /** 0-1 where the backend can report it. */
+  progress: number | null;
+  /** What it is doing now, already phrased for a reader. */
+  detail: string;
+  result: string;
+  error: string;
+  created_at: number;
+  elapsed_seconds: number | null;
+  queue_position?: number;
+}
+
+export interface GenerateModelInfo {
+  id: string;
+  steps?: number;
+  size?: number;
+  download_gb?: number;
+  note?: string;
+  [key: string]: unknown;
+}
+
+export interface GenerateCapabilities {
+  image: {
+    available: boolean;
+    reason?: string;
+    models?: GenerateModelInfo[];
+    default?: string;
+  };
+  audio: {
+    available: boolean;
+    reason?: string;
+    modes?: string[];
+    music_models?: string[];
+    max_seconds?: number;
+  };
+  video: {
+    available: boolean;
+    reason?: string;
+    models?: GenerateModelInfo[];
+    default?: string;
+    max_frames?: number;
+  };
+  queued: number;
+}
+
+export async function fetchGenerateCapabilities(): Promise<GenerateCapabilities> {
+  const res = await apiFetch(`/v1/generate/capabilities`);
+  if (!res.ok) throw new Error('Could not read what this install can generate');
+  return res.json();
+}
+
+export async function startGeneration(
+  kind: GenerateKind,
+  prompt: string,
+  options: Record<string, unknown> = {},
+): Promise<GenerateJob> {
+  const res = await apiFetch(`/v1/generate/${kind}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt, options }),
+  });
+  if (!res.ok) {
+    throw new Error(await memoryErrorDetail(res, `Could not start ${kind} generation`));
+  }
+  return res.json();
+}
+
+export async function fetchGenerationJob(id: string): Promise<GenerateJob> {
+  const res = await apiFetch(`/v1/generate/jobs/${id}`);
+  if (!res.ok) throw new Error('That job is gone');
+  return res.json();
+}
+
+export async function listGenerationJobs(limit = 30): Promise<GenerateJob[]> {
+  const res = await apiFetch(`/v1/generate/jobs?limit=${limit}`);
+  if (!res.ok) return [];
+  return (await res.json()).jobs ?? [];
+}
+
+export async function cancelGeneration(id: string): Promise<void> {
+  await apiFetch(`/v1/generate/jobs/${id}`, { method: 'DELETE' });
+}
+
+/**
+ * The finished file as an object URL.
+ *
+ * Fetched rather than linked for the same reason as attachment thumbnails:
+ * the endpoint needs a Bearer token and `<img src>` cannot carry one. The
+ * caller owns the URL and must revoke it.
+ */
+export async function generationResultUrl(id: string): Promise<string | null> {
+  const res = await apiFetch(`/v1/generate/jobs/${id}/result`);
+  if (!res.ok) return null;
+  return URL.createObjectURL(await res.blob());
+}
+
+// ---------------------------------------------------------------------------
 // Chat attachments
 // ---------------------------------------------------------------------------
 
