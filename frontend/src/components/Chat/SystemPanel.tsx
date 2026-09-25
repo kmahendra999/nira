@@ -14,7 +14,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { useAppStore } from '../../lib/store';
-import { getBase } from '../../lib/api';
+import { fetchEnergy, fetchTelemetry } from '../../lib/api';
 
 interface EnergyData {
   total_energy_j?: number;
@@ -46,10 +46,19 @@ export function SystemPanel() {
 
   const fetchData = useCallback(async () => {
     try {
-      const base = getBase();
+      // fetchEnergy/fetchTelemetry, not a raw fetch(`${base}/...`).
+      //
+      // This panel built its own URLs and called fetch() directly, so it sent
+      // no Authorization header — the exact bug apiFetch exists to prevent.
+      // Against a server with an API key both calls 401'd, `r.ok` was false,
+      // and the panel rendered its zero state: 0.0 W, 0.0 kJ, 0 requests,
+      // 0 output tokens. Every value on screen was a failed request wearing
+      // a plausible number, refreshed every three seconds. The helpers below
+      // have existed in api.ts the whole time and go through apiFetch (and
+      // the Tauri command, which now authenticates too).
       const [energyRes, telRes] = await Promise.allSettled([
-        fetch(`${base}/v1/telemetry/energy`).then((r) => (r.ok ? r.json() : null)),
-        fetch(`${base}/v1/telemetry/stats`).then((r) => (r.ok ? r.json() : null)),
+        fetchEnergy(),
+        fetchTelemetry(),
       ]);
       if (energyRes.status === 'fulfilled' && energyRes.value) {
         setEnergy(energyRes.value as EnergyData);

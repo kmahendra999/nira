@@ -3,7 +3,7 @@
  */
 
 import { useState } from 'react';
-import { getBase } from '../../lib/api';
+import { apiFetch } from '../../lib/api';
 import { Upload } from 'lucide-react';
 import type { SyncStatus } from '../../types/connectors';
 import { listConnectors, triggerSync } from '../../lib/connectors-api';
@@ -60,7 +60,7 @@ export function UploadForm({ onDone }: { onDone?: () => void }) {
     setError('');
     setResult('');
     try {
-      const res = await fetch(`${getBase()}/v1/connectors/upload/ingest`, {
+      const res = await apiFetch(`/v1/connectors/upload/ingest`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: title.trim(), content }),
@@ -91,7 +91,9 @@ export function UploadForm({ onDone }: { onDone?: () => void }) {
       for (const f of files) formData.append('files', f);
       if (title.trim()) formData.append('title', title.trim());
 
-      const res = await fetch(`${getBase()}/v1/connectors/upload/ingest/files`, {
+      // No Content-Type here on purpose: the browser must set the multipart
+      // boundary itself. apiFetch only adds Authorization.
+      const res = await apiFetch(`/v1/connectors/upload/ingest/files`, {
         method: 'POST',
         body: formData,
       });

@@ -1,3 +1,4 @@
+import { apiFetch } from '../../lib/api';
 import { useState, useEffect, useCallback } from 'react';
 import { GitBranch, Clock, ChevronRight, ChevronDown } from 'lucide-react';
 
@@ -121,8 +122,12 @@ export function TraceDebugger() {
 
   const fetchTraces = useCallback(async () => {
     try {
-      const base = import.meta.env.VITE_API_URL || '';
-      const res = await fetch(`${base}/v1/traces?limit=50`);
+      // apiFetch, not a bare fetch on a hand-rolled base. This built its
+      // URL from VITE_API_URL alone, so in the desktop app — where the base
+      // comes from the Tauri backend, not a build-time env var — it pointed
+      // at the wrong origin entirely, and it sent no Authorization header
+      // either way.
+      const res = await apiFetch(`/v1/traces?limit=50`);
       if (!res.ok) throw new Error();
       const data = await res.json();
       setTraces(data.traces || []);
