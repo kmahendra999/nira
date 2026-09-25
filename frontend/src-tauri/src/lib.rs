@@ -3539,6 +3539,26 @@ pub fn run() {
             hide_overlay,
             get_overlay_conversation,
         ])
+        // Closing the window keeps Nira running in the tray.
+        //
+        // There was no window-event handler at all, so the X closed the last
+        // window, Tauri raised ExitRequested, and the handler below ran
+        // stop_all() — killing the `nira serve` child with it. The tray icon
+        // and its Show/Hide item existed the whole time but nothing routed
+        // the close button to them, so the only way to keep serving was to
+        // never close the window. An in-flight model pull died with it too.
+        //
+        // "Quit Nira" in the tray menu is still a real exit: it calls
+        // app.exit(0), which raises ExitRequested without a window close, so
+        // it is not intercepted here.
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                if window.label() == "main" {
+                    api.prevent_close();
+                    let _ = window.hide();
+                }
+            }
+        })
         .build(tauri::generate_context!())
         .expect("error while building Nira Desktop")
         .run(move |_app, event| {

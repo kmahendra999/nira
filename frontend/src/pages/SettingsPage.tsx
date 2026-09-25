@@ -39,6 +39,8 @@ import {
   type MemoryConfigUpdate,
   type MemoryBackendInfo,
   getNetworkConfig,
+  isAutostartEnabled,
+  setAutostartEnabled,
   updateNetworkConfig,
   type NetworkConfig,
 } from '../lib/api';
@@ -297,6 +299,10 @@ export function SettingsPage() {
   const [networkError, setNetworkError] = useState<string | null>(null);
   const [networkSaving, setNetworkSaving] = useState(false);
 
+  // Start at login. null = not known yet / not the desktop app.
+  const [autostart, setAutostart] = useState<boolean | null>(null);
+  const [autostartError, setAutostartError] = useState<string | null>(null);
+
   const applyNetwork = useCallback((cfg: NetworkConfig) => {
     setNetwork(cfg);
     setNetworkHost(cfg.advertise_host || '');
@@ -385,6 +391,9 @@ export function SettingsPage() {
     getNetworkConfig()
       .then(applyNetwork)
       .catch(() => setNetworkError('Could not read network settings from the server'));
+    if (isTauri()) {
+      isAutostartEnabled().then(setAutostart).catch(() => setAutostart(false));
+    }
   }, [applyNetwork]);
 
   const showSaved = () => {
@@ -767,6 +776,56 @@ export function SettingsPage() {
               />
             </SettingRow>
           </Section>
+
+          {/* Startup — what comes back after a reboot */}
+          {isTauri() && (
+            <Section title="Startup">
+              {autostartError && (
+                <div
+                  className="text-xs px-3 py-2 rounded-lg mb-2"
+                  style={{ color: 'var(--color-error)', border: '1px solid var(--color-error)' }}
+                >
+                  {autostartError}
+                </div>
+              )}
+              <SettingRow
+                label="Start Nira when I log in"
+                description="Nira launches to the tray and brings the engine, the server and your models back with it."
+              >
+                <button
+                  onClick={async () => {
+                    const next = !autostart;
+                    setAutostartError(null);
+                    try {
+                      await setAutostartEnabled(next);
+                      setAutostart(await isAutostartEnabled());
+                    } catch (e: any) {
+                      setAutostartError(e?.message ?? 'Could not change the login setting');
+                    }
+                  }}
+                  disabled={autostart === null}
+                  className="relative w-11 h-6 rounded-full transition-colors cursor-pointer disabled:opacity-50"
+                  style={{ background: autostart ? 'var(--color-accent)' : 'var(--color-bg-tertiary)' }}
+                >
+                  <span
+                    className="absolute top-0.5 left-0.5 w-5 h-5 rounded-full transition-transform bg-white"
+                    style={{
+                      transform: autostart ? 'translateX(20px)' : 'translateX(0)',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                    }}
+                  />
+                </button>
+              </SettingRow>
+              <SettingRow
+                label="Closing the window"
+                description="Nira keeps running in the tray so downloads finish and the API stays up. Quit from the tray icon to stop it."
+              >
+                <span className="text-xs" style={{ color: 'var(--color-text-tertiary)' }}>
+                  Stays in the tray
+                </span>
+              </SettingRow>
+            </Section>
+          )}
 
           {/* Network — reaching this machine from your other devices */}
           <Section title="Network">

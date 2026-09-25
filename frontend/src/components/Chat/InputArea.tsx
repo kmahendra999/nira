@@ -87,6 +87,7 @@ export function InputArea() {
 
   const activeId = useAppStore((s) => s.activeId);
   const selectedModel = useAppStore((s) => s.selectedModel);
+  const modelsLoading = useAppStore((s) => s.modelsLoading);
   const streamState = useAppStore((s) => s.streamState);
   const messages = useAppStore((s) => s.messages);
   const speechEnabled = useAppStore((s) => s.settings.speechEnabled);
@@ -597,7 +598,19 @@ export function InputArea() {
             }}
             title="Which model answers"
           >
-            {models.length === 0 && <option value="">No models</option>}
+            {/* A selection that outlived a failed fetch still has no
+                matching <option>, and a <select> whose value matches
+                nothing renders its first option instead — so the model
+                that would actually answer displayed as "No models".
+                Keep an option for it. */}
+            {models.length === 0 && selectedModel && (
+              <option value={selectedModel}>{selectedModel}</option>
+            )}
+            {models.length === 0 && !selectedModel && (
+              <option value="">
+                {modelsLoading ? 'Loading models…' : 'No models'}
+              </option>
+            )}
             {models.map((m) => (
               <option key={m.id} value={m.id}>
                 {m.id}

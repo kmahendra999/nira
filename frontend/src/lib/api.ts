@@ -1240,6 +1240,43 @@ export async function updateMemoryConfig(
 }
 
 // ---------------------------------------------------------------------------
+// Autostart — bringing everything back after a reboot
+// ---------------------------------------------------------------------------
+
+// The desktop app is what starts Ollama and `nira serve`, and it starts
+// Ollama as the desktop user, so it reads ~/.ollama/models — the store the
+// downloaded models are actually in. That makes "launch the app at login"
+// the whole restart story: engine, server and models all come back together.
+//
+// The autostart plugin was registered in lib.rs from the beginning but
+// nothing ever enabled it, so it did nothing. (The system `ollama.service`
+// is not a substitute: it is disabled, and it runs as the `ollama` user
+// whose store is a different directory — enabling it would start an engine
+// that cannot see the models you downloaded.)
+
+export async function isAutostartEnabled(): Promise<boolean> {
+  if (!isTauri()) return false;
+  try {
+    const { isEnabled } = await import('@tauri-apps/plugin-autostart');
+    return await isEnabled();
+  } catch {
+    return false;
+  }
+}
+
+export async function setAutostartEnabled(on: boolean): Promise<void> {
+  if (!isTauri()) {
+    throw new Error('Launching at login is available in the desktop app only.');
+  }
+  const { enable, disable } = await import('@tauri-apps/plugin-autostart');
+  if (on) {
+    await enable();
+  } else {
+    await disable();
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Network — which address this machine hands your other devices
 // ---------------------------------------------------------------------------
 
