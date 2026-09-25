@@ -512,3 +512,70 @@ describe('one streaming reply cannot consume the archive', () => {
     off();
   });
 });
+
+describe('trimming is bounded too', () => {
+  // Bounding deletion alone was not enough: a measured run then stripped
+  // attachments from all 20 conversations instead. A tool result or a
+  // research report's sources are real content.
+  it('one stream cannot strip the whole archive', async () => {
+    const { useAppStore, onStorageWarning, resetStorageReclaimThrottle } = await import('./store');
+    resetStorageReclaimThrottle();
+    const off = onStorageWarning(() => {});
+
+    const conversations: Record<string, ReturnType<typeof withToolResult>> = {};
+    for (let i = 0; i < 20; i += 1) conversations[`c${i}`] = withToolResult(`c${i}`, i);
+    const store = {
+      version: 1 as const,
+      activeId: 'active',
+      conversations: {
+        ...conversations,
+        active: {
+          id: 'active',
+          title: 'active',
+          updatedAt: 999,
+          createdAt: 1,
+          model: 'qwen3.5:4b',
+          messages: [msg('', 'assistant')],
+        },
+      },
+    };
+    storage.setItem('nira-conversations', JSON.stringify(store));
+    useAppStore.getState().loadConversations();
+
+    const stillHaveAttachments = () =>
+      Object.values(
+        JSON.parse(storage.getItem('nira-conversations') as string).conversations,
+      ).filter((c: any) => c.messages.some((m: any) => m.toolCalls)).length;
+
+    expect(stillHaveAttachments()).toBe(20);
+
+    storage.setBudget(4000);
+    for (let i = 1; i <= 60; i += 1) {
+      useAppStore.getState().updateLastAssistant('active', 'y'.repeat(i * 40));
+    }
+
+    expect(
+      stillHaveAttachments(),
+      'one reply must not hollow out the archive to keep itself on disk',
+    ).toBeGreaterThan(15);
+    off();
+  });
+
+  function withToolResult(id: string, updatedAt: number) {
+    return {
+      id,
+      title: id,
+      updatedAt,
+      createdAt: updatedAt,
+      model: 'qwen3.5:4b',
+      messages: [
+        {
+          ...msg('words', 'assistant'),
+          toolCalls: [
+            { id: 't', name: 'search', arguments: '{}', result: 'R'.repeat(300) },
+          ],
+        },
+      ],
+    };
+  }
+});

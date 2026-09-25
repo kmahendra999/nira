@@ -122,13 +122,21 @@ function emitStorageWarning(warning: StorageWarning): void {
   }
 }
 
-// One reply must not be able to consume the archive. See stage 2 below.
+// One reply must not be able to consume the archive — not by deleting it and
+// not by hollowing it out. Both stages below are bounded per call and per
+// window; see the notes at each. Measured, not guessed: unbounded, a single
+// 60-flush reply deleted 19 of 21 conversations, and once that was fixed the
+// trimming stage still stripped attachments from all 20.
 const DELETION_COOLDOWN_MS = 60_000;
+const TRIM_COOLDOWN_MS = 10_000;
+const MAX_TRIMS_PER_EVENT = 3;
 let lastDeletionAt = 0;
+let lastTrimAt = 0;
 
-/** Exported for tests; forgets the deletion rate limit. */
+/** Exported for tests; forgets both rate limits. */
 export function resetStorageReclaimThrottle(): void {
   lastDeletionAt = 0;
+  lastTrimAt = 0;
 }
 
 /** Whether an exception is the browser saying "out of room". */
@@ -195,32 +203,44 @@ function saveConversations(
       .sort((a, b) => a.updatedAt - b.updatedAt);
 
   // Stage 1 — drop attachments, keep the words.
+  //
+  // Bounded like stage 2, for the same reason and with a gentler limit. A
+  // tool result or a research report's sources are real content, and
+  // unbounded this stripped all 20 conversations in a measured single-reply
+  // run. Trimming is the preferred action, so it gets a shorter window and
+  // more per call than deleting does — but it is still not allowed to hollow
+  // out the archive to keep one reply on disk.
   let trimmed = 0;
-  for (const conversation of oldestFirst()) {
-    let changed = false;
-    for (const message of conversation.messages ?? []) {
-      if (message.toolCalls || message.researchTraces || message.researchSources) {
-        delete message.toolCalls;
-        delete message.researchTraces;
-        delete message.researchSources;
-        changed = true;
+  if (Date.now() - lastTrimAt >= TRIM_COOLDOWN_MS) {
+    for (const conversation of oldestFirst()) {
+      if (trimmed >= MAX_TRIMS_PER_EVENT) break;
+      let changed = false;
+      for (const message of conversation.messages ?? []) {
+        if (message.toolCalls || message.researchTraces || message.researchSources) {
+          delete message.toolCalls;
+          delete message.researchTraces;
+          delete message.researchSources;
+          changed = true;
+        }
       }
-    }
-    if (!changed) continue;
-    trimmed += 1;
-    try {
-      write();
-      emitStorageWarning({ kind: 'trimmed', conversations: trimmed });
-      return true;
-    } catch (err) {
-      if (!isQuotaError(err)) {
-        emitStorageWarning({
-          kind: 'unavailable',
-          detail: err instanceof Error ? err.message : String(err),
-        });
-        return false;
+      if (!changed) continue;
+      trimmed += 1;
+      try {
+        write();
+        lastTrimAt = Date.now();
+        emitStorageWarning({ kind: 'trimmed', conversations: trimmed });
+        return true;
+      } catch (err) {
+        if (!isQuotaError(err)) {
+          emitStorageWarning({
+            kind: 'unavailable',
+            detail: err instanceof Error ? err.message : String(err),
+          });
+          return false;
+        }
       }
-    }
+  }
+  if (trimmed > 0) lastTrimAt = Date.now();
   }
 
   // Stage 2 — the text alone still does not fit. Delete, oldest first.
