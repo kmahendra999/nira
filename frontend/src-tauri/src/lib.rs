@@ -4398,6 +4398,35 @@ mod tests {
     }
 
     #[test]
+    fn extract_api_key_reads_a_real_installer_written_config() {
+        // The exact shape ~/.nira/config.toml has on this machine: several
+        // sections, comments, and [server.auth] in the middle. The unit cases
+        // above use a bare table, which would still pass if the lookup only
+        // worked for a one-section file.
+        let toml = r#"# Nira configuration
+# Hardware: 12th Gen Intel(R) Core(TM) i9-12900K
+
+installed_at = "2026-09-24T13:12:33Z"
+
+[engine]
+default = "ollama"
+
+[intelligence]
+default_model = "qwen3.5:2b"
+
+[server.auth]
+api_key = "nira_sk_WdS-eR9ps21l"
+
+[speech]
+backend = "faster-whisper"
+"#;
+        assert_eq!(
+            super::extract_api_key(toml).as_deref(),
+            Some("nira_sk_WdS-eR9ps21l")
+        );
+    }
+
+    #[test]
     fn extract_api_key_is_none_for_a_keyless_server() {
         // A keyless local server must stay keyless: sending an empty Bearer
         // is a malformed credential, not an absent one.
