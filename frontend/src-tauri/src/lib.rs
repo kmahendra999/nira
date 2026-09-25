@@ -3562,6 +3562,20 @@ pub fn run() {
             }
         }))
         .setup(move |app| {
+            // Honour the --hidden flag the autostart registration passes.
+            //
+            // tauri_plugin_autostart::init is given `Some(vec!["--hidden"])`,
+            // so the login entry launches with that argument — and nothing
+            // read it. Now that the Startup toggle actually registers the
+            // app, an unparsed flag would mean a full 1280x800 window popping
+            // up at every login, which is the opposite of what someone
+            // enabling "start at login" is asking for.
+            if std::env::args().any(|a| a == "--hidden") {
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.hide();
+                }
+            }
+
             // System tray
             let show = MenuItemBuilder::with_id("show", "Show / Hide").build(app)?;
             let health = MenuItemBuilder::with_id("health", "Health: starting...")
