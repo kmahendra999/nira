@@ -175,3 +175,66 @@ describe('auth failure notification', () => {
     expect(seen).toHaveLength(0);
   });
 });
+
+describe('desktop API key handover', () => {
+  beforeEach(() => {
+    (globalThis as unknown as { localStorage: MemoryStorage }).localStorage =
+      new MemoryStorage();
+  });
+
+  afterEach(async () => {
+    const { __setTauriApiKey } = await import('./api');
+    __setTauriApiKey(null);
+    (globalThis as unknown as { localStorage?: MemoryStorage }).localStorage = undefined;
+    globalThis.fetch = originalFetch;
+  });
+
+  it('sends the key the desktop backend read from config.toml', async () => {
+    const { __setTauriApiKey, apiFetch } = await import('./api');
+    __setTauriApiKey('nira_sk_from_config');
+
+    const seen: HeadersInit[] = [];
+    globalThis.fetch = vi.fn(async (_u: unknown, init: RequestInit) => {
+      seen.push(init.headers as HeadersInit);
+      return new Response('{}', { status: 200 });
+    }) as never;
+
+    await apiFetch('/v1/models');
+
+    expect((seen[0] as Record<string, string>).Authorization).toBe(
+      'Bearer nira_sk_from_config',
+    );
+  });
+
+  it('a user-entered key still wins, so you can point at another server', async () => {
+    const { __setTauriApiKey, apiFetch } = await import('./api');
+    __setTauriApiKey('nira_sk_from_config');
+    localStorage.setItem('nira-settings', JSON.stringify({ apiKey: 'nira_sk_typed' }));
+
+    const seen: HeadersInit[] = [];
+    globalThis.fetch = vi.fn(async (_u: unknown, init: RequestInit) => {
+      seen.push(init.headers as HeadersInit);
+      return new Response('{}', { status: 200 });
+    }) as never;
+
+    await apiFetch('/v1/models');
+
+    expect((seen[0] as Record<string, string>).Authorization).toBe('Bearer nira_sk_typed');
+  });
+
+  it('sends no Authorization header at all against a keyless server', async () => {
+    const { __setTauriApiKey, apiFetch } = await import('./api');
+    __setTauriApiKey(null);
+
+    const seen: HeadersInit[] = [];
+    globalThis.fetch = vi.fn(async (_u: unknown, init: RequestInit) => {
+      seen.push(init.headers as HeadersInit);
+      return new Response('{}', { status: 200 });
+    }) as never;
+
+    await apiFetch('/v1/models');
+
+    // An empty Bearer is a malformed credential, not an absent one.
+    expect('Authorization' in (seen[0] as Record<string, string>)).toBe(false);
+  });
+});

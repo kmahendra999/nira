@@ -44,15 +44,43 @@ export async function saveCloudKey(keyName: string, keyValue: string): Promise<v
 // source of truth for NIRA_PORT.
 let _tauriApiBase: string | null = null;
 
-/** Pre-fetch the API base URL from the Tauri backend (call once at init). */
+// The local server's API key, handed over by the Tauri backend at startup.
+//
+// The desktop app spawns a `nira serve` that reads ~/.nira/config.toml, and
+// when that file has `[server.auth] api_key` the server 401s every /v1
+// request without a Bearer token. `getApiKey()` below only ever read
+// localStorage, which the desktop app never populated — so on any install
+// with a key the whole app broke at once: an empty model list, "No models"
+// beside the message box, "Chat request failed: 401", and a healthy speech
+// backend reporting "Not configured".
+let _tauriApiKey: string | null = null;
+
+/**
+ * Pre-fetch the API base URL and auth key from the Tauri backend.
+ *
+ * Call once at init, before anything else talks to the server.
+ */
 export async function initApiBase(): Promise<void> {
   if (!isTauri()) return;
+  const { invoke } = await import('@tauri-apps/api/core');
   try {
-    const { invoke } = await import('@tauri-apps/api/core');
     _tauriApiBase = await invoke<string>('get_api_base');
   } catch {
     // Command may not exist on older builds; fall through to default.
   }
+  try {
+    const key = await invoke<string>('get_server_api_key');
+    // "" means the server is keyless — keep null so no header is sent at all.
+    _tauriApiKey = key ? key : null;
+  } catch {
+    // Older desktop build without the command: leave the key unresolved
+    // rather than pinning an empty one.
+  }
+}
+
+/** Exported for tests. */
+export function __setTauriApiKey(key: string | null): void {
+  _tauriApiKey = key;
 }
 
 const DESKTOP_API_FALLBACK = 'http://127.0.0.1:8000';
@@ -89,6 +117,10 @@ export const getApiKey = (): string => {
       if (parsed.apiKey) return String(parsed.apiKey);
     }
   } catch {}
+  // What the desktop backend read out of ~/.nira/config.toml. Checked after
+  // an explicit user-entered key so someone pointing the app at a *different*
+  // server can still override it, and before the build-time env var.
+  if (_tauriApiKey) return _tauriApiKey;
   if (import.meta.env.VITE_NIRA_API_KEY) {
     return import.meta.env.VITE_NIRA_API_KEY as string;
   }

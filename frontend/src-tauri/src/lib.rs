@@ -1779,7 +1779,7 @@ async fn check_health(api_url: String) -> Result<serde_json::Value, String> {
             api_url
         }
     );
-    let resp = reqwest::get(&url)
+    let resp = nira_get(&url)
         .await
         .map_err(|e| format!("Connection failed: {}", e))?;
     resp.json()
@@ -1794,7 +1794,7 @@ async fn fetch_energy(api_url: String) -> Result<serde_json::Value, String> {
     } else {
         api_url
     };
-    let resp = reqwest::get(format!("{}/v1/telemetry/energy", base))
+    let resp = nira_get(format!("{}/v1/telemetry/energy", base))
         .await
         .map_err(|e| format!("Connection failed: {}", e))?;
     resp.json()
@@ -1809,7 +1809,7 @@ async fn fetch_telemetry(api_url: String) -> Result<serde_json::Value, String> {
     } else {
         api_url
     };
-    let resp = reqwest::get(format!("{}/v1/telemetry/stats", base))
+    let resp = nira_get(format!("{}/v1/telemetry/stats", base))
         .await
         .map_err(|e| format!("Connection failed: {}", e))?;
     resp.json()
@@ -1824,7 +1824,7 @@ async fn fetch_traces(api_url: String, limit: u32) -> Result<serde_json::Value, 
     } else {
         api_url
     };
-    let resp = reqwest::get(format!("{}/v1/traces?limit={}", base, limit))
+    let resp = nira_get(format!("{}/v1/traces?limit={}", base, limit))
         .await
         .map_err(|e| format!("Connection failed: {}", e))?;
     resp.json()
@@ -1839,7 +1839,7 @@ async fn fetch_trace(api_url: String, trace_id: String) -> Result<serde_json::Va
     } else {
         api_url
     };
-    let resp = reqwest::get(format!("{}/v1/traces/{}", base, trace_id))
+    let resp = nira_get(format!("{}/v1/traces/{}", base, trace_id))
         .await
         .map_err(|e| format!("Connection failed: {}", e))?;
     resp.json()
@@ -1854,7 +1854,7 @@ async fn fetch_learning_stats(api_url: String) -> Result<serde_json::Value, Stri
     } else {
         api_url
     };
-    let resp = reqwest::get(format!("{}/v1/learning/stats", base))
+    let resp = nira_get(format!("{}/v1/learning/stats", base))
         .await
         .map_err(|e| format!("Connection failed: {}", e))?;
     resp.json()
@@ -1869,7 +1869,7 @@ async fn fetch_learning_policy(api_url: String) -> Result<serde_json::Value, Str
     } else {
         api_url
     };
-    let resp = reqwest::get(format!("{}/v1/learning/policy", base))
+    let resp = nira_get(format!("{}/v1/learning/policy", base))
         .await
         .map_err(|e| format!("Connection failed: {}", e))?;
     resp.json()
@@ -1884,7 +1884,7 @@ async fn fetch_memory_stats(api_url: String) -> Result<serde_json::Value, String
     } else {
         api_url
     };
-    let resp = reqwest::get(format!("{}/v1/memory/stats", base))
+    let resp = nira_get(format!("{}/v1/memory/stats", base))
         .await
         .map_err(|e| format!("Connection failed: {}", e))?;
     resp.json()
@@ -1904,8 +1904,7 @@ async fn search_memory(
         api_url
     };
     let client = reqwest::Client::new();
-    let resp = client
-        .post(format!("{}/v1/memory/search", base))
+    let resp = with_auth(client.post(format!("{}/v1/memory/search", base)))
         .json(&serde_json::json!({"query": query, "top_k": top_k}))
         .send()
         .await
@@ -1922,7 +1921,7 @@ async fn fetch_agents(api_url: String) -> Result<serde_json::Value, String> {
     } else {
         api_url
     };
-    let resp = reqwest::get(format!("{}/v1/agents", base))
+    let resp = nira_get(format!("{}/v1/agents", base))
         .await
         .map_err(|e| format!("Connection failed: {}", e))?;
     resp.json()
@@ -1937,7 +1936,7 @@ async fn fetch_models(api_url: String) -> Result<serde_json::Value, String> {
     } else {
         api_url
     };
-    let resp = reqwest::get(format!("{}/v1/models", base))
+    let resp = nira_get(format!("{}/v1/models", base))
         .await
         .map_err(|e| format!("Connection failed: {}", e))?;
     resp.json()
@@ -2040,7 +2039,7 @@ async fn fetch_savings(api_url: String) -> Result<serde_json::Value, String> {
     } else {
         api_url
     };
-    let resp = reqwest::get(format!("{}/v1/savings", base))
+    let resp = nira_get(format!("{}/v1/savings", base))
         .await
         .map_err(|e| format!("Connection failed: {}", e))?;
     resp.json()
@@ -2065,8 +2064,7 @@ async fn transcribe_audio(
 
     let form = reqwest::multipart::Form::new().part("file", part);
 
-    let resp = client
-        .post(&url)
+    let resp = with_auth(client.post(&url))
         .multipart(form)
         .send()
         .await
@@ -2857,6 +2855,80 @@ fn write_inference_config_at(cfg: &InferenceConfig, path: &std::path::Path) -> R
     std::fs::write(path, json + "\n").map_err(|e| format!("Failed to save inference config: {}", e))
 }
 
+/// Path to `~/.nira/config.toml` — the file `nira serve` loads.
+fn nira_config_path() -> std::path::PathBuf {
+    std::path::PathBuf::from(home_dir())
+        .join(".nira")
+        .join("config.toml")
+}
+
+/// Pull `[server.auth] api_key` out of a config.toml string.
+///
+/// Pure so it can be tested without a home directory.
+fn extract_api_key(existing: &str) -> Option<String> {
+    let doc = existing.parse::<toml_edit::DocumentMut>().ok()?;
+    let key = doc
+        .get("server")?
+        .get("auth")?
+        .get("api_key")?
+        .as_str()?
+        .trim()
+        .to_string();
+    (!key.is_empty()).then_some(key)
+}
+
+/// The API key this machine's `nira serve` is enforcing, if any.
+///
+/// The desktop app spawns a server that reads ~/.nira/config.toml, and when
+/// that file has `[server.auth] api_key` the server 401s every /v1 request
+/// without a Bearer token. Nothing here ever sent one: every Tauri command
+/// below called the server bare, and the webview's `getApiKey()` only ever
+/// read localStorage, which the desktop app never populated. So on any
+/// install with a key — which is what the installer writes — the whole app
+/// failed at once: no model list, no chat, and a speech backend that was
+/// running fine reported as "Not configured".
+///
+/// Read fresh rather than cached at startup: `nira serve` can be restarted
+/// with a new key while the app stays open, and a stale key fails exactly
+/// like no key at all.
+fn server_api_key() -> Option<String> {
+    // An explicit env var wins, matching how the Python side resolves it.
+    if let Ok(key) = std::env::var("NIRA_API_KEY") {
+        let key = key.trim().to_string();
+        if !key.is_empty() {
+            return Some(key);
+        }
+    }
+    extract_api_key(&std::fs::read_to_string(nira_config_path()).ok()?)
+}
+
+/// Attach the local server's Bearer token to a request, when there is one.
+///
+/// A keyless local server is left byte-for-byte unchanged: no header is added
+/// at all, rather than an empty one, which some middlewares treat as a
+/// malformed credential rather than an absent one.
+fn with_auth(builder: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
+    match server_api_key() {
+        Some(key) => builder.header("Authorization", format!("Bearer {}", key)),
+        None => builder,
+    }
+}
+
+/// GET a local-server URL with auth attached. Replaces the bare
+/// `reqwest::get` that every one of these commands used to call.
+async fn nira_get(url: impl reqwest::IntoUrl) -> reqwest::Result<reqwest::Response> {
+    with_auth(reqwest::Client::new().get(url)).send().await
+}
+
+/// Hand the webview the key so its own `fetch` calls can authenticate too.
+///
+/// Returns "" when the server is keyless, which the frontend reads as "send
+/// no Authorization header".
+#[tauri::command]
+fn get_server_api_key() -> String {
+    server_api_key().unwrap_or_default()
+}
+
 /// Upsert `[engine.<engine>] host = "<host>"` into an existing config.toml
 /// string, preserving all other content/formatting. Pure: string in, string out.
 fn upsert_engine_host(existing: &str, engine: &str, host: &str) -> Result<String, String> {
@@ -2896,13 +2968,26 @@ fn normalize_host(raw: &str) -> String {
 #[tauri::command]
 async fn speech_health(api_url: String) -> Result<serde_json::Value, String> {
     let url = format!("{}/v1/speech/health", api_url);
-    let resp = reqwest::get(&url)
+    let resp = nira_get(&url)
         .await
         .map_err(|e| format!("Connection failed: {}", e))?;
+
+    // A 401 body has no `available` field, so it used to deserialize straight
+    // into `available: false` and the panel said "Not configured" about a
+    // backend that was loaded and healthy. An auth failure and an absent
+    // backend are different problems with different fixes; say which one.
+    let status = resp.status();
     let body: serde_json::Value = resp
         .json()
         .await
         .map_err(|e| format!("Invalid response: {}", e))?;
+    if status == reqwest::StatusCode::UNAUTHORIZED || status == reqwest::StatusCode::FORBIDDEN {
+        return Ok(serde_json::json!({
+            "available": false,
+            "error": "unauthorized",
+            "detail": "The local server rejected this request. Check the API key in Settings.",
+        }));
+    }
     Ok(body)
 }
 
@@ -3443,6 +3528,7 @@ pub fn run() {
             submit_savings,
             transcribe_audio,
             speech_health,
+            get_server_api_key,
             pull_ollama_model,
             delete_ollama_model,
             save_cloud_key,
@@ -4291,6 +4377,57 @@ mod tests {
         };
         let plan = boot_plan(&cfg, 1.0);
         assert_eq!(plan.model_to_pull.as_deref(), Some(super::FALLBACK_MODEL));
+    }
+
+    // The desktop app spawned a server enforcing an API key and then called
+    // it bare, so every /v1 request 401'd: no models, no chat, and a speech
+    // backend that was running fine reporting "Not configured".
+    #[test]
+    fn extract_api_key_reads_the_server_auth_table() {
+        let toml = "[server.auth]\napi_key = \"nira_sk_abc123\"\n";
+        assert_eq!(
+            super::extract_api_key(toml).as_deref(),
+            Some("nira_sk_abc123")
+        );
+    }
+
+    #[test]
+    fn extract_api_key_handles_the_nested_table_spelling() {
+        let toml = "[server]\nport = 8000\n\n[server.auth]\napi_key = \"k\"\n";
+        assert_eq!(super::extract_api_key(toml).as_deref(), Some("k"));
+    }
+
+    #[test]
+    fn extract_api_key_is_none_for_a_keyless_server() {
+        // A keyless local server must stay keyless: sending an empty Bearer
+        // is a malformed credential, not an absent one.
+        assert!(super::extract_api_key("[engine]\ndefault = \"ollama\"\n").is_none());
+        assert!(super::extract_api_key("").is_none());
+    }
+
+    #[test]
+    fn extract_api_key_ignores_an_empty_or_blank_value() {
+        assert!(super::extract_api_key("[server.auth]\napi_key = \"\"\n").is_none());
+        assert!(super::extract_api_key("[server.auth]\napi_key = \"   \"\n").is_none());
+    }
+
+    #[test]
+    fn extract_api_key_trims_surrounding_whitespace() {
+        let toml = "[server.auth]\napi_key = \"  nira_sk_x  \"\n";
+        assert_eq!(super::extract_api_key(toml).as_deref(), Some("nira_sk_x"));
+    }
+
+    #[test]
+    fn extract_api_key_survives_a_config_it_cannot_parse() {
+        // A hand-edited config with a typo must not panic the desktop app.
+        assert!(super::extract_api_key("[server.auth\napi_key =").is_none());
+    }
+
+    #[test]
+    fn extract_api_key_ignores_other_api_keys_in_the_file() {
+        // Cloud-provider keys live elsewhere and are not the server's own.
+        let toml = "[engine.openai]\napi_key = \"sk-cloud\"\n";
+        assert!(super::extract_api_key(toml).is_none());
     }
 
     #[test]
