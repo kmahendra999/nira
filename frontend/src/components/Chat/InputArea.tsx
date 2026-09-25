@@ -1,9 +1,26 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { Send, Square, Paperclip, Search, Brain, Zap } from 'lucide-react';
+import {
+  Send,
+  Square,
+  Paperclip,
+  Search,
+  Brain,
+  Zap,
+  X,
+  FileText,
+  Image as ImageIcon,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { useAppStore, generateId } from '../../lib/store';
 import { streamChat, streamResearch } from '../../lib/sse';
-import { fetchSavings, getBase, apiFetch } from '../../lib/api';
+import {
+  fetchSavings,
+  getBase,
+  apiFetch,
+  uploadChatAttachment,
+  discardChatAttachment,
+} from '../../lib/api';
+import type { MessageAttachment } from '../../types';
 import { listConnectors, getSyncStatus } from '../../lib/connectors-api';
 import { serializeToolCallArguments } from '../../lib/tool-call';
 import {
@@ -176,9 +193,53 @@ export function InputArea() {
     resetStream();
   }, [resetStream]);
 
+  // Files staged for the next message. Not persisted: they are a draft, and
+  // the bytes live on the server behind these ids anyway.
+  const [pending, setPending] = useState<MessageAttachment[]>([]);
+  const [uploading, setUploading] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const attachFiles = useCallback(async (files: FileList | File[]) => {
+    const chosen = Array.from(files);
+    if (!chosen.length) return;
+    setUploading((n) => n + chosen.length);
+    for (const file of chosen) {
+      try {
+        const attachment = await uploadChatAttachment(file);
+        setPending((current) => [...current, attachment]);
+        if (attachment.truncated && attachment.notes?.length) {
+          // Say what was cut at the moment it is cut, rather than letting the
+          // model answer confidently about a document it half read.
+          toast.warning(`${attachment.filename} was shortened`, {
+            description: attachment.notes.join(' '),
+            duration: 8000,
+          });
+        }
+      } catch (err: any) {
+        toast.error(err?.message ?? `Could not attach ${file.name}`, {
+          duration: 8000,
+        });
+      } finally {
+        setUploading((n) => Math.max(0, n - 1));
+      }
+    }
+  }, []);
+
+  const removeAttachment = useCallback((id: string) => {
+    setPending((current) => current.filter((a) => a.id !== id));
+    void discardChatAttachment(id);
+  }, []);
+
   const sendMessage = useCallback(async () => {
     const content = input.trim();
-    if (!content || streamState.isStreaming) return;
+    // An attachment on its own is a complete message: "read this" is the
+    // whole request. Requiring text would mean typing a word to send a file.
+    if ((!content && pending.length === 0) || streamState.isStreaming) return;
+    if (uploading > 0) {
+      toast.error('Still uploading — one moment');
+      return;
+    }
     if (!selectedModel) {
       toast.error('Pick a model first (⌘K)');
       return;
@@ -191,19 +252,33 @@ export function InputArea() {
       convId = createConversation(selectedModel);
     }
 
+    // Snapshot and clear now: the request is in flight for a while, and a
+    // second send must not re-attach the same files.
+    const sending = pending;
+    setPending([]);
+
     const userMsg: ChatMessage = {
       id: generateId(),
       role: 'user',
       content,
       timestamp: Date.now(),
+      attachments: sending.length ? sending : undefined,
     };
     addMessage(convId, userMsg);
 
     // Build API messages before adding assistant placeholder
     const currentMessages = useAppStore.getState().messages;
-    const apiMessages = currentMessages.map((m) => ({
+    const apiMessages = currentMessages.map((m, index) => ({
       role: m.role,
       content: m.content,
+      // Only the message being sent carries ids. Re-sending them on every
+      // turn would re-resolve the same files and append their text again,
+      // growing the prompt each turn and re-billing a vision model for an
+      // image it already saw. The server folds the text into content, so
+      // earlier turns keep their attachments as ordinary words.
+      ...(index === currentMessages.length - 1 && sending.length
+        ? { attachment_ids: sending.map((a) => a.id) }
+        : {}),
     }));
 
     const assistantMsg: ChatMessage = {
@@ -673,13 +748,99 @@ export function InputArea() {
         )}
       </div>
       <div
-        className="flex items-center gap-2 rounded-2xl px-4 py-3 transition-shadow
-          border border-input-border focus-within:border-accent"
+        className="flex flex-col gap-2 rounded-2xl px-4 py-3 transition-shadow
+          border focus-within:border-accent"
         style={{
           background: 'var(--color-input-bg)',
           boxShadow: 'var(--shadow-sm)',
+          borderColor: dragging ? 'var(--color-accent)' : 'var(--color-input-border)',
+        }}
+        onDragOver={(e) => {
+          if (!e.dataTransfer.types.includes('Files')) return;
+          e.preventDefault();
+          setDragging(true);
+        }}
+        onDragLeave={(e) => {
+          // Only when the pointer actually left the box, not when it crossed
+          // onto a child element.
+          if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragging(false);
+        }}
+        onDrop={(e) => {
+          if (!e.dataTransfer.files?.length) return;
+          e.preventDefault();
+          setDragging(false);
+          void attachFiles(e.dataTransfer.files);
         }}
       >
+        {(pending.length > 0 || uploading > 0) && (
+          <div className="flex flex-wrap gap-1.5">
+            {pending.map((attachment) => (
+              <span
+                key={attachment.id}
+                className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-[11px]"
+                style={{
+                  background: 'var(--color-bg-secondary)',
+                  border: '1px solid var(--color-border)',
+                  color: 'var(--color-text-secondary)',
+                }}
+                title={
+                  attachment.notes?.length
+                    ? attachment.notes.join(' ')
+                    : `${(attachment.size / 1024).toFixed(0)} KB`
+                }
+              >
+                {attachment.kind === 'image' ? (
+                  <ImageIcon size={11} style={{ color: 'var(--color-accent)' }} />
+                ) : (
+                  <FileText size={11} style={{ color: 'var(--color-accent)' }} />
+                )}
+                <span className="max-w-[160px] truncate">{attachment.filename}</span>
+                {attachment.truncated && (
+                  <span style={{ color: 'var(--color-warning, var(--color-text-tertiary))' }}>
+                    shortened
+                  </span>
+                )}
+                <button
+                  onClick={() => removeAttachment(attachment.id)}
+                  className="cursor-pointer"
+                  style={{ color: 'var(--color-text-tertiary)' }}
+                  title={`Remove ${attachment.filename}`}
+                >
+                  <X size={11} />
+                </button>
+              </span>
+            ))}
+            {uploading > 0 && (
+              <span
+                className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-[11px]"
+                style={{ color: 'var(--color-text-tertiary)' }}
+              >
+                Reading {uploading} file{uploading === 1 ? '' : 's'}…
+              </span>
+            )}
+          </div>
+        )}
+        <div className="flex items-center gap-2">
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          className="hidden"
+          onChange={(e) => {
+            if (e.target.files) void attachFiles(e.target.files);
+            // Reset so choosing the same file twice still fires onChange.
+            e.target.value = '';
+          }}
+        />
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          disabled={streamState.isStreaming}
+          className="p-1.5 rounded-lg transition-colors shrink-0 cursor-pointer disabled:opacity-50"
+          style={{ color: 'var(--color-text-tertiary)' }}
+          title="Attach a file — images, PDF, Word, Excel, CSV, text"
+        >
+          <Paperclip size={16} />
+        </button>
         <textarea
           ref={textareaRef}
           value={input}
@@ -710,18 +871,29 @@ export function InputArea() {
             />
             <button
               onClick={sendMessage}
-              disabled={streamState.isStreaming || !input.trim() || modelLoading || !selectedModel}
+              disabled={
+                streamState.isStreaming ||
+                (!input.trim() && pending.length === 0) ||
+                uploading > 0 ||
+                modelLoading ||
+                !selectedModel
+              }
               title={selectedModel ? 'Send message' : 'Pick a model first (⌘K)'}
               className="p-2 rounded-xl transition-colors shrink-0 cursor-pointer disabled:opacity-30 disabled:cursor-default"
               style={{
-                background: input.trim() ? 'var(--color-accent)' : 'var(--color-bg-tertiary)',
-                color: input.trim() ? 'white' : 'var(--color-text-tertiary)',
+                background:
+                  input.trim() || pending.length
+                    ? 'var(--color-accent)'
+                    : 'var(--color-bg-tertiary)',
+                color:
+                  input.trim() || pending.length ? 'white' : 'var(--color-text-tertiary)',
               }}
             >
               <Send size={16} />
             </button>
           </div>
         )}
+        </div>
       </div>
       <div className="flex items-center justify-center mt-2 text-[11px]" style={{ color: 'var(--color-text-tertiary)' }}>
         <span>

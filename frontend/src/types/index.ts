@@ -115,6 +115,28 @@ export interface LiveEnergyMetrics {
   duration_s: number;
 }
 
+/**
+ * A file attached to a message — metadata only.
+ *
+ * Deliberately no bytes. Conversations are persisted in localStorage, which
+ * has a ~5 MB origin quota, and a single 3 MB photo is ~4 MB once base64'd:
+ * storing file data here would blow the quota on the first image and take the
+ * conversation history with it. The bytes live on the server behind `id`.
+ */
+export interface MessageAttachment {
+  id: string;
+  filename: string;
+  mime: string;
+  size: number;
+  kind: 'image' | 'document';
+  extracted_chars?: number;
+  /** What extraction had to leave out — pages skipped, rows truncated. */
+  notes?: string[];
+  truncated?: boolean;
+  /** Set when the upload failed, so the chip can say why. */
+  error?: string;
+}
+
 export interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
@@ -125,6 +147,7 @@ export interface ChatMessage {
   researchSources?: ResearchSource[];
   isResearch?: boolean;
   usage?: TokenUsage;
+  attachments?: MessageAttachment[];
   telemetry?: MessageTelemetry;
   audio?: { url: string };
 }

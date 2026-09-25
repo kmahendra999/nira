@@ -20,7 +20,8 @@
         "resizable": true,
         "fullscreen": false,
         "decorations": true,
-        "transparent": false
+        "transparent": false,
+        "dragDropEnabled": false
       }
     ],
     "security": {
@@ -65,7 +66,9 @@
     },
     "deep-link": {
       "desktop": {
-        "schemes": ["nira"]
+        "schemes": [
+          "nira"
+        ]
       }
     }
   }

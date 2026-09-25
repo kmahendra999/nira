@@ -653,3 +653,53 @@ describe('a trim that did not help is not committed by a later delete', () => {
     off();
   });
 });
+
+describe('a message that is only an attachment', () => {
+  it('titles the conversation after the file rather than leaving it blank', async () => {
+    const { useAppStore } = await import('./store');
+    const id = useAppStore.getState().createConversation('qwen3.5:4b');
+
+    useAppStore.getState().addMessage(id, {
+      ...msg(''),
+      attachments: [
+        { id: 'a1', filename: 'Q3-budget.xlsx', mime: '', size: 10, kind: 'document' },
+      ],
+    });
+
+    const conversation = useAppStore.getState().conversations.find((c) => c.id === id);
+    expect(conversation?.title).toBe('Q3-budget.xlsx');
+  });
+
+  it('counts them when there are several', async () => {
+    const { useAppStore } = await import('./store');
+    const id = useAppStore.getState().createConversation('qwen3.5:4b');
+
+    useAppStore.getState().addMessage(id, {
+      ...msg(''),
+      attachments: [
+        { id: 'a1', filename: 'a.png', mime: '', size: 1, kind: 'image' },
+        { id: 'a2', filename: 'b.png', mime: '', size: 1, kind: 'image' },
+      ],
+    });
+
+    expect(
+      useAppStore.getState().conversations.find((c) => c.id === id)?.title,
+    ).toBe('2 files');
+  });
+
+  it('typed text still wins when there is any', async () => {
+    const { useAppStore } = await import('./store');
+    const id = useAppStore.getState().createConversation('qwen3.5:4b');
+
+    useAppStore.getState().addMessage(id, {
+      ...msg('summarise this'),
+      attachments: [
+        { id: 'a1', filename: 'x.pdf', mime: '', size: 1, kind: 'document' },
+      ],
+    });
+
+    expect(
+      useAppStore.getState().conversations.find((c) => c.id === id)?.title,
+    ).toBe('summarise this');
+  });
+});

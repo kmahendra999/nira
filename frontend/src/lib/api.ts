@@ -1240,6 +1240,54 @@ export async function updateMemoryConfig(
 }
 
 // ---------------------------------------------------------------------------
+// Chat attachments
+// ---------------------------------------------------------------------------
+
+import type { MessageAttachment } from '../types';
+
+/**
+ * Upload one file and get back the id a message references it by.
+ *
+ * The bytes go to the server and stay there. See MessageAttachment for why
+ * they must not come back into the browser's conversation store.
+ */
+export async function uploadChatAttachment(file: File): Promise<MessageAttachment> {
+  const form = new FormData();
+  form.append('file', file);
+  // No Content-Type header: the browser has to set the multipart boundary
+  // itself. apiFetch only adds Authorization.
+  const res = await apiFetch(`/v1/chat/attachments`, { method: 'POST', body: form });
+  if (!res.ok) {
+    throw new Error(
+      await memoryErrorDetail(res, `Could not attach ${file.name}`),
+    );
+  }
+  return res.json();
+}
+
+/** Tell the server to forget an attachment the user removed before sending. */
+export async function discardChatAttachment(id: string): Promise<void> {
+  try {
+    await apiFetch(`/v1/chat/attachments/${id}`, { method: 'DELETE' });
+  } catch {
+    // Best effort: it expires on its own within the hour either way.
+  }
+}
+
+/**
+ * Fetch an attachment's preview image as an object URL.
+ *
+ * Not a plain `<img src="/v1/...">`: the server requires a Bearer token and
+ * an <img> tag cannot carry one, so the request would 401 and render as a
+ * broken image. Callers must revokeObjectURL when the element unmounts.
+ */
+export async function attachmentPreviewUrl(id: string): Promise<string | null> {
+  const res = await apiFetch(`/v1/chat/attachments/${id}/content`);
+  if (!res.ok) return null;
+  return URL.createObjectURL(await res.blob());
+}
+
+// ---------------------------------------------------------------------------
 // Autostart — bringing everything back after a reboot
 // ---------------------------------------------------------------------------
 

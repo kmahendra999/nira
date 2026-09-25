@@ -3,7 +3,13 @@ import { getBase, authHeaders } from './api';
 
 export interface ChatRequest {
   model: string;
-  messages: Array<{ role: string; content: string }>;
+  // `attachment_ids` rides along on the last message; the server resolves
+  // them into content and images before anything else reads the request.
+  messages: Array<{
+    role: string;
+    content: string;
+    attachment_ids?: string[];
+  }>;
   stream: true;
   temperature?: number;
   max_tokens?: number;

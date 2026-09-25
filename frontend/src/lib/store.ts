@@ -698,9 +698,18 @@ export const useAppStore = create<AppState>((set, get) => {
       conv.messages.push(message);
       conv.updatedAt = Date.now();
       if (message.role === 'user' && conv.title === 'New chat') {
-        conv.title =
-          message.content.slice(0, 50) +
-          (message.content.length > 50 ? '...' : '');
+        const typed = message.content.trim();
+        if (typed) {
+          conv.title = typed.slice(0, 50) + (typed.length > 50 ? '...' : '');
+        } else if (message.attachments?.length) {
+          // A file on its own is a complete message, so the title has to come
+          // from somewhere: an empty row is the first thing a user sees after
+          // sending one, and search would match nothing.
+          conv.title =
+            message.attachments.length === 1
+              ? message.attachments[0].filename
+              : `${message.attachments.length} files`;
+        }
       }
       // conversationId, not activeId. They are the same in the chat flow
       // today, but this signature takes an explicit id and nothing enforces

@@ -7,6 +7,7 @@ import remarkMath from 'remark-math';
 import 'katex/dist/katex.min.css';
 import { Copy, Check } from 'lucide-react';
 import { AudioPlayer } from './AudioPlayer';
+import { AttachmentChips } from './AttachmentChips';
 import { ToolCallCard } from './ToolCallCard';
 import { ResearchTimeline } from './ResearchTimeline';
 import { rehypeCitations } from '../../lib/rehype-citations';
@@ -134,6 +135,9 @@ export function MessageBubble({ message, isLive = false }: Props) {
           }}
         >
           {message.content}
+          {message.attachments?.length ? (
+            <AttachmentChips attachments={message.attachments} />
+          ) : null}
         </div>
       </div>
     );
